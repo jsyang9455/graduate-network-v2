@@ -28,6 +28,7 @@ async function canReadFile(user, file) {
       );
       return r.rows.length > 0;
     }
+    return false;
   }
 
   if ((file.kind === 'counseling_pdf' || file.kind === 'counseling_docx') && file.journal_id) {
@@ -41,7 +42,7 @@ async function canReadFile(user, file) {
     return false;
   }
 
-  return assertSameSchool({ user }, file.school_id);
+  return false;
 }
 
 router.get('/:id', auth, schoolScope, async (req, res) => {

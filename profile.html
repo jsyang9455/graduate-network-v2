@@ -386,13 +386,6 @@
         }
 
         async function loadUserFromAPI() {
-            // localStorage 우선 사용 (토큰 재검증 불필요)
-            const localUser = auth.getCurrentUser();
-            if (localUser) {
-                currentUserData = localUser;
-                return currentUserData;
-            }
-            // localStorage에 없을 때만 API 호출
             try {
                 const response = await api.get('/auth/me');
                 if (response && response.user) {
@@ -403,7 +396,7 @@
             } catch (e) {
                 console.warn('API 조회 실패:', e.message);
             }
-            return null;
+            return auth.getCurrentUser();
         }
 
         document.addEventListener('DOMContentLoaded', async function() {
@@ -412,18 +405,23 @@
             const user = auth.getCurrentUser();
             if (!user) return;
 
-            if (user.user_type === 'admin') {
+            const freshUser = await loadUserFromAPI();
+            if (!freshUser) {
+                auth.logout();
+                return;
+            }
+
+            if (freshUser.user_type === 'admin') {
                 const adminSection = document.getElementById('adminMenuSection');
                 if (adminSection) adminSection.style.display = 'block';
             }
-            if (user.user_type === 'teacher') {
+            if (freshUser.user_type === 'teacher') {
                 const careerMenu = document.getElementById('careerMenu');
                 if (careerMenu) careerMenu.style.display = 'none';
             }
 
-            document.getElementById('userName').textContent = user.name || '';
+            document.getElementById('userName').textContent = freshUser.name || '';
 
-            const freshUser = await loadUserFromAPI();
             if (freshUser.user_type === 'teacher') showTeacherProfile(freshUser);
             else showStudentProfile(freshUser);
 

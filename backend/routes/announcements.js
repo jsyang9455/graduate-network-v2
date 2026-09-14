@@ -1,7 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { auth } = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
+const { forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin, isStaffAdmin } = require('../lib/roles');
+const {
+  canSeeSchoolResource,
+  appendSchoolColumnFilter,
+  denySchoolResourceAccess,
+} = require('../lib/schoolResourceAccess');
+
+async function loadAnnouncementById(id) {
+  const result = await query(
+    'SELECT * FROM announcements WHERE id = $1 AND is_active = true',
+    [id]
+  );
+  return result.rows[0] || null;
+}
 
 // ── 신청 관련 API ─────────────────────────────────────────────
 
@@ -20,6 +35,14 @@ router.post('/apply', auth, async (req, res) => {
     );
     if (dup.rows.length > 0) {
       return res.status(409).json({ error: '이미 신청하셨습니다.' });
+    }
+
+    const ann = await loadAnnouncementById(announcement_id);
+    if (!ann) {
+      return res.status(404).json({ error: '공고를 찾을 수 없습니다.' });
+    }
+    if (!canSeeSchoolResource(req.user, ann.school_id)) {
+      return forbidCrossSchool(res);
     }
 
     const result = await query(
@@ -62,7 +85,7 @@ router.get('/my-applications', auth, async (req, res) => {
 // 전체 신청 내역 조회 (관리자 전용)
 router.get('/applications/all', auth, async (req, res) => {
   try {
-    if (req.user.user_type !== 'admin') {
+    if (!isStaffAdmin(req.user)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
     const { type, announcement_id } = req.query;
@@ -76,6 +99,11 @@ router.get('/applications/all', auth, async (req, res) => {
       JOIN announcements a ON a.id = aa.announcement_id
       WHERE 1=1`;
     const params = [];
+
+    if (!isSystemAdmin(req.user) && req.user.school_id) {
+      params.push(req.user.school_id);
+      sql += ` AND a.school_id = $${params.length}`;
+    }
 
     if (type) {
       params.push(type);
@@ -98,7 +126,7 @@ router.get('/applications/all', auth, async (req, res) => {
 // 신청 상태 변경 (관리자 전용)
 router.put('/applications/:id/status', auth, async (req, res) => {
   try {
-    if (req.user.user_type !== 'admin') {
+    if (!isStaffAdmin(req.user)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
     const { id } = req.params;
@@ -107,6 +135,19 @@ router.put('/applications/:id/status', auth, async (req, res) => {
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: '유효하지 않은 상태값입니다.' });
     }
+
+    if (!isSystemAdmin(req.user) && req.user.school_id) {
+      const scope = await query(
+        `SELECT aa.id FROM announcement_applications aa
+         JOIN announcements a ON a.id = aa.announcement_id
+         WHERE aa.id = $1 AND a.school_id = $2`,
+        [id, req.user.school_id]
+      );
+      if (!scope.rows.length) {
+        return forbidCrossSchool(res);
+      }
+    }
+
     const result = await query(
       'UPDATE announcement_applications SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
       [status, id]
@@ -121,7 +162,7 @@ router.put('/applications/:id/status', auth, async (req, res) => {
 // ── 공지사항 조회 API ─────────────────────────────────────────────
 
 // Get all announcements by type
-router.get('/:type', async (req, res) => {
+router.get('/:type', optionalAuth, async (req, res) => {
   try {
     const { type } = req.params;
     
@@ -131,12 +172,13 @@ router.get('/:type', async (req, res) => {
       return res.status(400).json({ error: 'Invalid announcement type' });
     }
 
-    const result = await query(
-      `SELECT * FROM announcements 
-       WHERE type = $1 AND is_active = true 
-       ORDER BY event_date DESC, created_at DESC`,
-      [type]
-    );
+    let sql = `SELECT * FROM announcements a WHERE type = $1 AND is_active = true`;
+    const params = [type];
+    let paramCount = 1;
+    const scoped = appendSchoolColumnFilter(sql, params, paramCount, req.user, 'a.school_id');
+    sql = `${scoped.queryText} ORDER BY event_date DESC, created_at DESC`;
+
+    const result = await query(sql, params);
 
     res.json({ announcements: result.rows });
   } catch (error) {
@@ -146,20 +188,20 @@ router.get('/:type', async (req, res) => {
 });
 
 // Get single announcement
-router.get('/detail/:id', async (req, res) => {
+router.get('/detail/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await query(
-      'SELECT * FROM announcements WHERE id = $1 AND is_active = true',
-      [id]
-    );
+    const ann = await loadAnnouncementById(id);
 
-    if (result.rows.length === 0) {
+    if (!ann) {
       return res.status(404).json({ error: 'Announcement not found' });
     }
+    if (!canSeeSchoolResource(req.user, ann.school_id)) {
+      return denySchoolResourceAccess(res, req.user);
+    }
 
-    res.json({ announcement: result.rows[0] });
+    res.json({ announcement: ann });
   } catch (error) {
     console.error('Get announcement detail error:', error);
     res.status(500).json({ error: 'Failed to get announcement' });
@@ -169,7 +211,7 @@ router.get('/detail/:id', async (req, res) => {
 // Create announcement (admin only)
 router.post('/', auth, async (req, res) => {
   try {
-    if (req.user.user_type !== 'admin') {
+    if (!isStaffAdmin(req.user)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
@@ -199,19 +241,21 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ error: 'Type and title are required' });
     }
 
+    const schoolId = isSystemAdmin(req.user) ? (req.body.school_id ?? req.user.school_id ?? null) : req.user.school_id;
+
     const result = await query(
       `INSERT INTO announcements (
         type, title, organizer, description, event_date, event_time, 
         location, deadline, capacity, fee, benefits, requirements,
         contact_phone, contact_email, tags, rating, review_count,
-        image_url, detail_url
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+        image_url, detail_url, school_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
       RETURNING *`,
       [
         type, title, organizer, description, event_date, event_time,
         location, deadline, capacity, fee, benefits, requirements,
         contact_phone, contact_email, tags, rating, review_count,
-        image_url, detail_url
+        image_url, detail_url, schoolId,
       ]
     );
 
@@ -228,11 +272,19 @@ router.post('/', auth, async (req, res) => {
 // Update announcement (admin only)
 router.put('/:id', auth, async (req, res) => {
   try {
-    if (req.user.user_type !== 'admin') {
+    if (!isStaffAdmin(req.user)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
     const { id } = req.params;
+
+    const existing = await query('SELECT school_id FROM announcements WHERE id = $1 AND is_active = true', [id]);
+    if (!existing.rows.length) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+    if (!canSeeSchoolResource(req.user, existing.rows[0].school_id)) {
+      return forbidCrossSchool(res);
+    }
     const {
       type,
       title,
@@ -291,11 +343,19 @@ router.put('/:id', auth, async (req, res) => {
 // Delete announcement (admin only - soft delete)
 router.delete('/:id', auth, async (req, res) => {
   try {
-    if (req.user.user_type !== 'admin') {
+    if (!isStaffAdmin(req.user)) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
     const { id } = req.params;
+
+    const existing = await query('SELECT school_id FROM announcements WHERE id = $1', [id]);
+    if (!existing.rows.length) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+    if (!canSeeSchoolResource(req.user, existing.rows[0].school_id)) {
+      return forbidCrossSchool(res);
+    }
 
     const result = await query(
       `UPDATE announcements 

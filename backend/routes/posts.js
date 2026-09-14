@@ -1,10 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { auth } = require('../middleware/auth');
+const { auth, optionalAuth } = require('../middleware/auth');
+const { forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin } = require('../lib/roles');
+const {
+  canSeeSchoolResource,
+  appendSchoolColumnFilter,
+  denySchoolResourceAccess,
+} = require('../lib/schoolResourceAccess');
+
+async function loadPostById(id) {
+  const result = await query(
+    `SELECT p.*, u.name as author_name, u.profile_image as author_image,
+            u.user_type as author_type
+     FROM posts p
+     JOIN users u ON p.user_id = u.id
+     WHERE p.id = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+function assertPostAccess(req, res, post) {
+  if (!post) return false;
+  if (!canSeeSchoolResource(req.user, post.school_id)) {
+    denySchoolResourceAccess(res, req.user);
+    return false;
+  }
+  return true;
+}
 
 // Get posts
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const { category, search, page = 1, limit = 20 } = req.query;
 
@@ -16,6 +44,10 @@ router.get('/', async (req, res) => {
     `;
     const params = [];
     let paramCount = 0;
+
+    const scoped = appendSchoolColumnFilter(queryText, params, paramCount, req.user, 'p.school_id');
+    queryText = scoped.queryText;
+    paramCount = scoped.paramCount;
 
     if (category) {
       paramCount++;
@@ -35,17 +67,32 @@ router.get('/', async (req, res) => {
 
     const result = await query(queryText, params);
 
-    // Get total count
-    const countResult = await query('SELECT COUNT(*) FROM posts');
+    let countSql = 'SELECT COUNT(*) FROM posts p WHERE 1=1';
+    const countParams = [];
+    let countParam = 0;
+    const counted = appendSchoolColumnFilter(countSql, countParams, countParam, req.user, 'p.school_id');
+    countSql = counted.queryText;
+    countParam = counted.paramCount;
+    if (category) {
+      countParam++;
+      countSql += ` AND p.category = $${countParam}`;
+      countParams.push(category);
+    }
+    if (search) {
+      countParam++;
+      countSql += ` AND (p.title ILIKE $${countParam} OR p.content ILIKE $${countParam})`;
+      countParams.push(`%${search}%`);
+    }
+    const countResult = await query(countSql, countParams);
 
     res.json({
       posts: result.rows,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: parseInt(countResult.rows[0].count),
-        pages: Math.ceil(countResult.rows[0].count / limit)
-      }
+        page: parseInt(page, 10),
+        limit: parseInt(limit, 10),
+        total: parseInt(countResult.rows[0].count, 10),
+        pages: Math.ceil(countResult.rows[0].count / limit),
+      },
     });
   } catch (error) {
     console.error('Get posts error:', error);
@@ -54,27 +101,19 @@ router.get('/', async (req, res) => {
 });
 
 // Get single post
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const post = await loadPostById(id);
 
-    // Increment views
-    await query('UPDATE posts SET views_count = views_count + 1 WHERE id = $1', [id]);
-
-    const result = await query(
-      `SELECT p.*, u.name as author_name, u.profile_image as author_image,
-              u.user_type as author_type
-       FROM posts p
-       JOIN users u ON p.user_id = u.id
-       WHERE p.id = $1`,
-      [id]
-    );
-
-    if (result.rows.length === 0) {
+    if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
+    if (!assertPostAccess(req, res, post)) return;
 
-    res.json({ post: result.rows[0] });
+    await query('UPDATE posts SET views_count = views_count + 1 WHERE id = $1', [id]);
+    const refreshed = await loadPostById(id);
+    res.json({ post: refreshed });
   } catch (error) {
     console.error('Get post error:', error);
     res.status(500).json({ error: 'Failed to get post' });
@@ -91,15 +130,15 @@ router.post('/', auth, async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO posts (user_id, category, title, content)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO posts (user_id, category, title, content, school_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [req.user.id, category, title, content]
+      [req.user.id, category, title, content, req.user.school_id ?? null]
     );
 
     res.status(201).json({
       message: 'Post created successfully',
-      post: result.rows[0]
+      post: result.rows[0],
     });
   } catch (error) {
     console.error('Create post error:', error);
@@ -113,17 +152,20 @@ router.put('/:id', auth, async (req, res) => {
     const { id } = req.params;
     const { category, title, content, is_pinned } = req.body;
 
-    // Check ownership (admin can edit any post)
     const postCheck = await query(
-      'SELECT user_id FROM posts WHERE id = $1',
+      'SELECT user_id, school_id FROM posts WHERE id = $1',
       [id]
     );
 
     if (postCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Post not found' });
     }
+    const row = postCheck.rows[0];
+    if (!canSeeSchoolResource(req.user, row.school_id)) {
+      return forbidCrossSchool(res);
+    }
 
-    if (postCheck.rows[0].user_id !== req.user.id && req.user.user_type !== 'admin') {
+    if (row.user_id !== req.user.id && !isSystemAdmin(req.user)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -141,7 +183,7 @@ router.put('/:id', auth, async (req, res) => {
 
     res.json({
       message: 'Post updated successfully',
-      post: result.rows[0]
+      post: result.rows[0],
     });
   } catch (error) {
     console.error('Update post error:', error);
@@ -154,17 +196,20 @@ router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check ownership
     const postCheck = await query(
-      'SELECT user_id FROM posts WHERE id = $1',
+      'SELECT user_id, school_id FROM posts WHERE id = $1',
       [id]
     );
 
     if (postCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Post not found' });
     }
+    const row = postCheck.rows[0];
+    if (!canSeeSchoolResource(req.user, row.school_id)) {
+      return forbidCrossSchool(res);
+    }
 
-    if (postCheck.rows[0].user_id !== req.user.id && req.user.user_type !== 'admin') {
+    if (row.user_id !== req.user.id && !isSystemAdmin(req.user)) {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
@@ -178,9 +223,14 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 // Get comments for a post
-router.get('/:id/comments', async (req, res) => {
+router.get('/:id/comments', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const post = await loadPostById(id);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    if (!assertPostAccess(req, res, post)) return;
 
     const result = await query(
       `SELECT c.*, u.name as author_name, u.profile_image as author_image
@@ -208,6 +258,14 @@ router.post('/:id/comments', auth, async (req, res) => {
       return res.status(400).json({ error: 'Content is required' });
     }
 
+    const post = await loadPostById(id);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    if (!canSeeSchoolResource(req.user, post.school_id)) {
+      return forbidCrossSchool(res);
+    }
+
     const result = await query(
       `INSERT INTO comments (post_id, user_id, parent_id, content)
        VALUES ($1, $2, $3, $4)
@@ -215,7 +273,6 @@ router.post('/:id/comments', auth, async (req, res) => {
       [id, req.user.id, parent_id, content]
     );
 
-    // Update post comments count
     await query(
       'UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1',
       [id]
@@ -223,7 +280,7 @@ router.post('/:id/comments', auth, async (req, res) => {
 
     res.status(201).json({
       message: 'Comment added successfully',
-      comment: result.rows[0]
+      comment: result.rows[0],
     });
   } catch (error) {
     console.error('Add comment error:', error);
@@ -235,6 +292,13 @@ router.post('/:id/comments', auth, async (req, res) => {
 router.post('/:id/like', auth, async (req, res) => {
   try {
     const { id } = req.params;
+    const post = await loadPostById(id);
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+    if (!canSeeSchoolResource(req.user, post.school_id)) {
+      return forbidCrossSchool(res);
+    }
 
     await query(
       'UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1',

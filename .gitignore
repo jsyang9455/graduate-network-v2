@@ -28,6 +28,7 @@ logs/
 uploads/
 backend/uploads/
 tmp-test-uploads/
+tmp-test-uploads-s3/
 
 
 # Docker volumes

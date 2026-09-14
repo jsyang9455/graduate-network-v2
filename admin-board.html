@@ -239,9 +239,15 @@
             }
         }
 
-        // 최근 소식 관리
-        function loadNews() {
-            allNews = JSON.parse(localStorage.getItem('recentNews') || '[]');
+        // 최근 소식 관리 (REQ-PLT-001 — /api/posts)
+        async function loadNews() {
+            try {
+                const data = await api.get('/posts?limit=200');
+                allNews = data.posts || [];
+            } catch (e) {
+                console.error(e);
+                allNews = [];
+            }
             displayNews();
         }
 
@@ -257,7 +263,7 @@
                 <tr style="border-bottom: 1px solid #e5e7eb;">
                     <td style="padding: 1rem;">${news.id}</td>
                     <td style="padding: 1rem;">${news.title}</td>
-                    <td style="padding: 1rem;">${new Date(news.createdAt).toLocaleDateString('ko-KR')}</td>
+                    <td style="padding: 1rem;">${new Date(news.created_at || news.createdAt).toLocaleDateString('ko-KR')}</td>
                     <td style="padding: 1rem; text-align: center;">
                         <button onclick="editNews(${news.id})" class="btn btn-sm btn-primary" style="margin-right: 0.5rem;">수정</button>
                         <button onclick="deleteNews(${news.id})" class="btn btn-sm btn-danger">삭제</button>
@@ -290,51 +296,48 @@
             document.getElementById('newsForm').reset();
         }
 
-        function saveNews() {
+        async function saveNews() {
             const newsId = document.getElementById('newsId').value;
-            const news = JSON.parse(localStorage.getItem('recentNews') || '[]');
-
             const newsData = {
                 title: document.getElementById('newsTitle').value,
-                content: document.getElementById('newsContent').value
+                content: document.getElementById('newsContent').value,
+                category: 'news'
             };
 
-            if (newsId) {
-                const newsIndex = news.findIndex(n => n.id == newsId);
-                if (newsIndex !== -1) {
-                    news[newsIndex] = { ...news[newsIndex], ...newsData };
+            try {
+                if (newsId) {
+                    await api.put(`/posts/${newsId}`, newsData);
+                } else {
+                    await api.post('/posts', newsData);
                 }
-            } else {
-                const newNews = {
-                    id: Date.now(),
-                    ...newsData,
-                    createdAt: new Date().toISOString()
-                };
-                news.unshift(newNews);
+                alert(newsId ? '소식이 수정되었습니다.' : '소식이 등록되었습니다.');
+                closeNewsModal();
+                await loadNews();
+            } catch (e) {
+                alert('저장 실패: ' + (e.message || '다시 시도해주세요.'));
             }
-
-            localStorage.setItem('recentNews', JSON.stringify(news));
-            
-            alert(newsId ? '소식이 수정되었습니다.' : '소식이 등록되었습니다.');
-            closeNewsModal();
-            loadNews();
         }
 
-        function deleteNews(newsId) {
+        async function deleteNews(newsId) {
             if (!confirm('정말 이 소식을 삭제하시겠습니까?')) return;
-
-            const news = JSON.parse(localStorage.getItem('recentNews') || '[]');
-            const filtered = news.filter(n => n.id !== newsId);
-            
-            localStorage.setItem('recentNews', JSON.stringify(filtered));
-            
-            alert('소식이 삭제되었습니다.');
-            loadNews();
+            try {
+                await api.delete(`/posts/${newsId}`);
+                alert('소식이 삭제되었습니다.');
+                await loadNews();
+            } catch (e) {
+                alert('삭제 실패: ' + (e.message || '다시 시도해주세요.'));
+            }
         }
 
-        // 평생교육프로그램 관리
-        function loadEducation() {
-            allEducation = JSON.parse(localStorage.getItem('educationPrograms') || '[]');
+        // 평생교육프로그램 관리 (/api/education-programs)
+        async function loadEducation() {
+            try {
+                const data = await api.get('/education-programs?limit=200');
+                allEducation = data.programs || [];
+            } catch (e) {
+                console.error(e);
+                allEducation = [];
+            }
             displayEducation();
         }
 
@@ -350,8 +353,8 @@
                 <tr style="border-bottom: 1px solid #e5e7eb;">
                     <td style="padding: 1rem;">${edu.id}</td>
                     <td style="padding: 1rem;">${edu.title}</td>
-                    <td style="padding: 1rem;">${edu.startDate} ~ ${edu.endDate}</td>
-                    <td style="padding: 1rem;">${edu.deadline}</td>
+                    <td style="padding: 1rem;">${edu.duration || '-'}</td>
+                    <td style="padding: 1rem;">${edu.cost || '-'}</td>
                     <td style="padding: 1rem; text-align: center;">
                         <button onclick="editEducation(${edu.id})" class="btn btn-sm btn-primary" style="margin-right: 0.5rem;">수정</button>
                         <button onclick="deleteEducation(${edu.id})" class="btn btn-sm btn-danger">삭제</button>
@@ -375,10 +378,11 @@
             document.getElementById('educationId').value = edu.id;
             document.getElementById('educationTitle').value = edu.title;
             document.getElementById('educationDescription').value = edu.description;
-            document.getElementById('educationStartDate').value = edu.startDate;
-            document.getElementById('educationEndDate').value = edu.endDate;
-            document.getElementById('educationDeadline').value = edu.deadline;
-            document.getElementById('educationFee').value = edu.fee;
+            const parts = (edu.duration || '').split('~').map(s => s.trim());
+            document.getElementById('educationStartDate').value = parts[0] || '';
+            document.getElementById('educationEndDate').value = parts[1] || '';
+            document.getElementById('educationDeadline').value = edu.deadline || '';
+            document.getElementById('educationFee').value = edu.cost || edu.fee || '';
 
             document.getElementById('educationModal').style.display = 'flex';
         }
@@ -388,50 +392,41 @@
             document.getElementById('educationForm').reset();
         }
 
-        function saveEducation() {
+        async function saveEducation() {
             const eduId = document.getElementById('educationId').value;
-            const education = JSON.parse(localStorage.getItem('educationPrograms') || '[]');
-
+            const startDate = document.getElementById('educationStartDate').value;
+            const endDate = document.getElementById('educationEndDate').value;
             const eduData = {
                 title: document.getElementById('educationTitle').value,
                 description: document.getElementById('educationDescription').value,
-                startDate: document.getElementById('educationStartDate').value,
-                endDate: document.getElementById('educationEndDate').value,
-                deadline: document.getElementById('educationDeadline').value,
-                fee: document.getElementById('educationFee').value || '무료'
+                duration: startDate && endDate ? `${startDate} ~ ${endDate}` : (startDate || endDate || ''),
+                cost: document.getElementById('educationFee').value || '무료',
+                type: '평생교육'
             };
 
-            if (eduId) {
-                const eduIndex = education.findIndex(e => e.id == eduId);
-                if (eduIndex !== -1) {
-                    education[eduIndex] = { ...education[eduIndex], ...eduData };
+            try {
+                if (eduId) {
+                    await api.put(`/education-programs/${eduId}`, eduData);
+                } else {
+                    await api.post('/education-programs', eduData);
                 }
-            } else {
-                const newEdu = {
-                    id: Date.now(),
-                    ...eduData,
-                    createdAt: new Date().toISOString()
-                };
-                education.unshift(newEdu);
+                alert(eduId ? '프로그램이 수정되었습니다.' : '프로그램이 등록되었습니다.');
+                closeEducationModal();
+                await loadEducation();
+            } catch (e) {
+                alert('저장 실패: ' + (e.message || '다시 시도해주세요.'));
             }
-
-            localStorage.setItem('educationPrograms', JSON.stringify(education));
-            
-            alert(eduId ? '프로그램이 수정되었습니다.' : '프로그램이 등록되었습니다.');
-            closeEducationModal();
-            loadEducation();
         }
 
-        function deleteEducation(eduId) {
+        async function deleteEducation(eduId) {
             if (!confirm('정말 이 프로그램을 삭제하시겠습니까?')) return;
-
-            const education = JSON.parse(localStorage.getItem('educationPrograms') || '[]');
-            const filtered = education.filter(e => e.id !== eduId);
-            
-            localStorage.setItem('educationPrograms', JSON.stringify(filtered));
-            
-            alert('프로그램이 삭제되었습니다.');
-            loadEducation();
+            try {
+                await api.delete(`/education-programs/${eduId}`);
+                alert('프로그램이 삭제되었습니다.');
+                await loadEducation();
+            } catch (e) {
+                alert('삭제 실패: ' + (e.message || '다시 시도해주세요.'));
+            }
         }
     </script>
 </body>

@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-14  
-현재 단계: **Sprint 2 (채용 워크플로우 · 인앱 알림)**  
-전체 P0 구현: **약 42%** (Wave 1 IAM + Sprint 1 문서 + Sprint 2 지원 상태/테넌시/인앱. 워크넷·추천·견학 미착수. Phase 3를 80%로 두지 않음 — jobs/상담 가드는 이번 스프린트에서 보완, posts 등은 잔여)
+현재 단계: **Sprint 3 (커뮤니티·공지 테넌시 · 파일 프라이버시)**  
+전체 P0 구현: **약 44%** (Wave 1 IAM + Sprint 1 문서 + Sprint 2 워크플로우 + Sprint 3 posts/announcements/certificates/education-programs 가드·파일 403. 워크넷·추천·견학 미착수)
 
 ## Gates (학교 제공물)
 
@@ -20,18 +20,18 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 | 0 | 비전/요구/아키텍처/역할, v2 저장소 | architect | 100 | done |
 | 1 | 착수 보고·게이트 확인·현행 이슈 목록 | architect | 0 | todo |
 | 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 80 | in-progress (OpenAPI Sprint 2) |
-| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 70 | in-progress (IAM + storage + jobs/상담 가드 + notify. posts 등 잔여) |
+| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 78 | in-progress (IAM + storage + jobs/상담 + posts/announcements/certificates/education. networking 잔여) |
 | Sprint 1 | 이력서·상담 문서 | backend + frontend | 95 | done (CNS-003 인앱은 Sprint 2에서 연결) |
 | Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 70 | in-progress (상태 PATCH·인앱·테넌시. **워크넷 0%**) |
-| Sprint 3 | 추천·견학·커뮤니티·메시지 | all implementers | 0 | todo |
-| 4 | 테스트·UAT·보안 | qa | 50 | in-progress (타교 403 + Sprint 1/2 API 테스트. Playwright 없음) |
+| Sprint 3 | 커뮤니티·공지 테넌시·B-LS | backend + api + frontend | 35 | in-progress (posts/announcements/certificates 가드. 추천·견학·메시지 미착수) |
+| 4 | 테스트·UAT·보안 | qa | 55 | in-progress (Wave1 + Sprint1/2/3 API 테스트 39건. Playwright 없음) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 75 | jobs list/get/update + counseling teachers/sessions 가드 추가. posts/announcements 미장착 |
+| 멀티스쿨 스키마/가드 | backend | 82 | posts/announcements/certificates/education-programs + files 동일교 프라이버시. networking 잔여 |
 | IAM API·OpenAPI | api | 85 | Sprint 2 application status + notifications OpenAPI |
 | 권한 메뉴·schools UI | frontend | 70 | permissions 메뉴, 회원가입/코드관리 schools API, test_token 제거 |
 | 이력서 PDF | backend/frontend | 90 | 011 스키마, `/api/resumes`, career.html API, 한글 PDF |
@@ -42,14 +42,14 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 | 견학 모듈 | backend/frontend | 0 | announcements 이관 |
 | 커뮤니티 고도화 | api/frontend | 0 | |
 | 알림톡/SMS | backend | 15 | notify no-op + `NOT_CONFIGURED`. 실발송 없음 |
-| QA 스위트 | qa | 60 | Wave 1 + sprint1-documents + sprint2-workflow |
+| QA 스위트 | qa | 65 | Wave 1 + sprint1 + sprint2 + sprint3-community |
 
 ## Blockers
 
 | ID | 내용 | 영향 | Owner |
 |----|------|------|-------|
 | B-GATE | 학교 측 워크넷 키·알림톡 계정 미확인 | Sprint 2/3 일부 | architect |
-| B-LS | admin-board/profile 등 잔여 LocalStorage | 재입력 안내 | architect |
+| B-LS | company_profile_* 등 잔여 LocalStorage | 재입력 안내 | architect |
 
 해소: **B-PORT** — 프론트 `js/api.js` 로컬 API를 **5000**으로 통일 (compose/backend와 동일).  
 해소: **B-LS career/admin-jobs** — `career_*` 및 `jobPostings` 폴백 제거. 이력서/공고는 API만.
@@ -175,6 +175,28 @@ Handoff: sprint2-owner → backend
 REQ: REQ-WN-*, posts 테넌시
 Need: 워크넷 게이트, posts/announcements schoolScope (Sprint 3)
 Done: jobs + counseling 예약 가드, notify 스켈레톤
+```
+
+## Sprint 3 완료 기록 (REQ-IAM-009 posts/announcements/certificates, REQ-RSM-005 files, REQ-PLT-001 B-LS)
+
+- 마이그레이션 `database/migrations/013_v2_sprint3_community_tenancy.sql` (`announcements`/`certificates`/`education_programs`.`school_id`, posts backfill)
+- `backend/lib/schoolResourceAccess.js` — optionalAuth 목록 필터 + 타교 403
+- Routes: `posts`, `announcements`, `certificates`, `education-programs` school scope
+- `GET /api/files/:id` — 동일 학교 다른 학생의 `resume_pdf` / counseling 파일 fall-through 차단 (403)
+- 프론트: `admin-board.html` → `/api/posts`, `/api/education-programs`. `profile.html` → `/api/auth/me` 우선
+- QA: `backend/tests/sprint3-community.test.js` (6 tests). 전체 **39/39 pass**
+- 미착수: REQ-REC-*, 견학 이관, networking 테넌시, 워크넷, Playwright
+
+```
+Handoff: sprint3-owner → backend
+REQ: REQ-REC-*, REQ-WN-*
+Need: 추천 cron, 워크넷 게이트
+Done: community/announcement tenancy, file privacy, admin-board API
+
+Handoff: sprint3-owner → qa
+REQ: REQ-IAM-009
+Need: Playwright 페르소나 (게시판·공지). API 타교 403은 node:test
+Done: sprint3-community 6 cases + same-school file 403
 ```
 
 ## Sprint 2 verification (2026-09-14, read-only)

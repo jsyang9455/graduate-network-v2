@@ -1,7 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { auth, checkRole } = require('../middleware/auth');
+const { auth, checkRole, optionalAuth } = require('../middleware/auth');
+const { forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin } = require('../lib/roles');
+const {
+  canSeeSchoolResource,
+  appendSchoolColumnFilter,
+  denySchoolResourceAccess,
+} = require('../lib/schoolResourceAccess');
 
 // 테이블 자동 생성 (AWS DB 호환)
 async function ensureTable() {
@@ -17,29 +24,43 @@ async function ensureTable() {
       cost VARCHAR(100),
       link TEXT,
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      school_id INTEGER REFERENCES schools(id),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+  await query(`
+    ALTER TABLE education_programs ADD COLUMN IF NOT EXISTS school_id INTEGER REFERENCES schools(id)
   `);
 }
 ensureTable().catch(err => console.error('education_programs 테이블 생성 실패:', err));
 
 // GET /api/education-programs - 전체 목록
-router.get('/', async (req, res) => {
+router.get('/', optionalAuth, async (req, res) => {
   try {
     const { limit = 50, offset = 0 } = req.query;
-    const result = await query(
-      `SELECT ep.*, u.name AS creator_name
+    let sql = `SELECT ep.*, u.name AS creator_name
        FROM education_programs ep
        LEFT JOIN users u ON ep.created_by = u.id
-       ORDER BY ep.created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [parseInt(limit), parseInt(offset)]
-    );
-    const countResult = await query('SELECT COUNT(*) FROM education_programs');
+       WHERE 1=1`;
+    const params = [];
+    let paramCount = 0;
+    const scoped = appendSchoolColumnFilter(sql, params, paramCount, req.user, 'ep.school_id');
+    sql = scoped.queryText;
+    paramCount = scoped.paramCount;
+    sql += ` ORDER BY ep.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
+    params.push(parseInt(limit, 10), parseInt(offset, 10));
+
+    const result = await query(sql, params);
+
+    let countSql = 'SELECT COUNT(*) FROM education_programs ep WHERE 1=1';
+    const countParams = [];
+    const counted = appendSchoolColumnFilter(countSql, countParams, 0, req.user, 'ep.school_id');
+    const countResult = await query(counted.queryText, countParams);
+
     res.json({
       programs: result.rows,
-      total: parseInt(countResult.rows[0].count)
+      total: parseInt(countResult.rows[0].count, 10),
     });
   } catch (err) {
     console.error('Get education programs error:', err);
@@ -48,7 +69,7 @@ router.get('/', async (req, res) => {
 });
 
 // GET /api/education-programs/:id - 단건 조회
-router.get('/:id', async (req, res) => {
+router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const result = await query(
       `SELECT ep.*, u.name AS creator_name
@@ -58,7 +79,11 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-    res.json({ program: result.rows[0] });
+    const program = result.rows[0];
+    if (!canSeeSchoolResource(req.user, program.school_id)) {
+      return denySchoolResourceAccess(res, req.user);
+    }
+    res.json({ program });
   } catch (err) {
     console.error('Get education program error:', err);
     res.status(500).json({ error: 'Failed to get education program' });
@@ -66,17 +91,20 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/education-programs - 등록 (admin, teacher)
-router.post('/', auth, checkRole('admin', 'teacher'), async (req, res) => {
+router.post('/', auth, checkRole('admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
     const { title, category, type, duration, description, instructor, cost, link } = req.body;
     if (!title) return res.status(400).json({ error: '제목은 필수입니다.' });
 
     const result = await query(
       `INSERT INTO education_programs
-         (title, category, type, duration, description, instructor, cost, link, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         (title, category, type, duration, description, instructor, cost, link, created_by, school_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        RETURNING *`,
-      [title, category, type, duration, description, instructor, cost, link, req.user.id]
+      [
+        title, category, type, duration, description, instructor, cost, link,
+        req.user.id, req.user.school_id ?? null,
+      ]
     );
     res.status(201).json({ program: result.rows[0] });
   } catch (err) {
@@ -86,13 +114,18 @@ router.post('/', auth, checkRole('admin', 'teacher'), async (req, res) => {
 });
 
 // PUT /api/education-programs/:id - 수정 (admin, teacher - 본인 작성 또는 admin)
-router.put('/:id', auth, checkRole('admin', 'teacher'), async (req, res) => {
+router.put('/:id', auth, checkRole('admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
     const existing = await query('SELECT * FROM education_programs WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Not found' });
 
     const prog = existing.rows[0];
-    if (req.user.user_type !== 'admin' && String(prog.created_by) !== String(req.user.id)) {
+    if (!canSeeSchoolResource(req.user, prog.school_id)) {
+      return forbidCrossSchool(res);
+    }
+
+    if (!isSystemAdmin(req.user) && req.user.user_type !== 'school_admin'
+        && String(prog.created_by) !== String(req.user.id)) {
       return res.status(403).json({ error: '수정 권한이 없습니다.' });
     }
 
@@ -115,13 +148,18 @@ router.put('/:id', auth, checkRole('admin', 'teacher'), async (req, res) => {
 });
 
 // DELETE /api/education-programs/:id - 삭제 (admin, teacher - 본인 또는 admin)
-router.delete('/:id', auth, checkRole('admin', 'teacher'), async (req, res) => {
+router.delete('/:id', auth, checkRole('admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
     const existing = await query('SELECT * FROM education_programs WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) return res.status(404).json({ error: 'Not found' });
 
     const prog = existing.rows[0];
-    if (req.user.user_type !== 'admin' && String(prog.created_by) !== String(req.user.id)) {
+    if (!canSeeSchoolResource(req.user, prog.school_id)) {
+      return forbidCrossSchool(res);
+    }
+
+    if (!isSystemAdmin(req.user) && req.user.user_type !== 'school_admin'
+        && String(prog.created_by) !== String(req.user.id)) {
       return res.status(403).json({ error: '삭제 권한이 없습니다.' });
     }
 
