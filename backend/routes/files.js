@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const { query } = require('../config/database');
 const { auth } = require('../middleware/auth');
@@ -9,9 +10,22 @@ const { isSystemAdmin, isSchoolAdmin, canonicalRole } = require('../lib/roles');
 const { sendError } = require('../lib/httpErrors');
 const { getStorage } = require('../modules/storage');
 
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 8 * 1024 * 1024 },
+});
+
 async function canReadFile(user, file) {
   if (Number(file.owner_user_id) === Number(user.id)) return true;
   if (isSystemAdmin(user)) return true;
+
+  if (file.kind === 'attachment') {
+    if (user.school_id != null && file.school_id != null
+        && Number(user.school_id) === Number(file.school_id)) {
+      return true;
+    }
+    return false;
+  }
 
   if (file.kind === 'resume_pdf' && file.resume_id) {
     if ((isSchoolAdmin(user) || user.user_type === 'teacher' || user.role === 'teacher')
@@ -44,6 +58,44 @@ async function canReadFile(user, file) {
 
   return false;
 }
+
+// POST /api/files — community/trip attachment upload (REQ-COM-002/003)
+router.post('/', auth, schoolScope, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'VALIDATION', 'file required (multipart field "file")');
+    }
+    const originalName = req.file.originalname || 'attachment';
+    const mime = req.file.mimetype || 'application/octet-stream';
+    const stored = await getStorage().put({
+      buffer: req.file.buffer,
+      mime,
+      kind: 'attachment',
+      schoolId: req.user.school_id,
+      originalName,
+    });
+    const result = await query(
+      `INSERT INTO files (school_id, owner_user_id, bucket_key, mime, size, kind, original_name)
+       VALUES ($1, $2, $3, $4, $5, 'attachment', $6)
+       RETURNING id, school_id, owner_user_id, mime, size, kind, original_name, created_at`,
+      [
+        req.user.school_id || null,
+        req.user.id,
+        stored.bucketKey,
+        mime,
+        stored.size,
+        originalName,
+      ]
+    );
+    res.status(201).json({ file: result.rows[0] });
+  } catch (error) {
+    console.error('Upload file error:', error);
+    if (error.code === 'NOT_CONFIGURED') {
+      return sendError(res, 503, 'NOT_CONFIGURED', error.message);
+    }
+    return sendError(res, 500, 'INTERNAL', 'Failed to upload file');
+  }
+});
 
 router.get('/:id', auth, schoolScope, async (req, res) => {
   try {

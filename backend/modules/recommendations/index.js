@@ -254,6 +254,131 @@ async function recomputeAllActiveSchools() {
   return out;
 }
 
+/**
+ * REQ-REC-002 — market-basket style association from applications + job scraps.
+ * School-scoped; returns explainable reasons (also_applied / also_scraped).
+ */
+async function associatedForUser(userId, { limit = 10 } = {}) {
+  const userRes = await query('SELECT id, school_id FROM users WHERE id = $1', [userId]);
+  if (!userRes.rows.length) return { recommendations: [], seed_count: 0 };
+  const schoolId = userRes.rows[0].school_id;
+
+  const seedRes = await query(
+    `SELECT job_id, 'apply' AS source FROM job_applications WHERE user_id = $1
+     UNION
+     SELECT job_id, 'scrap' AS source FROM job_scraps WHERE user_id = $1`,
+    [userId]
+  );
+  const seedIds = [...new Set(seedRes.rows.map((r) => Number(r.job_id)))];
+  if (!seedIds.length) {
+    return { recommendations: [], seed_count: 0, message: 'no_seed_activity' };
+  }
+
+  const peerRes = await query(
+    `WITH seed AS (SELECT UNNEST($1::int[]) AS job_id),
+          peer_events AS (
+            SELECT ja.user_id, ja.job_id, 'apply'::text AS source
+            FROM job_applications ja
+            JOIN users u ON u.id = ja.user_id
+            WHERE ja.job_id IN (SELECT job_id FROM seed)
+              AND ja.user_id <> $2
+              AND ($3::int IS NULL OR u.school_id = $3)
+            UNION ALL
+            SELECT js.user_id, js.job_id, 'scrap'::text AS source
+            FROM job_scraps js
+            JOIN users u ON u.id = js.user_id
+            WHERE js.job_id IN (SELECT job_id FROM seed)
+              AND js.user_id <> $2
+              AND ($3::int IS NULL OR u.school_id = $3 OR js.school_id = $3)
+          ),
+          peers AS (SELECT DISTINCT user_id FROM peer_events),
+          co AS (
+            SELECT ja.job_id, 'apply'::text AS source, COUNT(DISTINCT ja.user_id)::int AS support
+            FROM job_applications ja
+            JOIN peers p ON p.user_id = ja.user_id
+            JOIN users u ON u.id = ja.user_id
+            WHERE ja.job_id NOT IN (SELECT job_id FROM seed)
+              AND ($3::int IS NULL OR u.school_id = $3)
+            GROUP BY ja.job_id
+            UNION ALL
+            SELECT js.job_id, 'scrap'::text AS source, COUNT(DISTINCT js.user_id)::int AS support
+            FROM job_scraps js
+            JOIN peers p ON p.user_id = js.user_id
+            JOIN users u ON u.id = js.user_id
+            WHERE js.job_id NOT IN (SELECT job_id FROM seed)
+              AND ($3::int IS NULL OR u.school_id = $3 OR js.school_id = $3)
+            GROUP BY js.job_id
+          ),
+          agg AS (
+            SELECT job_id,
+                   SUM(support)::int AS support,
+                   SUM(CASE WHEN source = 'apply' THEN support ELSE 0 END)::int AS apply_support,
+                   SUM(CASE WHEN source = 'scrap' THEN support ELSE 0 END)::int AS scrap_support
+            FROM co
+            GROUP BY job_id
+          )
+     SELECT a.job_id, a.support, a.apply_support, a.scrap_support,
+            j.title, j.description, j.location, j.salary_range, j.deadline,
+            j.job_type, j.status, j.company_id, j.school_id,
+            u.name AS company_name
+     FROM agg a
+     JOIN jobs j ON j.id = a.job_id AND j.status = 'active'
+     LEFT JOIN users u ON u.id = j.company_id
+     WHERE ($3::int IS NULL OR j.school_id IS NULL OR j.school_id = $3)
+     ORDER BY a.support DESC, a.job_id DESC
+     LIMIT $4`,
+    [seedIds, userId, schoolId, limit]
+  );
+
+  const maxSupport = peerRes.rows.reduce((m, r) => Math.max(m, r.support), 1);
+  const recommendations = peerRes.rows.map((r) => {
+    const reasons = [];
+    if (r.apply_support > 0) {
+      reasons.push({
+        code: 'also_applied',
+        label: `함께 지원한 공고 (동료 ${r.apply_support}명)`,
+        weight: Number((0.15 + 0.35 * (r.apply_support / maxSupport)).toFixed(3)),
+        support: r.apply_support,
+      });
+    }
+    if (r.scrap_support > 0) {
+      reasons.push({
+        code: 'also_scraped',
+        label: `함께 관심(스크랩)한 공고 (동료 ${r.scrap_support}명)`,
+        weight: Number((0.1 + 0.25 * (r.scrap_support / maxSupport)).toFixed(3)),
+        support: r.scrap_support,
+      });
+    }
+    const score = Number(Math.min(1, reasons.reduce((s, x) => s + x.weight, 0)).toFixed(4));
+    return {
+      job_id: r.job_id,
+      score,
+      reasons,
+      support: r.support,
+      job: {
+        id: r.job_id,
+        title: r.title,
+        description: r.description,
+        location: r.location,
+        salary_range: r.salary_range,
+        deadline: r.deadline,
+        job_type: r.job_type,
+        status: r.status,
+        company_id: r.company_id,
+        company_name: r.company_name,
+        school_id: r.school_id,
+      },
+    };
+  });
+
+  return {
+    recommendations,
+    seed_count: seedIds.length,
+    seed_job_ids: seedIds,
+    scoring_factors: ['also_applied', 'also_scraped'],
+  };
+}
+
 module.exports = {
   tokenize,
   extractResumeProfile,
@@ -262,4 +387,5 @@ module.exports = {
   recomputeForUser,
   recomputeSchool,
   recomputeAllActiveSchools,
+  associatedForUser,
 };

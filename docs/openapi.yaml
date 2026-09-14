@@ -270,6 +270,13 @@ paths:
       summary: Ranked recommendations with reasons (REQ-REC-004)
       responses:
         '200': { description: '{ recommendations, scoring_factors }' }
+  /api/recommendations/associated:
+    get:
+      tags: [Recommendations]
+      security: [{ bearerAuth: [] }]
+      summary: Apply/scrap co-occurrence recommendations (REQ-REC-002)
+      responses:
+        '200': { description: '{ recommendations, seed_count, scoring_factors }' }
   /api/recommendations/recompute:
     post:
       tags: [Recommendations]
@@ -313,6 +320,28 @@ paths:
       responses:
         '200': { description: roster }
         '403': { description: cross-school }
+  /api/field-trips/{id}/report:
+    get:
+      tags: [FieldTrips]
+      security: [{ bearerAuth: [] }]
+      summary: After-report (REQ-TRP-003)
+      responses:
+        '200': { description: '{ trip, report }' }
+        '403': { description: cross-school }
+    put:
+      tags: [FieldTrips]
+      security: [{ bearerAuth: [] }]
+      summary: Upsert after-report (REQ-TRP-003)
+      responses:
+        '200': { description: saved }
+        '403': { description: cross-school }
+  /api/worknet/status:
+    get:
+      tags: [Worknet]
+      security: [{ bearerAuth: [] }]
+      summary: Stub status NOT_CONFIGURED (REQ-WN-010)
+      responses:
+        '200': { description: '{ configured, code }' }
   /api/networking/mentors:
     get:
       tags: [Networking]

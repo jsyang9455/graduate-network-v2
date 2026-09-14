@@ -175,6 +175,25 @@
                 <button onclick="closeDetailModal()" style="background:none; border:none; font-size:1.8rem; cursor:pointer; color:#94a3b8; line-height:1; flex-shrink:0;">&times;</button>
             </div>
             <div id="detailContent"></div>
+            <div id="afterReportPanel" style="display:none; margin-top:1.5rem; padding-top:1.25rem; border-top:2px solid #e2e8f0;">
+                <h3 style="margin:0 0 0.75rem; color:#1e3a8a; font-size:1rem;">사후 보고</h3>
+                <label style="display:block; font-size:0.85rem; margin-bottom:0.5rem;">요약 *
+                    <textarea id="reportSummary" rows="3" style="width:100%; margin-top:0.25rem; padding:0.5rem; box-sizing:border-box;"></textarea>
+                </label>
+                <label style="display:block; font-size:0.85rem; margin-bottom:0.5rem;">결과/소감
+                    <textarea id="reportOutcome" rows="2" style="width:100%; margin-top:0.25rem; padding:0.5rem; box-sizing:border-box;"></textarea>
+                </label>
+                <div style="display:flex; gap:0.75rem; margin-bottom:0.5rem;">
+                    <label style="flex:1; font-size:0.85rem;">출석
+                        <input id="reportPresent" type="number" min="0" value="0" style="width:100%; margin-top:0.25rem; padding:0.4rem;">
+                    </label>
+                    <label style="flex:1; font-size:0.85rem;">결석
+                        <input id="reportAbsent" type="number" min="0" value="0" style="width:100%; margin-top:0.25rem; padding:0.4rem;">
+                    </label>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="saveAfterReport()">사후 보고 저장</button>
+                <p id="reportStatus" style="font-size:0.8rem; color:#6b7280; margin-top:0.5rem;"></p>
+            </div>
         </div>
     </div>
 
@@ -461,9 +480,12 @@
         });
 
         // 상세보기 모달
-        function openDetailModal(id) {
+        let currentDetailTripId = null;
+
+        async function openDetailModal(id) {
             const item = announcements.find(a => a.id === id);
             if (!item) return;
+            currentDetailTripId = id;
             const eventDate = item.event_date ? new Date(item.event_date).toLocaleDateString('ko-KR') : '-';
             const deadline = item.deadline ? new Date(item.deadline).toLocaleDateString('ko-KR') : '-';
             const benefits = Array.isArray(item.benefits) ? item.benefits : [];
@@ -513,9 +535,60 @@
                 </div>` : ''}
             `;
             document.getElementById('detailModal').style.display = 'flex';
+            await loadAfterReportPanel(id);
         }
+
+        async function loadAfterReportPanel(tripId) {
+            const panel = document.getElementById('afterReportPanel');
+            const user = auth.getCurrentUser && auth.getCurrentUser();
+            const canReport = user && ['teacher', 'admin', 'school_admin'].includes(user.user_type);
+            if (!panel) return;
+            if (!canReport || !auth.isLoggedIn()) {
+                panel.style.display = 'none';
+                return;
+            }
+            panel.style.display = 'block';
+            document.getElementById('reportStatus').textContent = '';
+            try {
+                const data = await api.fieldTrips.getReport(tripId);
+                const report = data.report;
+                document.getElementById('reportSummary').value = report?.summary || '';
+                document.getElementById('reportOutcome').value = report?.outcome || '';
+                document.getElementById('reportPresent').value = report?.attendees_present ?? 0;
+                document.getElementById('reportAbsent').value = report?.attendees_absent ?? 0;
+                if (report) {
+                    document.getElementById('reportStatus').textContent =
+                        `저장됨 · ${new Date(report.updated_at || report.created_at).toLocaleString('ko-KR')}`;
+                }
+            } catch (e) {
+                document.getElementById('reportStatus').textContent = e.message || '보고를 불러오지 못했습니다.';
+            }
+        }
+
+        async function saveAfterReport() {
+            if (!currentDetailTripId) return;
+            const summary = document.getElementById('reportSummary').value.trim();
+            if (!summary) {
+                alert('요약을 입력하세요.');
+                return;
+            }
+            try {
+                await api.fieldTrips.saveReport(currentDetailTripId, {
+                    summary,
+                    outcome: document.getElementById('reportOutcome').value.trim() || null,
+                    attendees_present: Number(document.getElementById('reportPresent').value) || 0,
+                    attendees_absent: Number(document.getElementById('reportAbsent').value) || 0,
+                });
+                document.getElementById('reportStatus').textContent = '저장 완료';
+                alert('사후 보고가 저장되었습니다.');
+            } catch (e) {
+                alert(e.message || '사후 보고 저장 실패');
+            }
+        }
+
         function closeDetailModal() {
             document.getElementById('detailModal').style.display = 'none';
+            currentDetailTripId = null;
         }
     </script>
 </body>

@@ -133,6 +133,7 @@ function displayJobs(jobs) {
                 </div>
                 <div class="job-card-footer">
                     <button class="btn btn-secondary" onclick="viewJobDetail(${job.id})">상세보기</button>
+                    ${!isCompanyOrAdmin ? `<button class="btn btn-secondary" onclick="toggleJobScrap(${job.id}, this)">관심</button>` : ''}
                     <button class="btn btn-primary" onclick="applyJob(${job.id})">지원하기</button>
                 </div>
             </div>
@@ -349,6 +350,26 @@ async function applyJob(jobId) {
         }
     } catch (e) {
         alert('이력서를 불러오지 못했습니다: ' + (e.message || ''));
+    }
+}
+
+async function toggleJobScrap(jobId, btn) {
+    if (!auth.isLoggedIn()) {
+        alert('로그인이 필요한 서비스입니다.');
+        window.location.href = 'login.html';
+        return;
+    }
+    try {
+        const label = (btn && btn.textContent) || '';
+        if (label.includes('해제') || label.includes('관심됨')) {
+            await api.jobsApi.unscrap(jobId);
+            if (btn) btn.textContent = '관심';
+        } else {
+            await api.jobsApi.scrap(jobId);
+            if (btn) btn.textContent = '관심 해제';
+        }
+    } catch (e) {
+        alert(e.message || '관심 공고 처리에 실패했습니다.');
     }
 }
 

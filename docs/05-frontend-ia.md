@@ -35,6 +35,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 상담 예약 | `counseling.html` | 유지 |
 | 자격/교육/박람회/견학 | `certificates.html`, `education-programs.html`, `job-fair.html`, `industry-visit.html`, `certification-support.html` | Sprint 4: `industry-visit.html`은 `/api/field-trips` 사용(구 announcements type 유지 호환 별칭). 전용 `field-trips.html`은 선택 |
 | 네트워킹 | `networking.html` | 유지 + 커뮤니티와 역할 정리 |
+| 커뮤니티 | `community.html` | Sprint 6: 분류·태그·스크랩·첨부·내 스크랩 (REQ-COM-002/003) |
 | 프로필 | `profile.html` | `/auth/me`만 |
 
 ### 교사

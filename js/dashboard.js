@@ -795,24 +795,56 @@ async function loadRecentNews() {
     }
 }
 
-// 최근 소식 상세보기 (API)
+// 최근 소식 상세보기 (API) + scrap (REQ-COM-003)
+let currentNewsId = null;
+let currentNewsScraped = false;
+
 async function showNewsDetail(newsId) {
     try {
         const data = await api.get(`/posts/${newsId}`);
         const post = data.post;
         if (!post) return;
 
+        currentNewsId = post.id;
+        currentNewsScraped = Boolean(data.scraped);
         document.getElementById('newsDetailTitle').textContent = post.title;
         document.getElementById('newsDetailDate').textContent = new Date(post.created_at).toLocaleDateString('ko-KR');
         document.getElementById('newsDetailContent').textContent = post.content;
+        const tagsEl = document.getElementById('newsDetailTags');
+        if (tagsEl) {
+            const tags = Array.isArray(post.tags) ? post.tags : [];
+            tagsEl.innerHTML = tags.map((t) =>
+                `<span style="background:#eff6ff;color:#1d4ed8;padding:0.2rem 0.5rem;border-radius:6px;font-size:0.8rem;margin-right:0.35rem;">#${String(t).replace(/</g,'')}</span>`
+            ).join('');
+        }
+        const scrapBtn = document.getElementById('newsScrapBtn');
+        if (scrapBtn) scrapBtn.textContent = currentNewsScraped ? '스크랩 해제' : '스크랩';
         document.getElementById('newsDetailModal').style.display = 'flex';
     } catch (e) {
         alert('공지사항을 불러올 수 없습니다.');
     }
 }
 
+async function toggleNewsScrap() {
+    if (!currentNewsId) return;
+    try {
+        if (currentNewsScraped) {
+            await api.posts.unscrap(currentNewsId);
+            currentNewsScraped = false;
+        } else {
+            await api.posts.scrap(currentNewsId);
+            currentNewsScraped = true;
+        }
+        const scrapBtn = document.getElementById('newsScrapBtn');
+        if (scrapBtn) scrapBtn.textContent = currentNewsScraped ? '스크랩 해제' : '스크랩';
+    } catch (e) {
+        alert(e.message || '스크랩 처리에 실패했습니다.');
+    }
+}
+
 function closeNewsDetailModal() {
     document.getElementById('newsDetailModal').style.display = 'none';
+    currentNewsId = null;
 }
 
 // 교육프로그램 로드 (API)

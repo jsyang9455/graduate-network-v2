@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>커뮤니티 - 졸업생 네트워크</title>
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-menu">
+                <a href="dashboard.html" class="menu-item"><span class="icon">📊</span><span>대시보드</span></a>
+                <a href="jobs.html" class="menu-item"><span class="icon">💼</span><span>채용 정보</span></a>
+                <a href="community.html" class="menu-item active"><span class="icon">💬</span><span>커뮤니티</span></a>
+                <a href="networking.html" class="menu-item"><span class="icon">🤝</span><span>JOB밴드</span></a>
+                <a href="career.html" class="menu-item"><span class="icon">📈</span><span>경력 관리</span></a>
+            </div>
+            <div class="sidebar-footer">
+                <button onclick="auth.logout()" class="btn-logout">로그아웃</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>커뮤니티</h1>
+                <div class="user-info"><span id="userName"></span></div>
+            </header>
+
+            <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-bottom:1.25rem; align-items:center;">
+                <select id="categoryFilter" style="padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:8px;">
+                    <option value="">전체 분류</option>
+                </select>
+                <input id="tagFilter" type="text" placeholder="태그 (직무·기업)" style="padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:8px; min-width:140px;">
+                <button type="button" class="btn btn-secondary" onclick="loadPosts()">조회</button>
+                <button type="button" class="btn btn-secondary" onclick="loadScraps()">내 스크랩</button>
+                <button type="button" class="btn btn-primary" onclick="showCreateModal()">글쓰기</button>
+            </div>
+
+            <div id="postsList" style="display:flex; flex-direction:column; gap:1rem;"></div>
+        </main>
+    </div>
+
+    <div id="postModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:640px;">
+            <div class="modal-header">
+                <h2 id="postModalTitle">글 상세</h2>
+                <button type="button" class="modal-close" onclick="closePostModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="postMeta" style="color:#6b7280; margin-bottom:0.75rem;"></div>
+                <div id="postTags" style="margin-bottom:0.75rem;"></div>
+                <div id="postBody" style="white-space:pre-wrap; line-height:1.6;"></div>
+                <div id="postFiles" style="margin-top:1rem;"></div>
+            </div>
+            <div class="modal-footer" style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                <button type="button" id="scrapBtn" class="btn btn-secondary" onclick="toggleScrap()">스크랩</button>
+                <button type="button" class="btn btn-secondary" onclick="closePostModal()">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:640px;">
+            <div class="modal-header">
+                <h2>글쓰기</h2>
+                <button type="button" class="modal-close" onclick="closeCreateModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label style="display:block; margin-bottom:0.5rem;">분류
+                    <select id="createCategory" style="width:100%; padding:0.5rem; margin-top:0.25rem;"></select>
+                </label>
+                <label style="display:block; margin-bottom:0.5rem;">제목
+                    <input id="createTitle" type="text" style="width:100%; padding:0.5rem; margin-top:0.25rem;">
+                </label>
+                <label style="display:block; margin-bottom:0.5rem;">내용
+                    <textarea id="createContent" rows="6" style="width:100%; padding:0.5rem; margin-top:0.25rem;"></textarea>
+                </label>
+                <label style="display:block; margin-bottom:0.5rem;">태그 (쉼표 구분, 직무·기업)
+                    <input id="createTags" type="text" placeholder="예: 용접, 현대중공업" style="width:100%; padding:0.5rem; margin-top:0.25rem;">
+                </label>
+                <label style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.5rem;">
+                    <input id="createAnonymous" type="checkbox"> 익명
+                </label>
+                <label style="display:block; margin-bottom:0.5rem;">첨부
+                    <input id="createFile" type="file" style="display:block; margin-top:0.25rem;">
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeCreateModal()">취소</button>
+                <button type="button" class="btn btn-primary" onclick="submitPost()">등록</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        let currentPostId = null;
+        let currentScraped = false;
+        let scrapMode = false;
+
+        function esc(s) {
+            return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!auth.requireAuth()) return;
+            const user = auth.getCurrentUser();
+            const el = document.getElementById('userName');
+            if (el && user) el.textContent = user.name || user.email || '';
+            await loadCategories();
+            await loadPosts();
+        });
+
+        async function loadCategories() {
+            try {
+                const data = await api.posts.categories();
+                const cats = data.categories || [];
+                const filter = document.getElementById('categoryFilter');
+                const create = document.getElementById('createCategory');
+                cats.forEach((c) => {
+                    filter.insertAdjacentHTML('beforeend', `<option value="${esc(c.code)}">${esc(c.name)}</option>`);
+                    create.insertAdjacentHTML('beforeend', `<option value="${esc(c.code)}">${esc(c.name)}</option>`);
+                });
+                if (!cats.length) {
+                    create.innerHTML = '<option value="news">소식</option>';
+                }
+            } catch (e) {
+                document.getElementById('createCategory').innerHTML = '<option value="news">소식</option>';
+            }
+        }
+
+        async function loadPosts() {
+            scrapMode = false;
+            const category = document.getElementById('categoryFilter').value;
+            const tag = document.getElementById('tagFilter').value.trim();
+            const params = new URLSearchParams({ limit: '30' });
+            if (category) params.set('category', category);
+            if (tag) params.set('tag', tag.replace(/^#/, ''));
+            const list = document.getElementById('postsList');
+            list.innerHTML = '<p style="color:#6b7280;padding:1rem;">불러오는 중...</p>';
+            try {
+                const data = await api.get(`/posts?${params}`);
+                renderPosts(data.posts || []);
+            } catch (e) {
+                list.innerHTML = `<p style="color:#ef4444;padding:1rem;">${esc(e.message || '목록을 불러오지 못했습니다.')}</p>`;
+            }
+        }
+
+        async function loadScraps() {
+            scrapMode = true;
+            const list = document.getElementById('postsList');
+            list.innerHTML = '<p style="color:#6b7280;padding:1rem;">스크랩 불러오는 중...</p>';
+            try {
+                const data = await api.posts.myScraps();
+                renderPosts(data.posts || [], true);
+            } catch (e) {
+                list.innerHTML = `<p style="color:#ef4444;padding:1rem;">${esc(e.message || '스크랩을 불러오지 못했습니다.')}</p>`;
+            }
+        }
+
+        function renderPosts(posts, fromScrap) {
+            const list = document.getElementById('postsList');
+            if (!posts.length) {
+                list.innerHTML = `<p style="color:#6b7280;padding:2rem;text-align:center;">${fromScrap ? '스크랩한 글이 없습니다.' : '게시글이 없습니다.'}</p>`;
+                return;
+            }
+            list.innerHTML = posts.map((p) => {
+                const tags = Array.isArray(p.tags) ? p.tags : [];
+                return `
+                <article style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1rem 1.25rem;cursor:pointer;" onclick="openPost(${p.id})">
+                    <div style="font-size:0.8rem;color:#6b7280;margin-bottom:0.35rem;">${esc(p.category || '')} · ${new Date(p.created_at).toLocaleDateString('ko-KR')}</div>
+                    <h3 style="margin:0 0 0.5rem;font-size:1.05rem;">${esc(p.title)}</h3>
+                    <p style="margin:0;color:#4b5563;font-size:0.9rem;">${esc((p.content || '').slice(0, 120))}${(p.content || '').length > 120 ? '…' : ''}</p>
+                    ${tags.length ? `<div style="margin-top:0.6rem;display:flex;flex-wrap:wrap;gap:0.35rem;">${tags.map((t) => `<span style="background:#eff6ff;color:#1d4ed8;padding:0.15rem 0.5rem;border-radius:6px;font-size:0.75rem;">#${esc(t)}</span>`).join('')}</div>` : ''}
+                </article>`;
+            }).join('');
+        }
+
+        async function openPost(id) {
+            try {
+                const data = await api.get(`/posts/${id}`);
+                const post = data.post;
+                if (!post) return;
+                currentPostId = post.id;
+                currentScraped = Boolean(data.scraped);
+                document.getElementById('postModalTitle').textContent = post.title;
+                document.getElementById('postMeta').textContent =
+                    `${post.category || ''} · ${post.author_name || ''} · ${new Date(post.created_at).toLocaleString('ko-KR')}`;
+                const tags = Array.isArray(post.tags) ? post.tags : [];
+                document.getElementById('postTags').innerHTML = tags.map((t) =>
+                    `<span style="background:#eff6ff;color:#1d4ed8;padding:0.2rem 0.55rem;border-radius:6px;font-size:0.8rem;margin-right:0.35rem;">#${esc(t)}</span>`
+                ).join('');
+                document.getElementById('postBody').textContent = post.content || '';
+                const files = Array.isArray(post.file_ids) ? post.file_ids : [];
+                document.getElementById('postFiles').innerHTML = files.length
+                    ? files.map((fid) => `<a href="#" onclick="downloadAttachment(${fid});return false;">첨부 #${fid}</a>`).join(' · ')
+                    : '';
+                document.getElementById('scrapBtn').textContent = currentScraped ? '스크랩 해제' : '스크랩';
+                document.getElementById('postModal').style.display = 'flex';
+            } catch (e) {
+                alert(e.message || '글을 불러오지 못했습니다.');
+            }
+        }
+
+        async function downloadAttachment(id) {
+            try {
+                await api.download(`/files/${id}?download=1`, { filename: `attachment-${id}` });
+            } catch (e) {
+                alert(e.message || '첨부 다운로드 실패');
+            }
+        }
+
+        async function toggleScrap() {
+            if (!currentPostId) return;
+            try {
+                if (currentScraped) {
+                    await api.posts.unscrap(currentPostId);
+                    currentScraped = false;
+                } else {
+                    await api.posts.scrap(currentPostId);
+                    currentScraped = true;
+                }
+                document.getElementById('scrapBtn').textContent = currentScraped ? '스크랩 해제' : '스크랩';
+                if (scrapMode) await loadScraps();
+            } catch (e) {
+                alert(e.message || '스크랩 처리 실패');
+            }
+        }
+
+        function closePostModal() {
+            document.getElementById('postModal').style.display = 'none';
+            currentPostId = null;
+        }
+
+        function showCreateModal() {
+            document.getElementById('createTitle').value = '';
+            document.getElementById('createContent').value = '';
+            document.getElementById('createTags').value = '';
+            document.getElementById('createAnonymous').checked = false;
+            document.getElementById('createFile').value = '';
+            document.getElementById('createModal').style.display = 'flex';
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').style.display = 'none';
+        }
+
+        async function submitPost() {
+            const title = document.getElementById('createTitle').value.trim();
+            const content = document.getElementById('createContent').value.trim();
+            if (!title || !content) {
+                alert('제목과 내용을 입력하세요.');
+                return;
+            }
+            const tags = document.getElementById('createTags').value
+                .split(/[,#]/).map((t) => t.trim()).filter(Boolean);
+            const body = {
+                title,
+                content,
+                category: document.getElementById('createCategory').value || 'news',
+                is_anonymous: document.getElementById('createAnonymous').checked,
+                tags,
+            };
+            try {
+                const fileInput = document.getElementById('createFile');
+                if (fileInput.files && fileInput.files[0]) {
+                    const uploaded = await api.uploadFile(fileInput.files[0]);
+                    if (uploaded.file?.id) body.file_ids = [uploaded.file.id];
+                }
+                await api.posts.create(body);
+                closeCreateModal();
+                await loadPosts();
+            } catch (e) {
+                alert(e.message || '등록 실패');
+            }
+        }
+    </script>
+</body>
+</html>

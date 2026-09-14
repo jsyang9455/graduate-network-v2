@@ -355,4 +355,73 @@ router.patch('/:id/attendance', auth, authorize('field_trips', 'write'), schoolS
   }
 });
 
+// GET/PUT after-report (REQ-TRP-003)
+router.get('/:id/report', auth, authorize('field_trips', 'read'), schoolScope, async (req, res) => {
+  try {
+    const trip = await loadTrip(req.params.id);
+    if (!trip) return sendError(res, 404, 'NOT_FOUND', 'Field trip not found');
+    if (!assertSameSchool(req, trip.school_id) && !isSystemAdmin(req.user)) {
+      return forbidCrossSchool(res);
+    }
+    const result = await query(
+      `SELECT r.*, u.name AS author_name
+       FROM field_trip_reports r
+       JOIN users u ON u.id = r.author_id
+       WHERE r.trip_id = $1`,
+      [trip.id]
+    );
+    res.json({ trip: toCard(trip), report: result.rows[0] || null });
+  } catch (err) {
+    console.error('field-trips get report error:', err);
+    res.status(500).json({ error: 'Failed to load report' });
+  }
+});
+
+router.put('/:id/report', auth, authorize('field_trips', 'write'), schoolScope, async (req, res) => {
+  try {
+    const trip = await loadTrip(req.params.id);
+    if (!trip) return sendError(res, 404, 'NOT_FOUND', 'Field trip not found');
+    if (!assertSameSchool(req, trip.school_id) && !isSystemAdmin(req.user)) {
+      return forbidCrossSchool(res);
+    }
+    const summary = (req.body?.summary || '').trim();
+    if (!summary) return sendError(res, 400, 'VALIDATION', 'summary required');
+
+    const outcome = req.body?.outcome || null;
+    const notes = req.body?.notes || null;
+    const attendeesPresent = Number.isFinite(Number(req.body?.attendees_present))
+      ? Number(req.body.attendees_present) : 0;
+    const attendeesAbsent = Number.isFinite(Number(req.body?.attendees_absent))
+      ? Number(req.body.attendees_absent) : 0;
+    let fileIds = Array.isArray(req.body?.file_ids)
+      ? req.body.file_ids.map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 10)
+      : [];
+
+    const result = await query(
+      `INSERT INTO field_trip_reports (
+         trip_id, school_id, author_id, summary, outcome,
+         attendees_present, attendees_absent, notes, file_ids
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (trip_id) DO UPDATE SET
+         summary = EXCLUDED.summary,
+         outcome = EXCLUDED.outcome,
+         attendees_present = EXCLUDED.attendees_present,
+         attendees_absent = EXCLUDED.attendees_absent,
+         notes = EXCLUDED.notes,
+         file_ids = EXCLUDED.file_ids,
+         author_id = EXCLUDED.author_id,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [
+        trip.id, trip.school_id, req.user.id, summary, outcome,
+        attendeesPresent, attendeesAbsent, notes, fileIds,
+      ]
+    );
+    res.json({ report: result.rows[0], trip: toCard(trip) });
+  } catch (err) {
+    console.error('field-trips put report error:', err);
+    res.status(500).json({ error: 'Failed to save report' });
+  }
+});
+
 module.exports = router;

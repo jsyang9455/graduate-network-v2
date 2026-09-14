@@ -72,10 +72,23 @@ router.get('/me', auth, authorize('recommendations', 'read'), schoolScope, async
         'major_fit',
         'freshness',
       ],
+      associated_hint: '/api/recommendations/associated',
     });
   } catch (err) {
     console.error('recommendations/me error:', err);
     res.status(500).json({ error: 'Failed to load recommendations' });
+  }
+});
+
+// GET /api/recommendations/associated — apply/scrap co-occurrence (REQ-REC-002)
+router.get('/associated', auth, authorize('recommendations', 'read'), schoolScope, async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 50);
+    const result = await recommendations.associatedForUser(req.user.id, { limit });
+    res.json(result);
+  } catch (err) {
+    console.error('recommendations/associated error:', err);
+    res.status(500).json({ error: 'Failed to load associated recommendations' });
   }
 });
 

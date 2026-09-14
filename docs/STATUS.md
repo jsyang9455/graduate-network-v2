@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-14  
-현재 단계: **Sprint 5 (커뮤니티 P0·B-LS·persona smoke)**  
-전체 P0 구현: **약 58%** (Wave 1–Sprint 4 + REQ-COM P0 슬라이스(스크랩·신고·블라인드·분류·인기)·company_profile API·persona smoke. 워크넷·알림톡 실연동·REC-002·COM-002 태그·첨부 고도화 미착수)
+현재 단계: **Sprint 6 (REC-002·COM-002·스크랩 UI·사후보고)**  
+전체 P0 구현: **약 62%** (Wave 1–Sprint 5 + REC-002 연관 추천·COM-002 태그/첨부·게시 스크랩 UI·견학 사후보고·worknet NOT_CONFIGURED 스텁. 워크넷·알림톡 실연동·Playwright 풀 스위트 미착수)
 
 ## Gates (학교 제공물)
 
@@ -19,32 +19,33 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 |-------|------|-------|---|------|
 | 0 | 비전/요구/아키텍처/역할, v2 저장소 | architect | 100 | done |
 | 1 | 착수 보고·게이트 확인·현행 이슈 목록 | architect | 0 | todo |
-| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 88 | in-progress (COM paths) |
-| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 90 | in-progress (메시지/워크넷 잔여) |
+| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 92 | in-progress (COM/REC paths) |
+| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 92 | in-progress (메시지/워크넷 잔여) |
 | Sprint 1 | 이력서·상담 문서 | backend + frontend | 95 | done |
-| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 70 | in-progress (**워크넷 0%**) |
+| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 72 | in-progress (**워크넷 스텁만**, 실연동 0%) |
 | Sprint 3 | 커뮤니티·공지 테넌시·B-LS | backend + api + frontend | 70 | done-ish (tenancy + Sprint5 COM) |
-| Sprint 4 | 추천·견학·networking | backend + api + frontend | 75 | done-ish (REC/TRP P0. REC-002 잔여) |
-| Sprint 5 | COM P0·B-LS·persona smoke | backend + api + frontend + qa | 80 | in-progress (COM P0·B-LS·smoke. 태그/첨부·브라우저 UI 잔여) |
-| 4 | 테스트·UAT·보안 | qa | 72 | in-progress (API **54/54** + persona smoke. Playwright optional) |
+| Sprint 4 | 추천·견학·networking | backend + api + frontend | 85 | done-ish (REC-002·사후보고 Sprint6) |
+| Sprint 5 | COM P0·B-LS·persona smoke | backend + api + frontend + qa | 85 | done-ish (태그/첨부·스크랩 UI는 Sprint6) |
+| Sprint 6 | REC-002·COM-002·스크랩 UI·사후보고 | backend + api + frontend + qa | 80 | done-ish (API+UI+테스트. 브라우저 DoD partial) |
+| 4 | 테스트·UAT·보안 | qa | 78 | in-progress (API **59/59** + persona smoke. Playwright optional) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 90 | networking + posts scrap/report school 범위 |
-| IAM API·OpenAPI | api | 90 | COM scrap/report/blind + company-profile |
-| 권한 메뉴·schools UI | frontend | 72 | admin-board 블라인드 |
+| 멀티스쿨 스키마/가드 | backend | 92 | job scrap / trip report school 범위 |
+| IAM API·OpenAPI | api | 92 | associated + worknet stub + report paths |
+| 권한 메뉴·schools UI | frontend | 78 | community.html·대시보드 스크랩 |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 70 | |
-| 워크넷 | backend | 0 | 게이트 unknown |
-| 추천 엔진 | backend | 70 | REC-002 미구현 |
-| 견학 모듈 | backend/frontend | 65 | |
-| 커뮤니티 고도화 | api/frontend | 55 | COM-001/003/004/005 P0. COM-002·첨부 미완 |
+| 워크넷 | backend | 10 | status/sync stub `NOT_CONFIGURED` only |
+| 추천 엔진 | backend | 85 | REC-002 associated P0 |
+| 견학 모듈 | backend/frontend | 80 | 사후 보고 API+industry-visit UI |
+| 커뮤니티 고도화 | api/frontend | 75 | COM-002 태그·첨부·스크랩 UI |
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
-| QA 스위트 | qa | 80 | sprint5 + persona-smoke. 선택 `npm run test:e2e` |
+| QA 스위트 | qa | 85 | sprint6 + 회귀 59. 선택 `npm run test:e2e` |
 
 ## Blockers
 
@@ -65,40 +66,34 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 - 범위 변경은 Architect만 `00`/`01`과 함께 수정한다.
 - Progress Monitor는 매주 %의 합이 git 실제 진척과 맞는지 검사한다.
 
-## Sprint 5 완료 기록 (REQ-COM-001/003/004/005 P0, REQ-PLT-001 B-LS, persona smoke)
+## Sprint 6 완료 기록 (REQ-REC-002, REQ-COM-002, scrap UI, REQ-TRP-003 사후보고)
 
-- 마이그레이션 `database/migrations/015_v2_sprint5_community_extras.sql`
-  - `post_categories`, `post_scraps`, `post_reports`
-  - `posts.is_anonymous`, `blinded_at`/`blinded_by`/`blind_reason`, tags/file_ids 컬럼
-- API: categories, scrap, report, blind, popular sort, company-profile
-- 프론트: admin-board 블라인드, setup-test-profile API, `jjobb_api_base` 오버라이드
-- QA: `sprint5-community.test.js` + `persona-smoke.test.js` (node:test). 선택 Puppeteer `npm run test:e2e`
-- 문서: `docs/qa/e2e-persona-smoke.md`, README 포트/DX
-- 워크넷·알림톡·REC-002·COM-002 **안 함**. Playwright 풀 스위트 **안 함**(경량 스모크)
+- 마이그레이션 `database/migrations/016_v2_sprint6_associated_com_trip.sql`
+  - `job_scraps`, `field_trip_reports`, posts tags GIN
+- API: `GET /api/recommendations/associated`, job scrap, posts tags/`file_ids`/`?tag=`, `POST /api/files`, field-trip report, worknet stub
+- 프론트: `community.html`, dashboard/news scrap, jobs「관심」, industry-visit 사후 보고, admin-board 태그
+- QA: `sprint6-associated-com-trip.test.js` (5) → 전체 **59/59**
+- 워크넷·알림톡 실연동 **안 함**. Playwright 풀 스위트 **안 함**
 
 ```
-Handoff: sprint5-owner → qa
-REQ: REQ-COM-001,003,004,005, REQ-PLT-001
-Need: admin-board 블라인드 브라우저 확인; scrap UI는 API 우선
-Done: COM P0 API, B-LS company profile, persona smoke in node:test
+Handoff: sprint6-owner → qa
+REQ: REQ-REC-002, REQ-COM-002, REQ-COM-003, REQ-TRP-003, REQ-WN-010
+Need: community/scrap/after-report 브라우저 페르소나; optional Playwright
+Done: associated API, tags/attachments, scrap UI, trip report, worknet stub, 59 tests
 
-Handoff: sprint5-owner → backend
-REQ: REQ-WN-*, REQ-REC-002, REQ-COM-002
-Need: 워크넷 게이트, 연관 추천, 직무·기업 태그
-Done: scrap/report/blind/categories/popular + company-profile API
+Handoff: sprint6-owner → architect
+REQ: REQ-WN-*, REQ-MSG-*
+Need: 게이트 ready 전 실연동 금지 유지
+Done: NOT_CONFIGURED stubs only
 ```
 
-### Sprint 5 검증 (Role Verifier + Progress Monitor)
+## Sprint 5 완료 기록 (요약)
 
-- **기준 커밋:** `6a0c418` · 상세: [docs/qa/sprint5-verification.md](qa/sprint5-verification.md)
-- **판정:** partial pass (COM P0 API·B-LS·persona smoke 강함). COM-002·첨부·브라우저 UI·워크넷 잔여(의도)
-- **테스트 재실행:** **54/54 pass** (2026-09-14). Playwright 풀 스위트 없음(선택 Puppeteer)
-- **STATUS 정직성:** Sprint 5 **~80%** · 전체 P0 **~58%** · 워크넷 **0%/게이트 unknown** — 모니터 **유지 권장**(과대 없음)
-- 수치 변경 없음(git 실진척과 일치).
+COM scrap/report/blind/categories/popular, company-profile B-LS, persona smoke. 상세는 이전 STATUS/커밋 `6a0c418`.
 
 ## Sprint 4 완료 기록 (요약)
 
-networking 가드, recommendations P0, field_trips P0. QA 46 tests → Sprint 5에서 확장. 상세: [docs/qa/sprint4-verification.md](qa/sprint4-verification.md) (기준 `b7277f2`).
+networking 가드, recommendations P0, field_trips P0. 상세: [docs/qa/sprint4-verification.md](qa/sprint4-verification.md).
 
 ## Sprint 3 완료 기록 (요약)
 

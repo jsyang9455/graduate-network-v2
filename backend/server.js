@@ -37,6 +37,7 @@ const fileRoutes = require('./routes/files');
 const notificationRoutes = require('./routes/notifications');
 const recommendationRoutes = require('./routes/recommendations');
 const fieldTripRoutes = require('./routes/field-trips');
+const worknetRoutes = require('./routes/worknet');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -59,12 +60,13 @@ app.use('/api/files', fileRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/api/field-trips', fieldTripRoutes);
+app.use('/api/worknet', worknetRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     message: 'Graduate Network API is running',
-    version: '2.0.0-sprint4',
+    version: '2.0.0-sprint6',
     timestamp: new Date().toISOString()
   });
 });
@@ -72,7 +74,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Graduate Network API',
-    version: '2.0.0-sprint4',
+    version: '2.0.0-sprint6',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -87,7 +89,8 @@ app.get('/', (req, res) => {
       certificates: '/api/certificates',
       posts: '/api/posts',
       recommendations: '/api/recommendations',
-      fieldTrips: '/api/field-trips'
+      fieldTrips: '/api/field-trips',
+      worknet: '/api/worknet',
     }
   });
 });

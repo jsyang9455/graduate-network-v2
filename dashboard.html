@@ -295,9 +295,12 @@
             </div>
             <div class="modal-body">
                 <div id="newsDetailDate" style="color: #6b7280; margin-bottom: 1rem;"></div>
+                <div id="newsDetailTags" style="margin-bottom: 0.75rem;"></div>
                 <div id="newsDetailContent" style="white-space: pre-wrap; line-height: 1.6;"></div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer" style="display:flex; gap:0.5rem; justify-content:flex-end;">
+                <button type="button" id="newsScrapBtn" onclick="toggleNewsScrap()" class="btn btn-secondary">스크랩</button>
+                <a href="community.html" class="btn btn-secondary">커뮤니티</a>
                 <button onclick="closeNewsDetailModal()" class="btn btn-secondary">닫기</button>
             </div>
         </div>

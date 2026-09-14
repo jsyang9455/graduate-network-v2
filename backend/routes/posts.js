@@ -65,6 +65,37 @@ function assertPostAccess(req, res, post) {
   return true;
 }
 
+function normalizeTags(input) {
+  if (input == null) return null;
+  const arr = Array.isArray(input)
+    ? input
+    : String(input).split(/[,#]/).map((t) => t.trim());
+  const cleaned = [...new Set(
+    arr
+      .map((t) => String(t).trim().replace(/^#/, '').slice(0, 40))
+      .filter(Boolean)
+  )].slice(0, 12);
+  return cleaned;
+}
+
+async function normalizeFileIds(fileIds, user) {
+  if (fileIds == null) return null;
+  if (!Array.isArray(fileIds)) return [];
+  const ids = [...new Set(fileIds.map((n) => Number(n)).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 10);
+  if (!ids.length) return [];
+  const result = await query(
+    `SELECT id, owner_user_id, school_id, kind FROM files WHERE id = ANY($1::int[])`,
+    [ids]
+  );
+  const allowed = result.rows.filter((f) => {
+    if (f.kind !== 'attachment') return false;
+    if (Number(f.owner_user_id) === Number(user.id)) return true;
+    if (isSystemAdmin(user)) return true;
+    return user.school_id != null && Number(f.school_id) === Number(user.school_id);
+  });
+  return allowed.map((f) => f.id);
+}
+
 // Categories (REQ-COM-001)
 router.get('/categories', optionalAuth, async (req, res) => {
   try {
@@ -136,7 +167,7 @@ router.get('/reports', auth, checkRole('admin', 'teacher', 'school_admin'), asyn
 // Get posts (REQ-COM-001/004)
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 20, sort = 'recent' } = req.query;
+    const { category, search, page = 1, limit = 20, sort = 'recent', tag } = req.query;
     const includeBlinded = req.query.include_blinded === 'true'
       && req.user
       && (isSystemAdmin(req.user) || isStaffAdmin(req.user) || req.user.user_type === 'teacher');
@@ -164,9 +195,16 @@ router.get('/', optionalAuth, async (req, res) => {
       params.push(category);
     }
 
+    if (tag) {
+      paramCount++;
+      queryText += ` AND $${paramCount} = ANY(p.tags)`;
+      params.push(String(tag).replace(/^#/, '').trim());
+    }
+
     if (search) {
       paramCount++;
-      queryText += ` AND (p.title ILIKE $${paramCount} OR p.content ILIKE $${paramCount})`;
+      queryText += ` AND (p.title ILIKE $${paramCount} OR p.content ILIKE $${paramCount}
+        OR EXISTS (SELECT 1 FROM unnest(COALESCE(p.tags, '{}')) t WHERE t ILIKE $${paramCount}))`;
       params.push(`%${search}%`);
     }
 
@@ -195,9 +233,15 @@ router.get('/', optionalAuth, async (req, res) => {
       countSql += ` AND p.category = $${countParam}`;
       countParams.push(category);
     }
+    if (tag) {
+      countParam++;
+      countSql += ` AND $${countParam} = ANY(p.tags)`;
+      countParams.push(String(tag).replace(/^#/, '').trim());
+    }
     if (search) {
       countParam++;
-      countSql += ` AND (p.title ILIKE $${countParam} OR p.content ILIKE $${countParam})`;
+      countSql += ` AND (p.title ILIKE $${countParam} OR p.content ILIKE $${countParam}
+        OR EXISTS (SELECT 1 FROM unnest(COALESCE(p.tags, '{}')) t WHERE t ILIKE $${countParam}))`;
       countParams.push(`%${search}%`);
     }
     const countResult = await query(countSql, countParams);
@@ -254,10 +298,12 @@ router.get('/:id', optionalAuth, async (req, res) => {
   }
 });
 
-// Create post (REQ-COM-001/003)
+// Create post (REQ-COM-001/002/003)
 router.post('/', auth, async (req, res) => {
   try {
     const { category, title, content, is_anonymous } = req.body;
+    const tags = normalizeTags(req.body.tags);
+    const fileIds = await normalizeFileIds(req.body.file_ids, req.user);
 
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
@@ -272,8 +318,8 @@ router.post('/', auth, async (req, res) => {
     }
 
     const result = await query(
-      `INSERT INTO posts (user_id, category, title, content, school_id, is_anonymous)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO posts (user_id, category, title, content, school_id, is_anonymous, tags, file_ids)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
       [
         req.user.id,
@@ -282,6 +328,8 @@ router.post('/', auth, async (req, res) => {
         content,
         req.user.school_id ?? null,
         Boolean(is_anonymous),
+        tags || [],
+        fileIds || [],
       ]
     );
 
@@ -300,6 +348,10 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { category, title, content, is_pinned, is_anonymous } = req.body;
+    const tags = req.body.tags !== undefined ? normalizeTags(req.body.tags) : undefined;
+    const fileIds = req.body.file_ids !== undefined
+      ? await normalizeFileIds(req.body.file_ids, req.user)
+      : undefined;
 
     const postCheck = await query(
       'SELECT user_id, school_id FROM posts WHERE id = $1',
@@ -329,8 +381,10 @@ router.put('/:id', auth, async (req, res) => {
            content = COALESCE($3, content),
            is_pinned = COALESCE($4, is_pinned),
            is_anonymous = COALESCE($5, is_anonymous),
+           tags = COALESCE($6, tags),
+           file_ids = COALESCE($7, file_ids),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
+       WHERE id = $8
        RETURNING *`,
       [
         category,
@@ -338,6 +392,8 @@ router.put('/:id', auth, async (req, res) => {
         content,
         is_pinned !== undefined ? is_pinned : null,
         is_anonymous !== undefined ? Boolean(is_anonymous) : null,
+        tags !== undefined ? tags : null,
+        fileIds !== undefined ? fileIds : null,
         id,
       ]
     );

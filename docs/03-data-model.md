@@ -77,6 +77,7 @@ resume_keywords (resume_id, token, weight)
 job_keywords (job_id, token, weight)
 job_recommendations (user_id, job_id, score, reasons jsonb, computed_at)
 recommendation_feedback (user_id, job_id, event impression|click|apply, at)
+job_scraps (user_id, job_id, school_id)  -- REC-002 연관·관심
 ```
 
 통합 목록은 `jobs` UNION `worknet_jobs` 뷰 `v_job_listings` 또는 API 레이어 병합.
@@ -86,6 +87,7 @@ recommendation_feedback (user_id, job_id, event impression|click|apply, at)
 ```
 field_trips (id, school_id, company_name, place, date, capacity, deadline, mode fifo|approval, ...)
 field_trip_applications (id, trip_id, user_id, status, attendance, ...)
+field_trip_reports (trip_id UNIQUE, school_id, author_id, summary, outcome, attendees_*, file_ids[])
 files (id, school_id, owner_user_id, bucket_key, mime, size, kind resume_pdf|counseling|attachment)
 audit_logs (id, actor_id, school_id, action, resource, payload, ip, at)
 notifications 확장 (event_code, channel)
@@ -126,10 +128,11 @@ roles *──* menus          (role_menu_permissions)
    Sprint 3에서 적용: `database/migrations/013_v2_sprint3_community_tenancy.sql` — announcements/certificates/education_programs.school_id, posts backfill.
    Sprint 4에서 적용: `database/migrations/014_v2_sprint4_recommendations_fieldtrips.sql` — job_recommendations·keywords·feedback, field_trips 이관(industry-visit).
    Sprint 5에서 적용: `database/migrations/015_v2_sprint5_community_extras.sql` — post_categories, post_scraps, post_reports, posts.is_anonymous/blinded_at.
+   Sprint 6에서 적용: `database/migrations/016_v2_sprint6_associated_com_trip.sql` — job_scraps, field_trip_reports, posts tags GIN.
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내. `company_profile_*`는 API `company_profiles`로 대체(B-LS).
 
 ## 6. 인덱스·무결성 (최소)
 
 - `users(school_id, user_type)`, `jobs(school_id, status, deadline)`, `job_applications(user_id)`, `job_recommendations(user_id, score DESC)`
-- Unique: `worknet_jobs.external_id`, `user_roles(user_id, role_id, school_id)`, `post_scraps(user_id, post_id)`
+- Unique: `worknet_jobs.external_id`, `user_roles(user_id, role_id, school_id)`, `post_scraps(user_id, post_id)`, `job_scraps(user_id, job_id)`, `field_trip_reports(trip_id)`
 - FK ON DELETE: 학교 삭제는 비활성화만 (하드 삭제 금지)

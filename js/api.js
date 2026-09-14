@@ -100,6 +100,76 @@ const api = {
     return this.request(endpoint, { method: 'DELETE' });
   },
 
+  async uploadFile(file) {
+    const token = this.getToken();
+    const form = new FormData();
+    form.append('file', file);
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/files`, {
+      method: 'POST',
+      headers,
+      body: form,
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const msg = (typeof data.error === 'string' ? data.error : data.error?.message) || 'Upload failed';
+      throw new Error(msg);
+    }
+    return data;
+  },
+
+  recommendations: {
+    async me(limit = 10) {
+      return api.get(`/recommendations/me?limit=${limit}`);
+    },
+    async associated(limit = 10) {
+      return api.get(`/recommendations/associated?limit=${limit}`);
+    },
+    async recompute(body = {}) {
+      return api.post('/recommendations/recompute', body);
+    },
+    async feedback(jobId, event) {
+      return api.post('/recommendations/feedback', { job_id: jobId, event });
+    },
+  },
+
+  fieldTrips: {
+    async list() {
+      return api.get('/field-trips');
+    },
+    async get(id) {
+      return api.get(`/field-trips/${id}`);
+    },
+    async apply(id, body) {
+      return api.post(`/field-trips/${id}/apply`, body);
+    },
+    async getReport(id) {
+      return api.get(`/field-trips/${id}/report`);
+    },
+    async saveReport(id, body) {
+      return api.put(`/field-trips/${id}/report`, body);
+    },
+  },
+
+  jobsApi: {
+    async scrap(id) {
+      return api.post(`/jobs/${id}/scrap`, {});
+    },
+    async unscrap(id) {
+      return api.delete(`/jobs/${id}/scrap`);
+    },
+    async myScraps() {
+      return api.get('/jobs/scraps/me');
+    },
+  },
+
+  worknet: {
+    async status() {
+      return api.get('/worknet/status');
+    },
+  },
+
   async download(endpoint, { method = 'GET', body, filename } = {}) {
     const token = this.getToken();
     const headers = {};

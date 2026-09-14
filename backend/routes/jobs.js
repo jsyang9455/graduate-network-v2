@@ -205,6 +205,25 @@ router.get('/my/applications', auth, async (req, res) => {
   }
 });
 
+// My job scraps (REQ-REC-002 signal + bookmark)
+router.get('/scraps/me', auth, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT j.*, u.name AS company_name, s.created_at AS scraped_at
+       FROM job_scraps s
+       JOIN jobs j ON j.id = s.job_id
+       JOIN users u ON u.id = j.company_id
+       WHERE s.user_id = $1
+       ORDER BY s.created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ jobs: result.rows, scraps: result.rows });
+  } catch (error) {
+    console.error('Get job scraps error:', error);
+    res.status(500).json({ error: 'Failed to get job scraps' });
+  }
+});
+
 // REQ-JOB-003 — support status workflow
 router.patch('/applications/:id/status', auth, checkRole('company', 'admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
@@ -452,6 +471,44 @@ router.delete('/:id', auth, checkRole('company', 'admin', 'teacher', 'school_adm
   } catch (error) {
     console.error('Delete job error:', error);
     res.status(500).json({ error: 'Failed to delete job' });
+  }
+});
+
+// Scrap / bookmark job (REQ-REC-002)
+router.post('/:id/scrap', auth, async (req, res) => {
+  try {
+    const job = await loadJobById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    if (!canSeeJob(req.user, job)) return forbidCrossSchool(res);
+    if (job.status !== 'active') {
+      return res.status(400).json({ error: 'Cannot scrap inactive job' });
+    }
+    await query(
+      `INSERT INTO job_scraps (user_id, job_id, school_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (user_id, job_id) DO NOTHING`,
+      [req.user.id, job.id, req.user.school_id || job.school_id]
+    );
+    res.status(201).json({ message: 'Job scraped', scraped: true });
+  } catch (error) {
+    console.error('Scrap job error:', error);
+    res.status(500).json({ error: 'Failed to scrap job' });
+  }
+});
+
+router.delete('/:id/scrap', auth, async (req, res) => {
+  try {
+    const job = await loadJobById(req.params.id);
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+    if (!canSeeJob(req.user, job)) return forbidCrossSchool(res);
+    await query(
+      'DELETE FROM job_scraps WHERE user_id = $1 AND job_id = $2',
+      [req.user.id, job.id]
+    );
+    res.json({ message: 'Scrap removed', scraped: false });
+  } catch (error) {
+    console.error('Unscrap job error:', error);
+    res.status(500).json({ error: 'Failed to remove scrap' });
   }
 });
 
