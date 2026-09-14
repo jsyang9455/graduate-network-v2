@@ -209,3 +209,14 @@ Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.*
 - Sprint 1 검증 잔여 해소: jobs 목록·상담 teachers/PUT 타교, `GET /api/users` 401, `isValidCounselingType`, CNS-003 인앱( API ).
 - 잔여: posts/announcements 테넌시, `GET /api/files` 동일교 누수, B-LS board/profile, Playwright, UI DoD.
 - 게이트 Worknet/Alimtalk `unknown` 유지. notify alimtalk는 env 없을 때 `NOT_CONFIGURED` (의도적 no-op).
+
+## Sprint 3 verification (2026-09-14, read-only)
+
+Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.** 본문은 [docs/qa/sprint3-verification.md](qa/sprint3-verification.md). **기준 커밋 `78ba7ee`(Sprint 3 주장 35% / P0 ~44%).** 위 표 %는 본 절에서 재조정하지 않음 — Architect 선택.
+
+- 커밋 `78ba7ee`: posts/announcements/certificates/education-programs 학교 가드·타교 403, `GET /api/files` 동일교 peer `resume_pdf` 403, admin-board API 이관, profile `/auth/me` 우선은 실재. 판정 **partial**.
+- `npm --prefix backend test`: **39/39 pass** (roles 2 + wave1 10 + sprint1 9 + sprint2 12 + sprint3 6). Playwright 없음. admin-board/profile **브라우저 미검증**.
+- STATUS Sprint 3 **35%**·전체 P0 **약 44%**는 **대체로 정직** (모니터: Sprint 3 **30–40%**, P0 **42–48%**). Phase 3 **78%**는 **경계~약간 과대 (72–78%)**. QA **65%**는 경계.
+- Sprint 2 검증 잔여 해소: posts/announcements 테넌시, files 동일교 누수(resume_pdf), admin-board LS.
+- 잔여: networking 테넌시, REQ-REC/TRP/COM 본체, education-programs 전용 403 테스트, Playwright, B-LS `company_profile_*`.
+- 게이트 Worknet/Alimtalk `unknown` 유지. 워크넷·추천·견학 **0%** 주장은 정직.
