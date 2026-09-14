@@ -125,7 +125,8 @@ roles *──* menus          (role_menu_permissions)
    Sprint 2에서 적용: `database/migrations/012_v2_sprint2_workflow.sql` — `notifications.event_code`/`channel`/`school_id`/`payload`, `jobs.school_id` 기업 소속 백필.
    Sprint 3에서 적용: `database/migrations/013_v2_sprint3_community_tenancy.sql` — announcements/certificates/education_programs.school_id, posts backfill.
    Sprint 4에서 적용: `database/migrations/014_v2_sprint4_recommendations_fieldtrips.sql` — job_recommendations·keywords·feedback, field_trips 이관(industry-visit).
-6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내.
+   Sprint 5에서 적용: `database/migrations/015_v2_sprint5_community_extras.sql` — post_categories, post_scraps, post_reports, posts.is_anonymous/blinded_at.
+6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내. `company_profile_*`는 API `company_profiles`로 대체(B-LS).
 
 ## 6. 인덱스·무결성 (최소)
 

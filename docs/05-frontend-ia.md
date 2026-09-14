@@ -58,7 +58,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 |------|------|----|
 | 회원 | `admin-users.html` | school_admin은 소속만, 전입/전출, 역할 지정 |
 | 공고 | `admin-jobs.html` | **Sprint 1:** LocalStorage `jobPostings` 폴백 삭제. `/api/jobs`만 |
-| 게시판 | `admin-board.html` | API만, 블라인드/신고 |
+| 게시판 | `admin-board.html` | API만. Sprint 5: 블라인드 버튼(`include_blinded`) |
 | 공지/행사 | `admin-announcements.html` | 견학 모듈과 정렬 |
 | 코드 | `admin-codes.html` | **Wave 1:** `GET/POST/PATCH /api/schools`. 비활성화만(하드 삭제 없음). LocalStorage 삭제 |
 | (신규) 학교 관리 | `admin-schools.html` | system_admin |
@@ -68,7 +68,8 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | (신규) 감사 로그 | `admin-audit.html` | |
 | (신규) 추천 모니터 | `admin-recommendations.html` | 선택 |
 
-개발용 `check-storage.html`, `dashboard-test.html`, `setup-test-profile.html`은 운영 빌드에서 제외.
+개발용 `check-storage.html`, `dashboard-test.html`은 운영 빌드에서 제외.
+`setup-test-profile.html`은 Sprint 5에서 `PUT /api/users/company-profile`만 사용(B-LS; `company_profile_*` LocalStorage 제거).
 
 ## 3. 공통 UX
 

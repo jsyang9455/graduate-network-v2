@@ -1,5 +1,10 @@
 // API Configuration — local API is port 5000 (compose/backend default). Nginx `/api` in production.
+// Override: localStorage.jjobb_api_base = 'http://localhost:5050/api' (macOS AirPlay often holds 5000).
 const API_BASE_URL = (() => {
+  try {
+    const override = localStorage.getItem('jjobb_api_base');
+    if (override) return override.replace(/\/$/, '');
+  } catch (_) { /* ignore */ }
   const hostname = window.location.hostname;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
@@ -415,6 +420,38 @@ const api = {
 
     async like(id) {
       return api.post(`/posts/${id}/like`, {});
+    },
+
+    async categories() {
+      return api.get('/posts/categories');
+    },
+
+    async scrap(id) {
+      return api.post(`/posts/${id}/scrap`, {});
+    },
+
+    async unscrap(id) {
+      return api.delete(`/posts/${id}/scrap`);
+    },
+
+    async myScraps() {
+      return api.get('/posts/scraps/me');
+    },
+
+    async report(id, reason) {
+      return api.post(`/posts/${id}/report`, { reason });
+    },
+
+    async blind(id, reason) {
+      return api.post(`/posts/${id}/blind`, { reason });
+    },
+
+    async unblind(id) {
+      return api.delete(`/posts/${id}/blind`);
+    },
+
+    async reports() {
+      return api.get('/posts/reports');
     },
   },
 };

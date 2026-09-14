@@ -135,9 +135,16 @@
 
 | Method | Path | REQ |
 |--------|------|-----|
-| POST | `/api/posts/:id/scrap` | COM-003 |
+| GET | `/api/posts/categories` | COM-001 |
+| GET | `/api/posts?sort=popular` | COM-004 |
+| GET | `/api/posts/scraps/me` | COM-003 |
+| POST/DELETE | `/api/posts/:id/scrap` | COM-003 |
 | POST | `/api/posts/:id/report` | COM-005 |
-| POST | `/api/posts/:id/blind` | COM-005 운영자 |
+| GET | `/api/posts/reports` | COM-005 운영자 |
+| POST/DELETE | `/api/posts/:id/blind` | COM-005 운영자 |
+| GET/PUT | `/api/users/company-profile` | PLT-001 / B-LS |
+
+게시글 생성 시 `category`는 `employment_review`/`interview_review`/`job_qa`/`mentoring`/`news`. `is_anonymous` 지원. 블라인드된 글은 일반 목록·상세에서 제외(운영자 `include_blinded=true`).
 
 ### Notify (P2 실발송)
 
@@ -161,6 +168,7 @@
 - Sprint 2 구현: jobs list/get/update school 가드, `PATCH /api/jobs/applications/:id/status`, `GET /api/jobs/applications/:id`, `GET /api/notifications`, counseling teachers/sessions school 가드. 워크넷·알림톡 실연동 없음 (`NOT_CONFIGURED`).
 - Sprint 3 구현: `GET/POST /api/posts*`, `GET /api/announcements/*`, `GET /api/certificates/:id`, `GET /api/education-programs*` school 범위(optionalAuth 목록·403 타교). `GET /api/files/:id` 동일교 타 사용자 이력서 PDF 403.
 - Sprint 4 구현: `GET /api/recommendations/me`, `POST /api/recommendations/recompute`, `POST /api/recommendations/feedback`; `GET/POST /api/field-trips`, `GET/PUT /api/field-trips/:id`, `POST /api/field-trips/:id/apply`, `PATCH /api/field-trips/applications/:id`, `GET /api/field-trips/:id/roster`, `PATCH /api/field-trips/:id/attendance`; networking mentors/connect schoolScope. 워크넷·알림톡 실연동 없음.
+- Sprint 5 구현: `GET /api/posts/categories`, `GET /api/posts?sort=popular`, scrap/report/blind, `GET/PUT /api/users/company-profile`. 워크넷·알림톡 실연동 없음.
 
 ## 5. OpenAPI
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { auth } = require('../middleware/auth');
+const { auth, checkRole } = require('../middleware/auth');
 const { authorize } = require('../middleware/authorize');
 const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middleware/schoolScope');
 const { isSystemAdmin, isStaffAdmin } = require('../lib/roles');
@@ -111,6 +111,23 @@ router.get('/profile', auth, async (req, res) => {
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+// Must be before GET /:id (REQ-PLT-001 / B-LS)
+router.get('/company-profile', auth, async (req, res) => {
+  try {
+    const result = await query(
+      'SELECT * FROM company_profiles WHERE user_id = $1',
+      [req.user.id]
+    );
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'Company profile not found' });
+    }
+    res.json({ profile: result.rows[0] });
+  } catch (error) {
+    console.error('Get company profile error:', error);
+    res.status(500).json({ error: 'Failed to get company profile' });
   }
 });
 
@@ -309,6 +326,87 @@ router.put('/graduate-profile', auth, async (req, res) => {
   } catch (error) {
     console.error('Update graduate profile error:', error);
     res.status(500).json({ error: 'Failed to update graduate profile' });
+  }
+});
+
+// Upsert company profile (REQ-PLT-001 — API source of truth; replaces company_profile_* localStorage)
+router.put('/company-profile', auth, checkRole('company', 'admin'), async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      company_name,
+      industry,
+      company_size,
+      website,
+      address,
+      description,
+      logo_url,
+      founded_year,
+    } = req.body;
+
+    if (!company_name) {
+      return res.status(400).json({ error: 'company_name is required' });
+    }
+
+    const existing = await query(
+      'SELECT id FROM company_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    let result;
+    if (existing.rows.length === 0) {
+      result = await query(
+        `INSERT INTO company_profiles
+         (user_id, company_name, industry, company_size, website, address, description, logo_url, founded_year)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          userId,
+          company_name,
+          industry || null,
+          company_size || null,
+          website || null,
+          address || null,
+          description || null,
+          logo_url || null,
+          founded_year || null,
+        ]
+      );
+    } else {
+      result = await query(
+        `UPDATE company_profiles
+         SET company_name = COALESCE($1, company_name),
+             industry = COALESCE($2, industry),
+             company_size = COALESCE($3, company_size),
+             website = COALESCE($4, website),
+             address = COALESCE($5, address),
+             description = COALESCE($6, description),
+             logo_url = COALESCE($7, logo_url),
+             founded_year = COALESCE($8, founded_year),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $9
+         RETURNING *`,
+        [
+          company_name,
+          industry,
+          company_size,
+          website,
+          address,
+          description,
+          logo_url,
+          founded_year,
+          userId,
+        ]
+      );
+    }
+
+    res.json({
+      message: 'Company profile updated successfully',
+      profile: result.rows[0],
+    });
+  } catch (error) {
+    console.error('Update company profile error:', error);
+    res.status(500).json({ error: 'Failed to update company profile' });
   }
 });
 

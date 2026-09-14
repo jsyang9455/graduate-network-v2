@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>?�스내 프로필?�정</title>
+    <title>테스트 기업 프로필 (API)</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -19,168 +19,140 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #667eea;
-            margin-bottom: 20px;
-        }
+        h1 { color: #2563eb; margin-bottom: 20px; }
         .info {
-            background: #f0f4ff;
+            background: #eff6ff;
             padding: 15px;
             border-radius: 5px;
             margin-bottom: 20px;
         }
         button {
-            background: #667eea;
+            background: #2563eb;
             color: white;
-            padding: 12px 30px;
+            padding: 12px 24px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
-            font-size: 16px;
-            margin-right: 10px;
+            font-size: 15px;
+            margin: 0 8px 8px 0;
         }
-        button:hover {
-            background: #5568d3;
-        }
+        button.secondary { background: #64748b; }
+        button.danger { background: #dc2626; }
         .result {
             margin-top: 20px;
             padding: 15px;
             border-radius: 5px;
             display: none;
         }
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         pre {
             background: #f8f9fa;
             padding: 15px;
             border-radius: 5px;
             overflow-x: auto;
         }
+        .note { font-size: 0.9rem; color: #64748b; margin-top: 1rem; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>?�� ?�스??기업 새로운?�정</h1>
-        
+        <h1>테스트 기업 프로필 설정</h1>
+
         <div class="info">
-            <h3>기업 ?�스??계정 ?�보</h3>
-            <p><strong>이메일</strong> company@JJOBB.com</p>
-            <p><strong>비밀번호:</strong> password123</p>
-            <p><strong>?�사�?</strong> JJOBB채용</p>
+            <p><strong>REQ-PLT-001 / B-LS:</strong> 기업 프로필은 <code>localStorage company_profile_*</code>가 아니라
+            <code>PUT /api/users/company-profile</code> (DB <code>company_profiles</code>)가 진실 공급원입니다.</p>
+            <p><strong>계정</strong> company@JJOBB.com / password123 (시드 계정이 있는 경우)</p>
         </div>
 
-        <button onclick="setupTestProfile()">?�스내 프로필?�성</button>
-        <button onclick="viewProfile()">?�재 새로운보기</button>
-        <button onclick="clearProfile()">새로운??��</button>
-        <button onclick="goToLogin()">로그인?�이지�??�동</button>
+        <button onclick="setupViaApi()">API로 프로필 저장</button>
+        <button class="secondary" onclick="viewViaApi()">API에서 조회</button>
+        <button class="danger" onclick="clearLegacyLocalStorage()">레거시 localStorage 키 삭제</button>
+        <button class="secondary" onclick="location.href='login.html'">로그인 페이지</button>
 
         <div id="result" class="result"></div>
-
-        <h3>?�성내 프로필?�이??</h3>
+        <h3>전송 페이로드</h3>
         <pre id="profileData"></pre>
+        <p class="note">macOS AirPlay가 5000을 쓰면 백엔드를 <code>PORT=5050 npm start</code>로 띄운 뒤
+            콘솔에서 <code>localStorage.setItem('jjobb_api_base','http://localhost:5050/api')</code> 후 새로고침하세요.</p>
     </div>
 
+    <script src="js/api.js"></script>
     <script>
-        // ?�스내 프로필?�이??
         const testProfile = {
-            companyName: 'JJOBB채용',
-            businessNumber: '123-45-67890',
-            ceoName: '김예?,
-            foundedDate: '2015-03-15',
-            employees: '50',
-            industry: 'IT/?�프?�웨??,
-            companyType: '중소기업',
-            address: '?�라북도 ?�주???�산�?숫자??,
-            phone: '063-123-4567',
-            email: 'hr@JJOBB.com',
+            company_name: 'JJOBB채용',
+            industry: 'IT/소프트웨어',
+            company_size: '50',
             website: 'https://JJOBB.com',
-            description: 'JJOBB채용?� 전주공업고등학교 졸업생들의취업??지?�하??영문 채용 ?�랫?�입?�다. ?�수??기술 ?�재�?발굴?�고 ?�결?�여 지???�업 발전??기여?�고 ?�습?�다.',
-            benefits: '4?�보험, ?�직�? ?�차, 교육�?지?? 중식 전공, ?�격�?취득 지??,
-            culture: '?�평??조직문화, ?�율 출퇴근제, ?�택근무 가??
+            address: '전라북도 전주시',
+            description: '전주공업고등학교 졸업생 취업 지원 테스트 기업 프로필입니다.',
+            founded_year: 2015,
         };
 
-        // 새로운?�이???�시
         document.getElementById('profileData').textContent = JSON.stringify(testProfile, null, 2);
 
-        function setupTestProfile() {
-            // company@JJOBB.com??user_id�?5�?가??(?�제 DB??ID)
-            const userId = 5;
-            
-            // localStorage내 프로필예?
-            localStorage.setItem(`company_profile_${userId}`, JSON.stringify(testProfile));
-            
-            const resultDiv = document.getElementById('result');
-            resultDiv.className = 'result success';
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = `
-                <h3>???�스???�로?�이 전공?�으�??�성?�었?�니??</h3>
-                <p>User ID: ${userId}</p>
-                <p>localStorage key: company_profile_${userId}</p>
-                <p><strong>?�음 ?�계:</strong></p>
-                <ol>
-                    <li>로그인?�이지�??�동</li>
-                    <li>company@JJOBB.com / password123�?로그인/li>
-                    <li>내 프로필?�릭?�여 ?�인</li>
-                </ol>
-            `;
+        function showResult(ok, html) {
+            const el = document.getElementById('result');
+            el.className = 'result ' + (ok ? 'success' : 'error');
+            el.style.display = 'block';
+            el.innerHTML = html;
         }
 
-        function viewProfile() {
-            const userId = 5;
-            const profile = localStorage.getItem(`company_profile_${userId}`);
-            
-            const resultDiv = document.getElementById('result');
-            resultDiv.className = 'result success';
-            resultDiv.style.display = 'block';
-            
-            if (profile) {
-                resultDiv.innerHTML = `
-                    <h3>?�� ?�재 예�된 새로운/h3>
-                    <pre>${JSON.stringify(JSON.parse(profile), null, 2)}</pre>
-                `;
-            } else {
-                resultDiv.innerHTML = `
-                    <h3>?�️ 예�된 ?�로?�이 ?�습?�다</h3>
-                    <p>"?�스내 프로필?�성" 버튼???�릭?�여 ?�로?�을 ?�성?�세??</p>
-                `;
+        async function ensureLogin() {
+            if (api.getToken()) return true;
+            try {
+                const data = await api.post('/auth/login', {
+                    email: 'company@JJOBB.com',
+                    password: 'password123',
+                });
+                if (data.token) {
+                    api.setToken(data.token);
+                    return true;
+                }
+            } catch (e) {
+                showResult(false, `<h3>로그인 실패</h3><p>${e.message}</p><p>시드 계정이 없으면 먼저 company 계정으로 로그인하세요.</p>`);
+                return false;
+            }
+            return false;
+        }
+
+        async function setupViaApi() {
+            if (!(await ensureLogin())) return;
+            try {
+                const data = await api.put('/users/company-profile', testProfile);
+                // purge any leftover LS keys (B-LS)
+                clearLegacyLocalStorage(true);
+                showResult(true, `<h3>API에 저장됨</h3><pre>${JSON.stringify(data.profile, null, 2)}</pre>`);
+            } catch (e) {
+                showResult(false, `<h3>저장 실패</h3><p>${e.message}</p>`);
             }
         }
 
-        function clearProfile() {
-            const userId = 5;
-            localStorage.removeItem(`company_profile_${userId}`);
-            
-            const resultDiv = document.getElementById('result');
-            resultDiv.className = 'result success';
-            resultDiv.style.display = 'block';
-            resultDiv.innerHTML = `
-                <h3>?���??�로?�이 ??��?�었?�니??/h3>
-            `;
-        }
-
-        function goToLogin() {
-            window.location.href = 'login.html';
-        }
-
-        // ?�이지 로드 ???�재 새로운?�태 ?�인
-        window.onload = function() {
-            const userId = 5;
-            const profile = localStorage.getItem(`company_profile_${userId}`);
-            
-            if (profile) {
-                const resultDiv = document.getElementById('result');
-                resultDiv.className = 'result success';
-                resultDiv.style.display = 'block';
-                resultDiv.innerHTML = `
-                    <h3>?�️ ?��? ?�로?�이 존재?�니??/h3>
-                    <p>"?�재 새로운보기" 버튼???�릭?�여 ?�인?�거??<br>
-                    "새로운??��" ???�시 ?�성?????�습?�다.</p>
-                `;
+        async function viewViaApi() {
+            if (!(await ensureLogin())) return;
+            try {
+                const data = await api.get('/users/company-profile');
+                showResult(true, `<h3>DB 프로필</h3><pre>${JSON.stringify(data.profile, null, 2)}</pre>`);
+            } catch (e) {
+                showResult(false, `<h3>조회 실패</h3><p>${e.message}</p>`);
             }
-        };
+        }
+
+        function clearLegacyLocalStorage(silent) {
+            const removed = [];
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('company_profile_')) {
+                    localStorage.removeItem(key);
+                    removed.push(key);
+                }
+            }
+            if (!silent) {
+                showResult(true, `<h3>레거시 키 삭제</h3><p>${removed.length ? removed.join(', ') : '삭제할 company_profile_* 키 없음'}</p>`);
+            }
+        }
+
+        window.onload = () => clearLegacyLocalStorage(true);
     </script>
 </body>
 </html>

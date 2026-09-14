@@ -239,10 +239,10 @@
             }
         }
 
-        // 최근 소식 관리 (REQ-PLT-001 — /api/posts)
+        // 최근 소식 관리 (REQ-PLT-001 — /api/posts; REQ-COM-005 blind)
         async function loadNews() {
             try {
-                const data = await api.get('/posts?limit=200');
+                const data = await api.get('/posts?limit=200&include_blinded=true');
                 allNews = data.posts || [];
             } catch (e) {
                 console.error(e);
@@ -259,17 +259,24 @@
                 return;
             }
 
-            tbody.innerHTML = allNews.map(news => `
-                <tr style="border-bottom: 1px solid #e5e7eb;">
+            tbody.innerHTML = allNews.map(news => {
+                const blinded = !!news.blinded_at;
+                const title = blinded ? `[블라인드] ${news.title}` : news.title;
+                const blindBtn = blinded
+                    ? `<button onclick="unblindNews(${news.id})" class="btn btn-sm btn-secondary" style="margin-right: 0.5rem;">블라인드 해제</button>`
+                    : `<button onclick="blindNews(${news.id})" class="btn btn-sm btn-warning" style="margin-right: 0.5rem;">블라인드</button>`;
+                return `
+                <tr style="border-bottom: 1px solid #e5e7eb;${blinded ? ' opacity:0.65;' : ''}">
                     <td style="padding: 1rem;">${news.id}</td>
-                    <td style="padding: 1rem;">${news.title}</td>
+                    <td style="padding: 1rem;">${title}</td>
                     <td style="padding: 1rem;">${new Date(news.created_at || news.createdAt).toLocaleDateString('ko-KR')}</td>
                     <td style="padding: 1rem; text-align: center;">
                         <button onclick="editNews(${news.id})" class="btn btn-sm btn-primary" style="margin-right: 0.5rem;">수정</button>
+                        ${blindBtn}
                         <button onclick="deleteNews(${news.id})" class="btn btn-sm btn-danger">삭제</button>
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
 
         function showNewsModal() {
@@ -326,6 +333,29 @@
                 await loadNews();
             } catch (e) {
                 alert('삭제 실패: ' + (e.message || '다시 시도해주세요.'));
+            }
+        }
+
+        async function blindNews(newsId) {
+            const reason = prompt('블라인드 사유 (선택)', '운영 정책');
+            if (reason === null) return;
+            try {
+                await api.posts.blind(newsId, reason || '운영 정책');
+                alert('블라인드 처리되었습니다.');
+                await loadNews();
+            } catch (e) {
+                alert('블라인드 실패: ' + (e.message || '권한을 확인하세요.'));
+            }
+        }
+
+        async function unblindNews(newsId) {
+            if (!confirm('블라인드를 해제할까요?')) return;
+            try {
+                await api.posts.unblind(newsId);
+                alert('블라인드가 해제되었습니다.');
+                await loadNews();
+            } catch (e) {
+                alert('해제 실패: ' + (e.message || '권한을 확인하세요.'));
             }
         }
 

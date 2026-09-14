@@ -297,8 +297,14 @@ Error: connect ECONNREFUSED
 ```
 Error: listen EADDRINUSE :::5000
 ```
-- 다른 프로그램이 5000번 포트를 사용 중
-- `.env` 파일에서 PORT 변경
+- macOS AirPlay Receiver가 5000을 쓰는 경우가 많음
+- 백엔드: `PORT=5050 npm start` (production compose 포트는 그대로 5000)
+- 프론트: 브라우저 콘솔에서 `localStorage.setItem('jjobb_api_base','http://localhost:5050/api')` 후 새로고침
+- 자세한 STATUS/로컬 DX 메모 참고
+
+### Persona smoke
+- CI: `npm test` → `backend/tests/persona-smoke.test.js` 포함
+- 선택 브라우저: `npm run test:e2e` — [docs/qa/e2e-persona-smoke.md](docs/qa/e2e-persona-smoke.md)
 
 ## 📝 개발 참고사항
 
