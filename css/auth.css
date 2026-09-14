@@ -254,7 +254,7 @@
 .user-type-btn:hover {
     border-color: var(--primary-color);
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 4px 12px rgba(31, 107, 69, 0.22);
 }
 
 .user-type-btn.active {

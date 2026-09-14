@@ -11,7 +11,7 @@
     <header id="mainHeader">
         <nav>
             <div class="logo">
-                <img src="images/logo.png" alt="JJOBB" style="height: 40px;">
+                <img src="images/logo.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="158" height="40">
             </div>
             <ul class="nav-links" id="navLinks">
                 <li><a href="index.html">홈</a></li>
@@ -30,18 +30,17 @@
         </nav>
     </header>
 
-    <section class="hero">
+    <section class="hero" aria-label="메인 배너">
+        <div class="hero-backdrop" aria-hidden="true"></div>
         <div class="hero-content">
             <div class="hero-text">
+                <p class="hero-brand">JJOBB · 전북지역 졸업생 취업지원</p>
                 <h1>미래를 함께 만들어가는<br>졸업생 네트워크</h1>
-                <p>전북지역 졸업생의 성공적인 진로와 지속적인 성장을 지원합니다. 동문 네트워크를 통해 새로운 기회를 발견하세요.</p>
+                <p class="hero-lead">전북지역 졸업생의 성공적인 진로와 지속적인 성장을 지원합니다. 동문 네트워크를 통해 새로운 기회를 발견하세요.</p>
                 <div class="hero-buttons">
                     <a href="register.html" class="btn btn-primary">졸업생 등록하기</a>
                     <a href="login.html?type=company&returnUrl=company-profile.html" class="btn btn-secondary">회사 정보 등록</a>
                 </div>
-            </div>
-            <div class="hero-image">
-                <img src="https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" alt="Modern industrial facility">
             </div>
         </div>
     </section>
@@ -77,49 +76,49 @@
         </div>
         <div class="services-grid">
             <div class="service-card" onclick="navigateWithAuth(event, 'jobs.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="jobs" aria-hidden="true"></div>
                 <h3>취업 정보 서비스</h3>
                 <p>최신 채용 정보와 맞춤형 일자리 추천을 받아보세요</p>
                 <a href="#" onclick="navigateWithAuth(event, 'jobs.html')" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateWithAuth(event, 'networking.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="network" aria-hidden="true"></div>
                 <h3>JOB밴드</h3>
                 <p>선후배 졸업생들과 연결되어 멘토링 기회를 만들어보세요.</p>
                 <a href="#" onclick="navigateWithAuth(event, 'networking.html')" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateWithAuth(event, 'counseling.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="counsel" aria-hidden="true"></div>
                 <h3>진로 상담 서비스</h3>
                 <p>전문 상담교사와 1:1 진로 상담을 지원합니다.</p>
                 <a href="#" onclick="navigateWithAuth(event, 'counseling.html')" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateToService('education-programs.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="education" aria-hidden="true"></div>
                 <h3>평생 교육 프로그램</h3>
                 <p>기술 트렌드와 실무 역량 향상 교육을 제공합니다</p>
                 <a href="education-programs.html" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateToService('career.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="career" aria-hidden="true"></div>
                 <h3>경력 관리</h3>
                 <p>개인 이력과 경력 현황을 체계적으로 관리합니다.</p>
                 <a href="career.html" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateWithAuth(event, 'job-fair.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="fair" aria-hidden="true"></div>
                 <h3>취업 박람회</h3>
                 <p>전북지역 기업이 참여하는 취업박람회 정보를 확인하세요.</p>
                 <a href="#" onclick="navigateWithAuth(event, 'job-fair.html')" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateWithAuth(event, 'industry-visit.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="visit" aria-hidden="true"></div>
                 <h3>산업체 견학</h3>
                 <p>현장 체험과 기업 탐방을 통해 진로를 탐색하세요.</p>
                 <a href="#" onclick="navigateWithAuth(event, 'industry-visit.html')" class="service-link">자세히 보기 </a>
             </div>
             <div class="service-card" onclick="navigateWithAuth(event, 'certification-support.html')">
-                <div class="service-icon"></div>
+                <div class="service-icon" data-icon="cert" aria-hidden="true"></div>
                 <h3>자격증 지원</h3>
                 <p>기술 자격증 취득을 위한 지원 프로그램을 안내합니다.</p>
                 <a href="#" onclick="navigateWithAuth(event, 'certification-support.html')" class="service-link">자세히 보기 </a>

@@ -78,6 +78,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 - **반응형:** 기존 `css/*.css` 계승, 이력서 마법사·테이블은 모바일 카드 레이아웃.
 - **접근성:** 폼 label, 버튼 이름, 포커스. 신규 화면은 키보드 제출 가능.
 - **에러:** 403이면 「소속 학교 권한이 없습니다」. 503 NOT_CONFIGURED이면 게이트 안내.
+- **비주얼 시스템 (2026-09-15):** 로고 정렬 네이비(`--secondary-color`)·리프 그린(`--primary-color`) 토큰. 헤더 로고는 `images/logo.svg`(다크 헤더) / `images/logo-color.svg`(라이트). 랜딩 `index.html` 메인 배너는 `images/main-banner.jpg` 풀블리드. 서비스 아이콘은 SVG mask(`data-icon`). 대시보드 welcome도 동일 배너 톤.
 
 ## 4. 핵심 사용자 흐름
 

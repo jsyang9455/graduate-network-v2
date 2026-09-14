@@ -1,6 +1,6 @@
 # STATUS — jjobb_v2 (living)
 
-최종 갱신: 2026-09-14  
+최종 갱신: 2026-09-15  
 현재 단계: **Sprint 7 (QA hardening · NFR-010 · persona/browser UAT)**  
 전체 P0 구현: **약 64%** (Wave 1–Sprint 6 기능 + Sprint 7 QA/NFR. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`으로 P0 잔여의 상당 부분. Playwright 풀 스위트·이관/교육 미착수)
 
@@ -48,7 +48,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 |--------|-------|---|------|
 | 멀티스쿨 스키마/가드 | backend | 92 | job scrap / trip report school 범위 |
 | IAM API·OpenAPI | api | 92 | associated + worknet stub + report paths |
-| 권한 메뉴·schools UI | frontend | 78 | community.html·대시보드 스크랩 |
+| 권한 메뉴·schools UI | frontend | 80 | community.html·대시보드 스크랩; **2026-09-15 비주얼 패스** (네이비·그린 토큰·메인 배너) |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 70 | |
@@ -118,6 +118,14 @@ networking 가드, recommendations P0, field_trips P0. 상세: [docs/qa/sprint4-
 ## Sprint 3 완료 기록 (요약)
 
 posts/announcements/certificates/education-programs school 가드, files 동일교 프라이버시, admin-board/profile API.
+
+## Frontend visual pass (2026-09-15)
+
+- Tone: 로고 정렬 네이비·리프그린, 보라 그라데이션 제거 (`css/style.css` 토큰)
+- Assets: `images/main-banner.jpg` (랜딩·대시보드 hero), `images/empty-state-career.png`
+- Logo: `images/logo.svg` (헤더 워드마크·다크 헤더용), `images/logo-color.svg` (라이트용), `images/logo-mark.svg` (마크)
+- Surfaces: `index.html` 풀블리드 메인 배너, `dashboard.html` welcome 배너 톤, 주요 페이지 헤더 로고 SVG 교체
+- REQ: PLT/UI 공통 크롬 (IA §3). RBAC·API·JWT-only 미변경
 
 ## Phase 0 / Wave 1 / Sprint 1–2 verification
 
