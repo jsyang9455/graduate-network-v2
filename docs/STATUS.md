@@ -88,6 +88,14 @@ Need: 워크넷 게이트, 연관 추천, 직무·기업 태그
 Done: scrap/report/blind/categories/popular + company-profile API
 ```
 
+### Sprint 5 검증 (Role Verifier + Progress Monitor)
+
+- **기준 커밋:** `6a0c418` · 상세: [docs/qa/sprint5-verification.md](qa/sprint5-verification.md)
+- **판정:** partial pass (COM P0 API·B-LS·persona smoke 강함). COM-002·첨부·브라우저 UI·워크넷 잔여(의도)
+- **테스트 재실행:** **54/54 pass** (2026-09-14). Playwright 풀 스위트 없음(선택 Puppeteer)
+- **STATUS 정직성:** Sprint 5 **~80%** · 전체 P0 **~58%** · 워크넷 **0%/게이트 unknown** — 모니터 **유지 권장**(과대 없음)
+- 수치 변경 없음(git 실진척과 일치).
+
 ## Sprint 4 완료 기록 (요약)
 
 networking 가드, recommendations P0, field_trips P0. QA 46 tests → Sprint 5에서 확장. 상세: [docs/qa/sprint4-verification.md](qa/sprint4-verification.md) (기준 `b7277f2`).
