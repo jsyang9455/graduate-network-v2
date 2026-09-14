@@ -6,7 +6,7 @@ let editingPostId = null;
 document.addEventListener('DOMContentLoaded', function() {
     auth.requireAuth();
     currentUser = auth.getCurrentUser();
-    if (!currentUser || currentUser.user_type !== 'admin') {
+    if (!currentUser || !auth.isStaffAdmin(currentUser)) {
         alert('관리자만 접근할 수 있습니다.');
         window.location.href = 'dashboard.html';
         return;

@@ -2,15 +2,21 @@
 
 document.addEventListener('DOMContentLoaded', () => { initJournalPage(); });
 
-let currentUser = null;
-let allJournals = [];
+function isStaffAdminUser(user) {
+    return user && (user.user_type === 'admin' || user.user_type === 'school_admin'
+        || user.role === 'system_admin' || user.role === 'school_admin');
+}
+
+function isTeacherOrAdminUser(user) {
+    return user && (user.user_type === 'teacher' || isStaffAdminUser(user));
+}
 
 // ─── API 헬퍼 ─────────────────────────────────────────────────
 
 function getApiBase() {
     const h = window.location.hostname;
-    if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:5001/api';
-    if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return 'http://' + h + ':5001/api';
+    if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:5000/api';
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return 'http://' + h + ':5000/api';
     return '/api';
 }
 
@@ -61,13 +67,13 @@ async function initJournalPage() {
     if (userNameEl) userNameEl.textContent = currentUser.name || '';
 
     // 관리자 메뉴
-    if (currentUser.user_type === 'admin') {
+    if (isStaffAdminUser(currentUser)) {
         const adminSection = document.getElementById('adminMenuSection');
         if (adminSection) adminSection.style.display = 'block';
     }
 
     // 교사/관리자만 작성 버튼 표시
-    if (currentUser.user_type === 'teacher' || currentUser.user_type === 'admin') {
+    if (isTeacherOrAdminUser(currentUser)) {
         const addBtn = document.getElementById('addJournalBtn');
         if (addBtn) addBtn.style.display = '';
     }
@@ -110,7 +116,7 @@ function renderJournals() {
         return;
     }
 
-    const isTeacherOrAdmin = currentUser.user_type === 'teacher' || currentUser.user_type === 'admin';
+    const isTeacherOrAdmin = isTeacherOrAdminUser(currentUser);
 
     container.innerHTML = list.map(j => {
         const dateStr = j.counseling_date ? formatDate(j.counseling_date) : '-';
@@ -119,7 +125,7 @@ function renderJournals() {
             : (j.content || '');
 
         const actionBtns = isTeacherOrAdmin && (
-            currentUser.user_type === 'admin' || String(j.teacher_id) === String(currentUser.id)
+            isStaffAdminUser(currentUser) || String(j.teacher_id) === String(currentUser.id)
         ) ? `
             <div class="journal-card-actions">
                 <button class="btn btn-secondary btn-sm" onclick="openJournalModal('${j.id}')">수정</button>
@@ -231,9 +237,9 @@ function openDetailModal(id) {
 
     document.getElementById('detailTitle').textContent = j.title || '상담일지 상세';
 
-    const isTeacherOrAdmin = currentUser.user_type === 'teacher' || currentUser.user_type === 'admin';
+    const isTeacherOrAdmin = isTeacherOrAdminUser(currentUser);
     const canEdit = isTeacherOrAdmin && (
-        currentUser.user_type === 'admin' || String(j.teacher_id) === String(currentUser.id)
+        isStaffAdminUser(currentUser) || String(j.teacher_id) === String(currentUser.id)
     );
 
     document.getElementById('journalDetailBody').innerHTML = `

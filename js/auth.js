@@ -3,6 +3,7 @@ class AuthManager {
     constructor() {
         this.storageKey = 'graduateNetwork_user';
         this.tokenKey = 'token';
+        this.permissions = null;
         this.init();
     }
 
@@ -11,31 +12,18 @@ class AuthManager {
         this.checkAuth();
     }
 
-    // Check authentication status
     async checkAuth() {
         const token = localStorage.getItem(this.tokenKey);
         if (token) {
-            // 이미 localStorage에 유저 데이터가 있으면 재검증 skip
-            const existingUser = localStorage.getItem(this.storageKey);
-            if (existingUser) {
-                this.updateAuthUI();
-                return;
-            }
-
-            // test/user 토큰도 skip
-            if (token.startsWith('test_token_') || token.startsWith('user_token_')) {
-                return;
-            }
-            
             try {
                 const response = await api.auth.getCurrentUser();
                 if (response.user) {
                     localStorage.setItem(this.storageKey, JSON.stringify(response.user));
                     this.updateAuthUI();
+                    this.applyPermissionMenus();
                 }
             } catch (error) {
-                // 401 (토큰 무효/만료) → 로컬 토큰만 삭제
-                if (error.message && (error.message.includes('Invalid token') || error.message.includes('Unauthorized') || error.message.includes('Authentication required'))) {
+                if (error.message && (error.message.includes('Invalid token') || error.message.includes('Unauthorized') || error.message.includes('Authentication required') || error.message.includes('UNAUTHENTICATED'))) {
                     localStorage.removeItem(this.storageKey);
                     localStorage.removeItem(this.tokenKey);
                     this.updateAuthUI();
@@ -44,32 +32,106 @@ class AuthManager {
         }
     }
 
-    // Check if user is logged in
     isLoggedIn() {
         return localStorage.getItem(this.tokenKey) !== null;
     }
 
-    // Get current user
     getCurrentUser() {
         const userStr = localStorage.getItem(this.storageKey);
         return userStr ? JSON.parse(userStr) : null;
     }
 
-    // Login user
+    isStaffAdmin(user = this.getCurrentUser()) {
+        if (!user) return false;
+        return ['admin', 'system_admin', 'school_admin'].includes(user.user_type)
+            || ['system_admin', 'school_admin'].includes(user.role);
+    }
+
+    isSystemAdmin(user = this.getCurrentUser()) {
+        if (!user) return false;
+        return user.user_type === 'admin' || user.user_type === 'system_admin' || user.role === 'system_admin';
+    }
+
     login(userData, token) {
         localStorage.setItem(this.storageKey, JSON.stringify(userData));
         localStorage.setItem(this.tokenKey, token);
+        this.permissions = null;
         this.updateAuthUI();
+        this.applyPermissionMenus();
     }
 
-    // Logout user
     logout() {
         localStorage.removeItem(this.storageKey);
         localStorage.removeItem(this.tokenKey);
         window.location.href = 'index.html';
     }
 
-    // Update UI based on auth state
+    menuCodeForHref(href) {
+        if (!href) return null;
+        const path = href.split('?')[0];
+        if (path.includes('admin-codes')) return 'schools';
+        if (path.includes('admin-users')) return 'users';
+        if (path.includes('admin-jobs') || path.includes('job-create') || path.includes('job-edit')) return 'jobs';
+        if (path.includes('admin-board')) return 'community';
+        if (path.includes('admin-announcements') || path.includes('industry-visit') || path.includes('job-fair')) return 'field_trips';
+        if (path.includes('counseling-journal') || path.includes('counseling.html')) return 'counseling';
+        if (path.includes('career.html')) return 'resumes';
+        if (path.includes('jobs.html')) return 'jobs';
+        if (path.includes('networking')) return 'community';
+        return null;
+    }
+
+    hasMenuAction(menuCode, action) {
+        if (!this.permissions || !this.permissions.menus) return null;
+        const entry = this.permissions.menus.find((m) => m.code === menuCode);
+        if (!entry) return false;
+        return (entry.actions || []).includes(action);
+    }
+
+    async applyPermissionMenus() {
+        const user = this.getCurrentUser();
+        if (!user) return;
+
+        const adminMenuSection = document.getElementById('adminMenuSection');
+        if (adminMenuSection && this.isStaffAdmin(user)) {
+            adminMenuSection.style.display = 'block';
+        }
+
+        try {
+            const data = await api.auth.permissions();
+            this.permissions = data;
+        } catch (err) {
+            console.warn('permissions load failed', err);
+            return;
+        }
+
+        const links = document.querySelectorAll('.sidebar-menu a.menu-item, #adminMenuSection a.menu-item');
+        links.forEach((link) => {
+            const menu = link.getAttribute('data-menu') || this.menuCodeForHref(link.getAttribute('href') || '');
+            if (!menu) return;
+            const allowed = this.hasMenuAction(menu, 'read')
+                || this.hasMenuAction(menu, 'write')
+                || this.hasMenuAction(menu, 'manage')
+                || this.hasMenuAction(menu, 'apply');
+            if (allowed === false) {
+                link.style.display = 'none';
+            } else {
+                link.style.display = '';
+            }
+        });
+
+        if (adminMenuSection) {
+            const canAdmin = this.hasMenuAction('schools', 'write')
+                || this.hasMenuAction('schools', 'manage')
+                || this.hasMenuAction('users', 'write')
+                || this.hasMenuAction('users', 'manage')
+                || this.hasMenuAction('jobs', 'manage')
+                || this.hasMenuAction('community', 'manage')
+                || this.hasMenuAction('stats', 'read');
+            adminMenuSection.style.display = canAdmin ? 'block' : 'none';
+        }
+    }
+
     updateAuthUI() {
         const user = this.getCurrentUser();
         const authButtons = document.getElementById('authButtons');
@@ -82,8 +144,7 @@ class AuthManager {
                 userMenu.style.display = 'flex';
                 if (userName) userName.textContent = user.name;
             }
-            // 관리자 메뉴 표시
-            if (user.user_type === 'admin') {
+            if (this.isStaffAdmin(user)) {
                 const adminMenuSection = document.getElementById('adminMenuSection');
                 if (adminMenuSection) adminMenuSection.style.display = 'block';
             }
@@ -93,7 +154,6 @@ class AuthManager {
         }
     }
 
-    // Require authentication
     requireAuth() {
         if (!this.isLoggedIn()) {
             alert('로그인이 필요한 서비스입니다.');
@@ -103,19 +163,26 @@ class AuthManager {
         }
         return true;
     }
+
+    requireStaffAdmin() {
+        if (!this.requireAuth()) return false;
+        if (!this.isStaffAdmin()) {
+            alert('관리자만 접근할 수 있습니다.');
+            window.location.href = 'dashboard.html';
+            return false;
+        }
+        return true;
+    }
 }
 
-// Create global auth instance
 const auth = new AuthManager();
 
-// Logout function
 function logout() {
     if (confirm('로그아웃 하시겠습니까?')) {
         auth.logout();
     }
 }
 
-// Navigate to service with auth check
 function navigateToService(url) {
     if (auth.isLoggedIn()) {
         window.location.href = url;
@@ -125,7 +192,9 @@ function navigateToService(url) {
     }
 }
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
     auth.updateAuthUI();
+    if (auth.isLoggedIn()) {
+        auth.applyPermissionMenus();
+    }
 });

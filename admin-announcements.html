@@ -484,7 +484,7 @@
 
         function checkAdminAuth() {
             const user = auth.getCurrentUser();
-            if (!user || user.user_type !== 'admin') {
+            if (!user || !auth.isStaffAdmin(user)) {
                 alert('관리자만 접근할 수 있습니다.');
                 window.location.href = 'login.html';
             }

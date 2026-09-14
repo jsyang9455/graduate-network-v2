@@ -148,9 +148,11 @@
 
 ## 4. 프론트 호환 주의
 
-- `js/api.js` `API_BASE_URL`: 로컬 5001 vs compose 5000 불일치 해소.
+- `js/api.js` `API_BASE_URL`: **로컬 5000** (compose/backend와 통일). 운영은 Nginx `/api`.
 - 목록 응답 키(`jobs`, `journals`) 유지.
-- JWT `user_type` 필드 유지 (`school_admin` 추가).
+- JWT `user_type` 필드 유지 (`school_admin` 추가). `role`, `school_id` 클레임 추가.
+- `test_token_` / `user_token_` 우회 **제거**.
+- Wave 1 구현: `GET/POST /api/schools`, `GET/PATCH /api/schools/:id`, `GET/POST /api/schools/:id/departments`, `GET /api/me/permissions`, `GET /api/audit-logs`, `POST /api/users/:id/roles`, `POST /api/users/:id/transfer`. OpenAPI 초안: `docs/openapi.yaml`.
 
 ## 5. OpenAPI
 

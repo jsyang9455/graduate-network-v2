@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', function() {
     currentUser = auth.getCurrentUser();
     
     // 관리자가 아니면 접근 불가
-    if (!currentUser || currentUser.user_type !== 'admin') {
+    if (!currentUser || !auth.isStaffAdmin(currentUser)) {
         alert('관리자만 접근할 수 있습니다.');
         window.location.href = 'dashboard.html';
         return;

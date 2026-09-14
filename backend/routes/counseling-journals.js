@@ -2,17 +2,34 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { auth, checkRole } = require('../middleware/auth');
+const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin, isSchoolAdmin } = require('../lib/roles');
+
+function canStaffReadJournal(user, journal) {
+  if (isSystemAdmin(user)) return true;
+  if (isSchoolAdmin(user)) return assertSameSchool({ user }, journal.school_id);
+  if (user.user_type === 'teacher' || user.role === 'teacher') {
+    return Number(journal.teacher_id) === Number(user.id);
+  }
+  return Number(journal.student_id) === Number(user.id) && journal.is_private === false;
+}
 
 // ─── GET /api/counseling-journals ────────────────────────────
-// 교사: 본인 작성 일지, 학생/졸업생: 본인 관련 공개 일지, 관리자: 전체
-router.get('/', auth, async (req, res) => {
+router.get('/', auth, schoolScope, async (req, res) => {
     try {
         const { user_type, id: userId } = req.user;
         let result;
 
-        if (user_type === 'admin') {
+        if (isSystemAdmin(req.user)) {
             result = await query(
                 `SELECT * FROM counseling_journals ORDER BY counseling_date DESC, created_at DESC`
+            );
+        } else if (isSchoolAdmin(req.user)) {
+            result = await query(
+                `SELECT * FROM counseling_journals
+                 WHERE school_id = $1
+                 ORDER BY counseling_date DESC, created_at DESC`,
+                [req.user.school_id]
             );
         } else if (user_type === 'teacher') {
             result = await query(
@@ -22,7 +39,6 @@ router.get('/', auth, async (req, res) => {
                 [userId]
             );
         } else {
-            // student, graduate: 본인 관련 + 공개 일지만
             result = await query(
                 `SELECT * FROM counseling_journals
                  WHERE student_id = $1 AND is_private = FALSE
@@ -39,7 +55,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // ─── GET /api/counseling-journals/:id ────────────────────────
-router.get('/:id', auth, async (req, res) => {
+router.get('/:id', auth, schoolScope, async (req, res) => {
     try {
         const result = await query(
             `SELECT * FROM counseling_journals WHERE id = $1`,
@@ -50,18 +66,8 @@ router.get('/:id', auth, async (req, res) => {
         }
         const journal = result.rows[0];
 
-        // 접근 권한 체크
-        const { user_type, id: userId } = req.user;
-        if (user_type === 'admin') {
-            // 전체 허용
-        } else if (user_type === 'teacher') {
-            if (journal.teacher_id !== userId) {
-                return res.status(403).json({ error: '접근 권한이 없습니다.' });
-            }
-        } else {
-            if (journal.student_id !== userId || journal.is_private) {
-                return res.status(403).json({ error: '접근 권한이 없습니다.' });
-            }
+        if (!canStaffReadJournal(req.user, journal)) {
+            return forbidCrossSchool(res);
         }
 
         res.json({ journal });
@@ -72,12 +78,10 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // ─── POST /api/counseling-journals ───────────────────────────
-// 교사, 관리자만 작성 가능
-router.post('/', auth, checkRole('teacher', 'admin'), async (req, res) => {
+router.post('/', auth, checkRole('teacher', 'admin', 'school_admin'), async (req, res) => {
     try {
-        const { id: teacherId, name: jwtName, user_type } = req.user;
+        const { id: teacherId, name: jwtName } = req.user;
 
-        // JWT에 name이 없는 구버전 토큰 대비 DB 폴백
         let teacherName = jwtName;
         if (!teacherName) {
             const userResult = await query('SELECT name FROM users WHERE id = $1', [teacherId]);
@@ -99,14 +103,25 @@ router.post('/', auth, checkRole('teacher', 'admin'), async (req, res) => {
             return res.status(400).json({ error: '필수 항목이 누락되었습니다.' });
         }
 
+        if (student_id) {
+            const student = await query('SELECT id, school_id FROM users WHERE id = $1', [student_id]);
+            if (student.rows.length === 0) {
+                return res.status(404).json({ error: '학생을 찾을 수 없습니다.' });
+            }
+            if (!isSystemAdmin(req.user) && !assertSameSchool(req, student.rows[0].school_id)) {
+                return forbidCrossSchool(res);
+            }
+        }
+
         const result = await query(
             `INSERT INTO counseling_journals
              (teacher_id, teacher_name, student_id, student_name,
-              counseling_date, type, title, content, follow_up, is_private)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+              counseling_date, type, title, content, follow_up, is_private, school_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
              RETURNING *`,
             [teacherId, teacherName || '', student_id, student_name,
-             counseling_date, type, title, content, follow_up, is_private]
+             counseling_date, type, title, content, follow_up, is_private,
+             req.user.school_id || null]
         );
 
         res.status(201).json({ journal: result.rows[0] });
@@ -117,12 +132,10 @@ router.post('/', auth, checkRole('teacher', 'admin'), async (req, res) => {
 });
 
 // ─── PUT /api/counseling-journals/:id ────────────────────────
-// 작성자 교사 또는 관리자만 수정 가능
-router.put('/:id', auth, checkRole('teacher', 'admin'), async (req, res) => {
+router.put('/:id', auth, checkRole('teacher', 'admin', 'school_admin'), async (req, res) => {
     try {
-        const { user_type, id: userId } = req.user;
+        const { id: userId } = req.user;
 
-        // 기존 일지 확인
         const existing = await query(
             `SELECT * FROM counseling_journals WHERE id = $1`,
             [req.params.id]
@@ -132,8 +145,10 @@ router.put('/:id', auth, checkRole('teacher', 'admin'), async (req, res) => {
         }
         const journal = existing.rows[0];
 
-        if (user_type !== 'admin' && journal.teacher_id !== userId) {
-            return res.status(403).json({ error: '수정 권한이 없습니다.' });
+        const isOwner = Number(journal.teacher_id) === Number(userId);
+        const staffOk = isSystemAdmin(req.user) || (isSchoolAdmin(req.user) && assertSameSchool(req, journal.school_id));
+        if (!isOwner && !staffOk) {
+            return forbidCrossSchool(res);
         }
 
         const {
@@ -167,10 +182,9 @@ router.put('/:id', auth, checkRole('teacher', 'admin'), async (req, res) => {
 });
 
 // ─── DELETE /api/counseling-journals/:id ─────────────────────
-// 작성자 교사 또는 관리자만 삭제 가능
-router.delete('/:id', auth, checkRole('teacher', 'admin'), async (req, res) => {
+router.delete('/:id', auth, checkRole('teacher', 'admin', 'school_admin'), async (req, res) => {
     try {
-        const { user_type, id: userId } = req.user;
+        const { id: userId } = req.user;
 
         const existing = await query(
             `SELECT * FROM counseling_journals WHERE id = $1`,
@@ -180,8 +194,11 @@ router.delete('/:id', auth, checkRole('teacher', 'admin'), async (req, res) => {
             return res.status(404).json({ error: '상담일지를 찾을 수 없습니다.' });
         }
 
-        if (user_type !== 'admin' && existing.rows[0].teacher_id !== userId) {
-            return res.status(403).json({ error: '삭제 권한이 없습니다.' });
+        const journal = existing.rows[0];
+        const isOwner = Number(journal.teacher_id) === Number(userId);
+        const staffOk = isSystemAdmin(req.user) || (isSchoolAdmin(req.user) && assertSameSchool(req, journal.school_id));
+        if (!isOwner && !staffOk) {
+            return forbidCrossSchool(res);
         }
 
         await query(`DELETE FROM counseling_journals WHERE id = $1`, [req.params.id]);

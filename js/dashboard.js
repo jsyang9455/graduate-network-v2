@@ -897,8 +897,8 @@ async function loadTeacherCounselingJournal() {
         const token = localStorage.getItem('token') || '';
         const apiBase = (() => {
             const h = window.location.hostname;
-            if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:5001/api';
-            if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return `http://${h}:5001/api`;
+            if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:5000/api';
+            if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return `http://${h}:5000/api`;
             return '/api';
         })();
         const res = await fetch(`${apiBase}/counseling-journals`, {
@@ -911,12 +911,6 @@ async function loadTeacherCounselingJournal() {
         );
         renderItems(journals);
     } catch (e) {
-        // localStorage 폴백
-        let journals = [];
-        try { journals = JSON.parse(localStorage.getItem('counseling_journals')) || []; } catch {}
-        journals = journals
-            .filter(j => String(j.teacherId) === String(user.id))
-            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        renderItems(journals);
+        container.innerHTML = '<p style="text-align:center;color:#6b7280;padding:2rem;">상담일지를 불러올 수 없습니다.</p>';
     }
 }

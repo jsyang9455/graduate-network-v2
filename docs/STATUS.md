@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-14  
-현재 단계: **Phase 0 완료** (착수 문서·역할·저장소 부트스트랩)  
-전체 P0 구현: **0%** (설계/부트스트랩만 완료)
+현재 단계: **Phase 3 Wave 1 (멀티스쿨·RBAC·schools API)**  
+전체 P0 구현: **약 18%** (기반 IAM/가드. 이력서·워크넷·추천 미착수)
 
 ## Gates (학교 제공물)
 
@@ -19,21 +19,21 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 |-------|------|-------|---|------|
 | 0 | 비전/요구/아키텍처/역할, v2 저장소 | architect | 100 | done |
 | 1 | 착수 보고·게이트 확인·현행 이슈 목록 | architect | 0 | todo |
-| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 0 | todo |
-| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 0 | todo |
+| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 40 | in-progress (OpenAPI Wave 1 초안) |
+| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 55 | in-progress (Wave 1 IAM/가드) |
 | Sprint 1 | 이력서·상담 문서 | backend + frontend | 0 | todo |
 | Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 0 | todo |
 | Sprint 3 | 추천·견학·커뮤니티·메시지 | all implementers | 0 | todo |
-| 4 | 테스트·UAT·보안 | qa | 0 | todo |
+| 4 | 테스트·UAT·보안 | qa | 20 | in-progress (타교 403 픽스처) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 0 | Wave A |
-| IAM API·OpenAPI | api | 0 | |
-| 권한 메뉴·schools UI | frontend | 0 | LocalStorage schools 철거 |
+| 멀티스쿨 스키마/가드 | backend | 80 | Wave 1: 010 마이그레이션, authorize+schoolScope, audit_logs |
+| IAM API·OpenAPI | api | 70 | `/api/schools`, `/api/me/permissions`, JWT role/school, port 5000 |
+| 권한 메뉴·schools UI | frontend | 70 | permissions 메뉴, 회원가입/코드관리 schools API, test_token 제거 |
 | 이력서 PDF | backend/frontend | 0 | |
 | 상담 문서 | backend/frontend | 0 | 유형 코드 불일치 해소 |
 | 채용 워크플로우 알림 | api/frontend | 0 | |
@@ -42,15 +42,16 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 | 견학 모듈 | backend/frontend | 0 | announcements 이관 |
 | 커뮤니티 고도화 | api/frontend | 0 | |
 | 알림톡/SMS | backend | 0 | 게이트 |
-| QA 스위트 | qa | 0 | v1 자동테스트 부재 |
+| QA 스위트 | qa | 35 | 2교 픽스처 + 타교 403 (`backend/tests`) |
 
 ## Blockers
 
 | ID | 내용 | 영향 | Owner |
 |----|------|------|-------|
 | B-GATE | 학교 측 워크넷 키·알림톡 계정 미확인 | Sprint 2/3 일부 | architect |
-| B-PORT | 로컬 API 포트 5000 vs 프론트 5001 불일치 | 개발 DX | api |
-| B-LS | career/admin-codes 등 LocalStorage 운영 데이터 이관 불가 | 재입력 필요 | architect |
+| B-LS | career/admin-jobs 등 LocalStorage 운영 데이터 이관 불가 | 재입력 필요 | architect |
+
+해소: **B-PORT** — 프론트 `js/api.js` 로컬 API를 **5000**으로 통일 (compose/backend와 동일).
 
 ## 에이전트 갱신 규칙
 
@@ -64,3 +65,27 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 - 고도화 과업지시서 반영한 docs 00–08
 - Cursor 규칙/스킬 및 `AGENTS.md`
 - GitHub v2: https://github.com/jsyang9455/graduate-network-v2 (public). 원본은 remote `v1`.
+
+## Wave 1 완료 기록 (REQ-IAM-001~010, REQ-PLT-001/003)
+
+- 마이그레이션 `database/migrations/010_v2_multischool.sql` (전주공업고 시드, `users.school_id` backfill)
+- 미들웨어 `authorize` / `schoolScope`, JWT `role`+`school_id`, `POST /api/auth/change-password` 토큰 필수
+- 프론트: 권한 메뉴, `register.html`/`admin-codes.html` → `/api/schools`, `test_token_` 우회 삭제
+- QA: `backend/tests/wave1-tenancy.test.js` (학교 2곳, 타교 403)
+
+```
+Handoff: wave1-owner → frontend
+REQ: REQ-RSM-001, REQ-PLT-001
+Need: career.html LocalStorage → resumes API (Sprint 1)
+Done: schools LocalStorage 철거, 권한 메뉴, port 5000
+
+Handoff: wave1-owner → backend
+REQ: REQ-PLT-004, REQ-CNS-004
+Need: files 스토리지 어댑터, 상담 PDF/DOCX (Wave B)
+Done: IAM 스키마/가드/audit
+
+Handoff: wave1-owner → qa
+REQ: REQ-IAM-009
+Need: Playwright 페르소나 E2E (로그인→메뉴). API 타교 403은 node:test로 커버
+Done: 2교 픽스처 + 통합 테스트
+```

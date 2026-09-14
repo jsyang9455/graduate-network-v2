@@ -1,0 +1,142 @@
+openapi: 3.0.3
+info:
+  title: jjobb_v2 Graduate Network API
+  version: 2.0.0-wave1
+  description: Wave 1 IAM/tenancy additive contract. v1 `/api` keys are preserved.
+servers:
+  - url: http://localhost:5000
+    description: Local / Docker Compose backend
+tags:
+  - name: Auth
+  - name: Schools
+  - name: IAM
+paths:
+  /api/health:
+    get:
+      summary: Liveness
+      responses:
+        '200':
+          description: OK
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login (JWT includes role, school_id, user_type)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: token + user
+        '401':
+          description: UNAUTHENTICATED
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register; student/teacher/graduate require school_id
+      responses:
+        '201': { description: created }
+        '400': { description: VALIDATION }
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: current user }
+        '401': { description: UNAUTHENTICATED }
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      summary: Requires JWT (no anonymous change)
+      responses:
+        '200': { description: changed }
+        '401': { description: UNAUTHENTICATED }
+  /api/schools:
+    get:
+      tags: [Schools]
+      summary: Public list of active schools (signup)
+      parameters:
+        - in: query
+          name: include_inactive
+          schema: { type: boolean }
+      responses:
+        '200': { description: '{ schools: [] }' }
+    post:
+      tags: [Schools]
+      security: [{ bearerAuth: [] }]
+      summary: system_admin manage
+      responses:
+        '201': { description: created }
+        '403': { description: FORBIDDEN }
+  /api/schools/{id}:
+    get:
+      tags: [Schools]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: school }
+        '404': { description: NOT_FOUND }
+    patch:
+      tags: [Schools]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: updated }
+        '403': { description: FORBIDDEN }
+  /api/schools/{id}/departments:
+    get:
+      tags: [Schools]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: '{ departments: [] }' }
+    post:
+      tags: [Schools]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '201': { description: created }
+  /api/me/permissions:
+    get:
+      tags: [IAM]
+      security: [{ bearerAuth: [] }]
+      summary: Role × menu × actions for current JWT
+      responses:
+        '200':
+          description: '{ role, school_id, menus[] }'
+  /api/audit-logs:
+    get:
+      tags: [IAM]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: '{ logs, pagination }' }
+  /api/users/{id}:
+    get:
+      tags: [IAM]
+      security: [{ bearerAuth: [] }]
+      summary: Cross-school access returns 403
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: user }
+        '403': { description: FORBIDDEN }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

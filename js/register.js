@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle user type change
     userTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
+            const userType = this.value;
             const studentFields = document.getElementById('studentFields');
             
             if (userType === 'teacher') {
@@ -63,7 +64,8 @@ document.addEventListener('DOMContentLoaded', function() {
             email: document.getElementById('email').value,
             password: document.getElementById('password').value,
             confirmPassword: document.getElementById('confirmPassword').value,
-            schoolName: document.getElementById('schoolName').value,
+            schoolName: document.getElementById('schoolName').selectedOptions[0]?.text || document.getElementById('schoolName').value,
+            schoolId: document.getElementById('schoolName').value,
             agreeTerms: document.getElementById('agreeTerms').checked
         };
 
@@ -102,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 user_type: formData.userType,
                 phone: formData.phone || '',
                 school_name: formData.schoolName,
+                school_id: formData.schoolId ? parseInt(formData.schoolId, 10) : null,
                 major: formData.major || '',
                 department_name: formData.departmentName || '',
                 graduation_year: formData.graduationYear ? parseInt(formData.graduationYear) : null,
@@ -161,7 +164,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function validateForm(data) {
         // Check required fields (common for all users)
-        if (!data.name || !data.email || !data.password || !data.schoolName) {
+        if (!data.name || !data.email || !data.password || !data.schoolId) {
             showError('필수 항목을 모두 입력해주세요.');
             return false;
         }
@@ -231,35 +234,27 @@ document.addEventListener('DOMContentLoaded', function() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function loadSchools() {
+    async function loadSchools() {
         const schoolSelect = document.getElementById('schoolName');
         if (!schoolSelect) return;
 
-        // localStorage에서 학교 목록 가져오기
-        let schools = JSON.parse(localStorage.getItem('schools') || '[]');
-        
-        // 기본 학교가 없으면 전주공업고등학교 추가
-        if (schools.length === 0) {
-            schools = [{
-                id: 1,
-                name: '전주공업고등학교',
-                createdAt: new Date().toISOString()
-            }];
-            localStorage.setItem('schools', JSON.stringify(schools));
-        }
+        try {
+            const response = await api.schools.list();
+            const schools = response.schools || [];
 
-        // 기존 옵션 제거 (첫 번째 "학교 선택" 옵션 제외)
-        while (schoolSelect.options.length > 1) {
-            schoolSelect.remove(1);
-        }
+            while (schoolSelect.options.length > 1) {
+                schoolSelect.remove(1);
+            }
 
-        // 학교 목록을 드롭다운에 추가
-        schools.forEach(school => {
-            const option = document.createElement('option');
-            option.value = school.name;
-            option.textContent = school.name;
-            schoolSelect.appendChild(option);
-        });
+            schools.forEach(school => {
+                const option = document.createElement('option');
+                option.value = school.id;
+                option.textContent = school.name;
+                schoolSelect.appendChild(option);
+            });
+        } catch (error) {
+            console.error('학교 목록 로드 실패:', error);
+        }
     }
     
     async function loadMajors() {

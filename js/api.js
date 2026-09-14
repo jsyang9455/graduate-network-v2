@@ -1,15 +1,12 @@
-// API Configuration
+// API Configuration — local API is port 5000 (compose/backend default). Nginx `/api` in production.
 const API_BASE_URL = (() => {
   const hostname = window.location.hostname;
-  // 로컬 개발 (localhost)
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:5001/api';
+    return 'http://localhost:5000/api';
   }
-  // IP 주소 접속 (모바일 등 로컬 네트워크) → 같은 IP, 포트 5001
   if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-    return `http://${hostname}:5001/api`;
+    return `http://${hostname}:5000/api`;
   }
-  // 운영 도메인 (jjobb.kr 등) → Nginx 프록시 사용
   return '/api';
 })();
 
@@ -33,15 +30,7 @@ const api = {
   // Make authenticated request
   async request(endpoint, options = {}) {
     const token = this.getToken();
-    
-    // Skip /auth/me call for local tokens to prevent logout
-    if (token && (token.startsWith('test_token_') || token.startsWith('user_token_'))) {
-      if (endpoint === '/auth/me') {
-        console.log('Skipping /auth/me for local token');
-        return { success: true, message: 'Using local storage' };
-      }
-    }
-    
+
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -60,7 +49,7 @@ const api = {
       const data = await response.json();
 
       if (!response.ok) {
-        const msg = data.error || 'Request failed';
+        const msg = (typeof data.error === 'string' ? data.error : data.error?.message) || 'Request failed';
         const detail = data.detail ? `\n상세: ${data.detail}` : '';
         throw new Error(msg + detail);
       }
@@ -122,6 +111,29 @@ const api = {
 
     async changePassword(currentPassword, newPassword) {
       return api.post('/auth/change-password', { currentPassword, newPassword });
+    },
+
+    async permissions() {
+      return api.get('/me/permissions');
+    },
+  },
+
+  schools: {
+    async list(includeInactive = false) {
+      const q = includeInactive ? '?include_inactive=true' : '';
+      return api.get(`/schools${q}`);
+    },
+    async get(id) {
+      return api.get(`/schools/${id}`);
+    },
+    async create(data) {
+      return api.post('/schools', data);
+    },
+    async update(id, data) {
+      return api.patch(`/schools/${id}`, data);
+    },
+    async departments(schoolId) {
+      return api.get(`/schools/${schoolId}/departments`);
     },
   },
 

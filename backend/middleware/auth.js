@@ -1,33 +1,50 @@
 const jwt = require('jsonwebtoken');
+const { canonicalRole, isSystemAdmin } = require('../lib/roles');
+const { sendError } = require('../lib/httpErrors');
 
 const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+
     if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendError(res, 401, 'UNAUTHENTICATED', 'Authentication required');
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      role: decoded.role || canonicalRole(decoded),
+      school_id: decoded.school_id ?? null,
+    };
     next();
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Invalid token');
   }
 };
 
 const checkRole = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return sendError(res, 401, 'UNAUTHENTICATED', 'Authentication required');
     }
 
-    if (!roles.includes(req.user.user_type)) {
-      return res.status(403).json({ error: 'Access denied' });
+    const userRole = canonicalRole(req.user);
+    const expanded = new Set();
+    for (const role of roles) {
+      if (role === 'admin' || role === 'system_admin') {
+        expanded.add('admin');
+        expanded.add('system_admin');
+      } else {
+        expanded.add(role);
+      }
     }
 
-    next();
+    if (expanded.has(userRole) || expanded.has(req.user.user_type)) {
+      return next();
+    }
+
+    return sendError(res, 403, 'FORBIDDEN', 'Access denied');
   };
 };
 
-module.exports = { auth, checkRole };
+module.exports = { auth, checkRole, isSystemAdmin };

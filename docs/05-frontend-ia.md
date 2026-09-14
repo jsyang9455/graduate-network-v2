@@ -20,7 +20,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 |------|------|----|
 | 메인 | `index.html` | 학교 선택 불필요(로그인 후 소속). 현황은 `site_stats` |
 | 로그인 | `login.html` | 유지 |
-| 회원가입 | `register.html` | 학교/학과를 API에서 로드 (`schools` LocalStorage 제거) |
+| 회원가입 | `register.html` | **Wave 1:** 학교 목록은 `GET /api/schools` select. LocalStorage `schools` 제거 |
 | 도움말 | `help.html` | 역할별 섹션 보강 |
 
 ### 학생·졸업생
@@ -60,7 +60,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 공고 | `admin-jobs.html` | LocalStorage 폴백 삭제, 워크넷 구분 |
 | 게시판 | `admin-board.html` | API만, 블라인드/신고 |
 | 공지/행사 | `admin-announcements.html` | 견학 모듈과 정렬 |
-| 코드 | `admin-codes.html` | **schools API**. LocalStorage 삭제 |
+| 코드 | `admin-codes.html` | **Wave 1:** `GET/POST/PATCH /api/schools`. 비활성화만(하드 삭제 없음). LocalStorage 삭제 |
 | (신규) 학교 관리 | `admin-schools.html` | system_admin |
 | (신규) 권한 매트릭스 | `admin-permissions.html` | system_admin |
 | (신규) 워크넷 | `admin-worknet.html` | 동기화·로그 |

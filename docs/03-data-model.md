@@ -120,6 +120,7 @@ roles *──* menus          (role_menu_permissions)
 3. `majors` → `departments` (school_id=기본학교).
 4. `announcements` 중 industry-visit → `field_trips` 이관 스크립트.
 5. 신규 테이블 `IF NOT EXISTS` 마이그레이션 파일 `database/migrations/010_v2_multischool.sql` 부터 번호 부여.
+   Wave 1에서 적용: `schools`, `departments`, `roles`, `menus`, `role_menu_permissions`, `user_roles`, `school_transfers`, `audit_logs`, `users.school_id` backfill(전주공업고), `counseling_journals.school_id`.
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내.
 
 ## 6. 인덱스·무결성 (최소)

@@ -7,7 +7,6 @@ require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(helmet());
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',
@@ -17,7 +16,6 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const jobRoutes = require('./routes/jobs');
@@ -31,8 +29,10 @@ const announcementRoutes = require('./routes/announcements');
 const counselingJournalRoutes = require('./routes/counseling-journals');
 const educationProgramRoutes = require('./routes/education-programs');
 const messageRoutes = require('./routes/messages');
+const schoolRoutes = require('./routes/schools');
+const meRoutes = require('./routes/me');
+const auditLogRoutes = require('./routes/audit-logs');
 
-// API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
@@ -46,25 +46,30 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/counseling-journals', counselingJournalRoutes);
 app.use('/api/education-programs', educationProgramRoutes);
 app.use('/api/messages', messageRoutes);
+app.use('/api/schools', schoolRoutes);
+app.use('/api/me', meRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
-// Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     message: 'Graduate Network API is running',
+    version: '2.0.0-wave1',
     timestamp: new Date().toISOString()
   });
 });
 
-// Root endpoint
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Graduate Network API',
-    version: '1.0.0',
+    version: '2.0.0-wave1',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
       jobs: '/api/jobs',
+      schools: '/api/schools',
+      me: '/api/me/permissions',
+      auditLogs: '/api/audit-logs',
       networking: '/api/networking',
       counseling: '/api/counseling',
       certificates: '/api/certificates',
@@ -73,32 +78,45 @@ app.get('/', (req, res) => {
   });
 });
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal Server Error',
-      status: err.status || 500
-    }
+    error: err.message || 'Internal Server Error',
+    code: 'INTERNAL',
+    status: err.status || 500
   });
 });
 
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({
-    error: {
-      message: 'Route not found',
-      status: 404
-    }
+    error: 'Route not found',
+    code: 'NOT_FOUND',
+    status: 404
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📡 API available at http://localhost:${PORT}/api`);
-  console.log(`🏥 Health check at http://localhost:${PORT}/api/health`);
-});
+async function start() {
+  const { applyPendingMigrations } = require('./scripts/apply-migrations');
+  try {
+    await applyPendingMigrations();
+  } catch (err) {
+    console.error('❌ Failed to apply migrations:', err.message);
+    if (process.env.NODE_ENV === 'production') {
+      process.exit(1);
+    }
+  }
+
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+    console.log(`📡 API available at http://localhost:${PORT}/api`);
+    console.log(`🏥 Health check at http://localhost:${PORT}/api/health`);
+  });
+  return server;
+}
+
+if (require.main === module) {
+  start();
+}
 
 module.exports = app;
+module.exports.start = start;

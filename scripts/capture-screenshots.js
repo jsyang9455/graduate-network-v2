@@ -1,7 +1,7 @@
 /**
  * 전주공업고등학교 졸업생 네트워크 - 자동 스크린샷 캡처
  * 실행: node scripts/capture-screenshots.js
- * 전제조건: 백엔드(5001), 프론트엔드(8080) 서버 실행 중
+ * 전제조건: 백엔드(5000), 프론트엔드(8080) 서버 실행 중
  */
 
 const puppeteer = require('puppeteer');
@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs');
 
 const BASE_URL = 'http://localhost:8080';
-const API_URL = 'http://localhost:5001/api';
+const API_URL = 'http://localhost:5000/api';
 const OUT_DIR = path.join(__dirname, '..', 'manual-screenshots');
 
 // 계정 정보

@@ -2,6 +2,24 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { auth } = require('../middleware/auth');
+const { authorize } = require('../middleware/authorize');
+const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin, isStaffAdmin } = require('../lib/roles');
+const { sendError } = require('../lib/httpErrors');
+const { writeAudit, requestIp } = require('../modules/audit');
+
+function canReadUser(req, target) {
+  if (Number(target.id) === Number(req.user.id)) return true;
+  if (isSystemAdmin(req.user)) return true;
+  if (target.user_type === 'company') return true;
+  return assertSameSchool(req, target.school_id);
+}
+
+function canManageTarget(req, target) {
+  if (isSystemAdmin(req.user)) return true;
+  if (!isStaffAdmin(req.user)) return false;
+  return assertSameSchool(req, target.school_id);
+}
 
 // Stats endpoint (메인 페이지용 통계)
 router.get('/stats', async (req, res) => {
@@ -63,7 +81,7 @@ router.get('/profile', auth, async (req, res) => {
   try {
     const colCheckResult = await query(
       `SELECT column_name FROM information_schema.columns 
-       WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','graduation_year','department_name')`
+       WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','school_id','graduation_year','department_name')`
     );
     const existingCols = colCheckResult.rows.map(r => r.column_name);
     const sel = (col, alias) => existingCols.includes(col)
@@ -72,7 +90,7 @@ router.get('/profile', auth, async (req, res) => {
 
     const result = await query(
       `SELECT u.id, u.email, u.name, u.user_type, u.phone,
-              ${sel('school_name')}, ${sel('major')}, ${sel('desired_job')},
+              ${sel('school_name')}, ${sel('school_id')}, ${sel('major')}, ${sel('desired_job')},
               u.profile_image, u.created_at,
               ${sel('graduation_year')}, ${sel('department_name')},
               gp.major AS gp_major, gp.current_company, gp.current_position,
@@ -96,14 +114,14 @@ router.get('/profile', auth, async (req, res) => {
   }
 });
 
-// Get user by ID
-router.get('/:id', async (req, res) => {
+// Get user by ID (school-scoped; REQ-IAM-009)
+router.get('/:id', auth, schoolScope, async (req, res) => {
   try {
     const { id } = req.params;
 
     const colCheckResult = await query(
       `SELECT column_name FROM information_schema.columns 
-       WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','graduation_year','department_name')`
+       WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','school_id','graduation_year','department_name')`
     );
     const existingCols = colCheckResult.rows.map(r => r.column_name);
     const sel = (col, alias) => existingCols.includes(col)
@@ -112,7 +130,7 @@ router.get('/:id', async (req, res) => {
 
     const result = await query(
       `SELECT u.id, u.email, u.name, u.user_type, u.phone,
-              ${sel('school_name')}, ${sel('major')}, ${sel('desired_job')},
+              ${sel('school_name')}, ${sel('school_id')}, ${sel('major')}, ${sel('desired_job')},
               u.profile_image, u.created_at,
               ${sel('graduation_year')}, ${sel('department_name')},
               gp.major AS gp_major, gp.current_company, gp.current_position, 
@@ -125,6 +143,10 @@ router.get('/:id', async (req, res) => {
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!canReadUser(req, result.rows[0])) {
+      return forbidCrossSchool(res);
     }
 
     res.json({ user: result.rows[0] });
@@ -290,8 +312,8 @@ router.put('/graduate-profile', auth, async (req, res) => {
   }
 });
 
-// Search users
-router.get('/', async (req, res) => {
+// Search users (school-scoped for non-system admins; REQ-IAM-009)
+router.get('/', auth, schoolScope, async (req, res) => {
   try {
     const { 
       search, 
@@ -312,7 +334,7 @@ router.get('/', async (req, res) => {
     // users 테이블에 실제 존재하는 컬럼만 SELECT (AWS DB가 구버전일 수 있음)
     const colCheckResult = await query(
       `SELECT column_name FROM information_schema.columns 
-       WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','withdraw_reason','withdrawn_at','graduation_year','department_name')`
+       WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','school_id','withdraw_reason','withdrawn_at','graduation_year','department_name')`
     );
     const existingCols = colCheckResult.rows.map(r => r.column_name);
 
@@ -326,7 +348,7 @@ router.get('/', async (req, res) => {
 
     let queryText = `
       SELECT u.id, u.email, u.name, u.user_type, u.phone,
-             ${sel('school_name')}, ${sel('major')}, ${sel('desired_job')},
+             ${sel('school_name')}, ${sel('school_id')}, ${sel('major')}, ${sel('desired_job')},
              ${sel('graduation_year', 'graduation_year')}, ${sel('department_name', 'department_name')},
              u.profile_image, u.created_at, u.is_active${extraWithdraw},
              COALESCE(u.is_counselor, false) AS is_counselor,
@@ -384,6 +406,15 @@ router.get('/', async (req, res) => {
     if (is_counselor === 'true') {
       queryText += ` AND COALESCE(u.is_counselor, false) = true`;
     }
+    if (!isSystemAdmin(req.user)) {
+      if (req.user.school_id) {
+        paramCount++;
+        queryText += ` AND (u.school_id = $${paramCount} OR u.user_type = 'company')`;
+        params.push(req.user.school_id);
+      } else {
+        queryText += ` AND (u.user_type = 'company' OR u.id = ${parseInt(req.user.id, 10)})`;
+      }
+    }
 
     queryText += ` ORDER BY u.created_at DESC LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`;
     params.push(limit, (page - 1) * limit);
@@ -431,6 +462,15 @@ router.get('/', async (req, res) => {
       countQuery += ` AND u.school_name ILIKE $${countParamNum}`;
       countParams.push(`%${school_name}%`);
     }
+    if (!isSystemAdmin(req.user)) {
+      if (req.user.school_id) {
+        countParamNum++;
+        countQuery += ` AND (u.school_id = $${countParamNum} OR u.user_type = 'company')`;
+        countParams.push(req.user.school_id);
+      } else {
+        countQuery += ` AND (u.user_type = 'company' OR u.id = ${parseInt(req.user.id, 10)})`;
+      }
+    }
 
     const countResult = await query(countQuery, countParams);
     const totalCount = parseInt(countResult.rows[0].count);
@@ -450,22 +490,141 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Update user (admin only)
-router.put('/:id', auth, async (req, res) => {
+// Assign role (REQ-IAM-003, IAM-007)
+router.post('/:id/roles', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const { role: roleCode, school_id } = req.body;
+    if (!roleCode) {
+      return sendError(res, 400, 'VALIDATION', 'role is required');
+    }
+
+    const targetRes = await query('SELECT * FROM users WHERE id = $1', [targetId]);
+    if (targetRes.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    const target = targetRes.rows[0];
+    if (!canManageTarget(req, target)) {
+      return forbidCrossSchool(res);
+    }
+
+    if (roleCode === 'system_admin' && !isSystemAdmin(req.user)) {
+      return sendError(res, 403, 'FORBIDDEN', '시스템 관리자 역할은 시스템 관리자만 지정할 수 있습니다');
+    }
+
+    const roleRes = await query('SELECT id, code FROM roles WHERE code = $1', [roleCode]);
+    if (roleRes.rows.length === 0) {
+      return sendError(res, 400, 'VALIDATION', 'Unknown role');
+    }
+
+    const scopedSchool = roleCode === 'system_admin'
+      ? null
+      : (school_id || target.school_id || req.user.school_id || null);
+
+    const mappedType = roleCode === 'system_admin' ? 'admin' : roleCode;
+    await query('UPDATE users SET user_type = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [mappedType, targetId]);
+    if (scopedSchool && roleCode !== 'system_admin') {
+      await query('UPDATE users SET school_id = $1 WHERE id = $2', [scopedSchool, targetId]);
+    }
+
+    await query(
+      `INSERT INTO user_roles (user_id, role_id, school_id, granted_by)
+       SELECT $1, $2, $3, $4
+       WHERE NOT EXISTS (
+         SELECT 1 FROM user_roles WHERE user_id = $1 AND role_id = $2 AND school_id IS NOT DISTINCT FROM $3
+       )`,
+      [targetId, roleRes.rows[0].id, scopedSchool, req.user.id]
+    );
+
+    await writeAudit({
+      actorId: req.user.id,
+      schoolId: scopedSchool || req.user.school_id,
+      action: 'user.assign_role',
+      resource: `users:${targetId}`,
+      payload: { role: roleCode, school_id: scopedSchool },
+      ip: requestIp(req),
+    });
+
+    res.json({ message: 'Role assigned', user_id: targetId, role: roleCode, school_id: scopedSchool });
+  } catch (error) {
+    console.error('Assign role error:', error);
+    return sendError(res, 500, 'INTERNAL', 'Failed to assign role');
+  }
+});
+
+// Transfer school (REQ-IAM-005)
+router.post('/:id/transfer', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const { to_school_id, reason } = req.body;
+    if (!to_school_id) {
+      return sendError(res, 400, 'VALIDATION', 'to_school_id is required');
+    }
+
+    const targetRes = await query('SELECT * FROM users WHERE id = $1', [targetId]);
+    if (targetRes.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    const target = targetRes.rows[0];
+    if (!canManageTarget(req, target) && !isSystemAdmin(req.user)) {
+      return forbidCrossSchool(res);
+    }
+
+    const schoolRes = await query(`SELECT id, name FROM schools WHERE id = $1 AND status = 'active'`, [to_school_id]);
+    if (schoolRes.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', '학교를 찾을 수 없습니다');
+    }
+
+    await query(
+      `INSERT INTO school_transfers (user_id, from_school_id, to_school_id, reason, actor_id)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [targetId, target.school_id, to_school_id, reason || null, req.user.id]
+    );
+    await query(
+      `UPDATE users SET school_id = $1, school_name = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
+      [to_school_id, schoolRes.rows[0].name, targetId]
+    );
+
+    await writeAudit({
+      actorId: req.user.id,
+      schoolId: to_school_id,
+      action: 'user.transfer',
+      resource: `users:${targetId}`,
+      payload: { from: target.school_id, to: to_school_id, reason },
+      ip: requestIp(req),
+    });
+
+    res.json({
+      message: '전출 처리되었습니다',
+      user_id: targetId,
+      from_school_id: target.school_id,
+      to_school_id,
+    });
+  } catch (error) {
+    console.error('Transfer error:', error);
+    return sendError(res, 500, 'INTERNAL', 'Failed to transfer user');
+  }
+});
+
+// Update user (admin / school_admin of same school)
+router.put('/:id', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, user_type, phone, school_name, major, desired_job, graduation_year, department_name, is_counselor } = req.body;
 
-    // Only admins can update other users
-    if (req.user.user_type !== 'admin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+    const existingUser = await query('SELECT * FROM users WHERE id = $1', [id]);
+    if (existingUser.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    if (!canManageTarget(req, existingUser.rows[0])) {
+      return forbidCrossSchool(res);
     }
 
     // 실제 존재하는 컬럼만 SET (information_schema 확인)
     const colCheck = await query(
       `SELECT column_name FROM information_schema.columns 
        WHERE table_name = 'users' AND column_name IN 
-         ('phone','school_name','major','desired_job','graduation_year','department_name','is_counselor')`
+         ('phone','school_name','school_id','major','desired_job','graduation_year','department_name','is_counselor')`
     );
     const existingCols = colCheck.rows.map(r => r.column_name);
 
@@ -508,6 +667,14 @@ router.put('/:id', auth, async (req, res) => {
     }
 
     const { password_hash, ...userData } = result.rows[0];
+    await writeAudit({
+      actorId: req.user.id,
+      schoolId: userData.school_id || req.user.school_id,
+      action: 'user.update',
+      resource: `users:${id}`,
+      payload: { user_type, name },
+      ip: requestIp(req),
+    });
     res.json({ message: 'User updated successfully', user: userData });
   } catch (error) {
     console.error('Update user error:', error.message);
@@ -516,12 +683,16 @@ router.put('/:id', auth, async (req, res) => {
 });
 
 // Restore (reactivate) withdrawn user (admin only)
-router.patch('/:id/restore', auth, async (req, res) => {
+router.patch('/:id/restore', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
   try {
     const { id } = req.params;
 
-    if (req.user.user_type !== 'admin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+    const existingUser = await query('SELECT * FROM users WHERE id = $1', [id]);
+    if (existingUser.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    if (!canManageTarget(req, existingUser.rows[0])) {
+      return forbidCrossSchool(res);
     }
 
     let result;
@@ -555,14 +726,17 @@ router.patch('/:id/restore', auth, async (req, res) => {
 });
 
 // Deactivate user (soft delete)
-router.delete('/:id', auth, async (req, res) => {
+router.delete('/:id', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body || {};
-    
-    // Only admins can deactivate users
-    if (req.user.user_type !== 'admin') {
-      return res.status(403).json({ error: 'Unauthorized' });
+
+    const existingUser = await query('SELECT * FROM users WHERE id = $1', [id]);
+    if (existingUser.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    if (!canManageTarget(req, existingUser.rows[0])) {
+      return forbidCrossSchool(res);
     }
     
     let result;

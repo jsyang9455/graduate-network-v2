@@ -1,9 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 const { body, validationResult } = require('express-validator');
+const { auth } = require('../middleware/auth');
+const { signUserToken, publicUser } = require('../lib/jwt');
+const { canonicalRole } = require('../lib/roles');
+const { sendError } = require('../lib/httpErrors');
+const { writeAudit, requestIp } = require('../modules/audit');
+const rbac = require('../modules/rbac');
+
+async function resolveSchool({ school_id, school_name }) {
+  if (school_id) {
+    const found = await query(
+      `SELECT id, name FROM schools WHERE id = $1 AND status = 'active'`,
+      [school_id]
+    );
+    return found.rows[0] || null;
+  }
+  if (school_name && String(school_name).trim()) {
+    const found = await query(
+      `SELECT id, name FROM schools WHERE name = $1 AND status = 'active'`,
+      [String(school_name).trim()]
+    );
+    return found.rows[0] || null;
+  }
+  return null;
+}
+
+async function attachPrimaryRole(userId, userType, schoolId) {
+  const roleCode = canonicalRole({ user_type: userType });
+  try {
+    const role = await query('SELECT id FROM roles WHERE code = $1', [roleCode]);
+    if (role.rows.length === 0) return;
+    const scopedSchool = roleCode === 'system_admin' ? null : schoolId || null;
+    await query(
+      `INSERT INTO user_roles (user_id, role_id, school_id)
+       SELECT $1, $2, $3
+       WHERE NOT EXISTS (
+         SELECT 1 FROM user_roles
+         WHERE user_id = $1 AND role_id = $2
+           AND school_id IS NOT DISTINCT FROM $3
+       )`,
+      [userId, role.rows[0].id, scopedSchool]
+    );
+  } catch (err) {
+    if (err.code !== '42P01') {
+      console.warn('attachPrimaryRole:', err.message);
+    }
+  }
+}
+
+function tokenUser(row) {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    user_type: row.user_type,
+    school_id: row.school_id ?? null,
+    role: canonicalRole(row),
+  };
+}
 
 // Register
 router.post('/register', [
@@ -15,12 +72,23 @@ router.post('/register', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array(), error: 'VALIDATION', code: 'VALIDATION' });
     }
 
-    const { email, password, name, user_type, phone, school_name, major, desired_job, graduation_year, department_name } = req.body;
+    const {
+      email, password, name, user_type, phone, school_name, school_id,
+      major, desired_job, graduation_year, department_name
+    } = req.body;
 
-    // Check if user exists
+    const needsSchool = ['student', 'graduate', 'teacher'].includes(user_type);
+    let school = null;
+    if (needsSchool || school_id || school_name) {
+      school = await resolveSchool({ school_id, school_name });
+      if (needsSchool && !school) {
+        return sendError(res, 400, 'VALIDATION', '소속 학교를 선택해주세요');
+      }
+    }
+
     const existingUser = await query(
       'SELECT id, is_active FROM users WHERE email = $1',
       [email]
@@ -29,20 +97,26 @@ router.post('/register', [
     if (existingUser.rows.length > 0) {
       const found = existingUser.rows[0];
       if (found.is_active) {
-        // 이미 활성 계정 존재
-        return res.status(400).json({ error: 'Email already registered' });
+        return res.status(400).json({ error: 'Email already registered', code: 'CONFLICT' });
       }
-      // 탈퇴한 계정 → 재가입: 기존 레코드 갱신
       const password_hash = await bcrypt.hash(password, 10);
 
       const reColCheck = await query(
         `SELECT column_name FROM information_schema.columns 
          WHERE table_name = 'users' AND column_name IN 
-           ('phone','school_name','major','desired_job','graduation_year','department_name','withdraw_reason','withdrawn_at')`
+           ('phone','school_name','school_id','major','desired_job','graduation_year','department_name','withdraw_reason','withdrawn_at')`
       );
       const reExistingCols = reColCheck.rows.map(r => r.column_name);
 
-      const reOptional = { phone, school_name, major: major || null, desired_job: desired_job || null, graduation_year: graduation_year || null, department_name: department_name || null };
+      const reOptional = {
+        phone,
+        school_name: school?.name || school_name,
+        school_id: school?.id || null,
+        major: major || null,
+        desired_job: desired_job || null,
+        graduation_year: graduation_year || null,
+        department_name: department_name || null
+      };
       let setClauses = ['password_hash = $1', 'name = $2', 'user_type = $3', 'is_active = true', 'updated_at = CURRENT_TIMESTAMP'];
       let updateVals = [password_hash, name, user_type];
       let pIdx = 3;
@@ -64,33 +138,34 @@ router.post('/register', [
         `UPDATE users SET ${setClauses.join(', ')} WHERE id = $${pIdx} RETURNING *`,
         updateVals
       );
-      const { password_hash: _ph, ...user } = reResult.rows[0];
-      const token = jwt.sign(
-        { id: user.id, email: user.email, name: user.name, user_type: user.user_type },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRE || '7d' }
-      );
+      const user = reResult.rows[0];
+      await attachPrimaryRole(user.id, user.user_type, user.school_id);
+      const token = signUserToken(tokenUser(user));
       return res.status(201).json({
         message: 'User registered successfully',
-        user: { id: user.id, email: user.email, name: user.name, user_type: user.user_type,
-                phone: user.phone, school_name: user.school_name, major: user.major,
-                desired_job: user.desired_job, graduation_year: user.graduation_year, department_name: user.department_name },
+        user: publicUser(user),
         token
       });
     }
 
-    // Hash password
     const password_hash = await bcrypt.hash(password, 10);
 
-    // 실제 존재하는 컬럼만 INSERT (AWS DB가 구버전일 수 있음)
     const colCheck = await query(
       `SELECT column_name FROM information_schema.columns 
        WHERE table_name = 'users' AND column_name IN 
-         ('phone','school_name','major','desired_job','graduation_year','department_name')`
+         ('phone','school_name','school_id','major','desired_job','graduation_year','department_name')`
     );
     const existingCols = colCheck.rows.map(r => r.column_name);
 
-    const optionalFields = { phone, school_name, major: major || null, desired_job: desired_job || null, graduation_year: graduation_year || null, department_name: department_name || null };
+    const optionalFields = {
+      phone,
+      school_name: school?.name || school_name,
+      school_id: school?.id || null,
+      major: major || null,
+      desired_job: desired_job || null,
+      graduation_year: graduation_year || null,
+      department_name: department_name || null
+    };
     const insertCols = ['email', 'password_hash', 'name', 'user_type'];
     const insertVals = [email, password_hash, name, user_type];
 
@@ -107,35 +182,18 @@ router.post('/register', [
       insertVals
     );
 
-    const { password_hash: _, ...user } = result.rows[0];
-
-    // Generate token
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, user_type: user.user_type },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
-    );
+    const user = result.rows[0];
+    await attachPrimaryRole(user.id, user.user_type, user.school_id);
+    const token = signUserToken(tokenUser(user));
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        user_type: user.user_type,
-        phone: user.phone,
-        school_name: user.school_name,
-        major: user.major,
-        desired_job: user.desired_job,
-        graduation_year: user.graduation_year,
-        department_name: user.department_name,
-        profile_image: user.profile_image
-      },
+      user: publicUser(user),
       token
     });
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: 'Registration failed', code: 'INTERNAL' });
   }
 });
 
@@ -147,147 +205,122 @@ router.post('/login', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ errors: errors.array(), error: 'VALIDATION', code: 'VALIDATION' });
     }
 
     const { email, password } = req.body;
 
-    console.log('Login attempt:', { email, password: '***' });
-
-    // Get user
     const result = await query(
       'SELECT * FROM users WHERE email = $1 AND is_active = true',
       [email]
     );
-    
-    console.log('Query result:', { rowCount: result.rows.length });
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials', code: 'UNAUTHENTICATED' });
     }
 
     const user = result.rows[0];
 
-    // Check password
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials', code: 'UNAUTHENTICATED' });
     }
 
-    // Update last login
     await query(
       'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [user.id]
     );
 
-    // Generate token
-    const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, user_type: user.user_type },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRE || '7d' }
-    );
+    const token = signUserToken(tokenUser(user));
+    const safe = publicUser(user);
 
     res.json({
       message: 'Login successful',
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        user_type: user.user_type,
-        phone: user.phone,
-        school_name: user.school_name,
-        major: user.major,
-        desired_job: user.desired_job,
-        profile_image: user.profile_image,
+        ...safe,
         is_counselor: user.is_counselor || false
       },
       token
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ error: 'Login failed', code: 'INTERNAL' });
   }
 });
 
 // Get current user
-router.get('/me', async (req, res) => {
+router.get('/me', auth, async (req, res) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // SELECT * 사용으로 컬럼 존재 여부에 무관하게 동작
     const result = await query(
       `SELECT * FROM users WHERE id = $1 AND is_active = true`,
-      [decoded.id]
+      [req.user.id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
     }
 
-    // password_hash 제외하고 반환
-    const { password_hash, ...userData } = result.rows[0];
-    res.json({ user: userData });
+    const user = publicUser(result.rows[0]);
+    let permissions = null;
+    try {
+      permissions = await rbac.permissionsFor({ ...req.user, ...user });
+    } catch (err) {
+      console.warn('permissions attach skipped:', err.message);
+    }
+
+    res.json({ user: { ...user, permissions } });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(401).json({ error: 'Invalid token' });
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Invalid token');
   }
 });
 
-// Change password
-router.post('/change-password', async (req, res) => {
+// Change password — JWT required (REQ-IAM / docs/04)
+router.post('/change-password', auth, async (req, res) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const { currentPassword, newPassword } = req.body;
 
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ error: 'Both passwords required' });
+      return sendError(res, 400, 'VALIDATION', 'Both passwords required');
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      return sendError(res, 400, 'VALIDATION', 'New password must be at least 6 characters');
     }
 
-    // Get user
     const result = await query(
       'SELECT password_hash FROM users WHERE id = $1',
-      [decoded.id]
+      [req.user.id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
     }
 
-    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Current password is incorrect' });
+      return sendError(res, 401, 'UNAUTHENTICATED', 'Current password is incorrect');
     }
 
-    // Hash new password
     const password_hash = await bcrypt.hash(newPassword, 10);
 
-    // Update password
     await query(
       'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      [password_hash, decoded.id]
+      [password_hash, req.user.id]
     );
+
+    await writeAudit({
+      actorId: req.user.id,
+      schoolId: req.user.school_id,
+      action: 'user.change_password',
+      resource: `users:${req.user.id}`,
+      ip: requestIp(req),
+    });
 
     res.json({ message: 'Password changed successfully' });
   } catch (error) {
     console.error('Change password error:', error);
-    res.status(500).json({ error: 'Password change failed' });
+    res.status(500).json({ error: 'Password change failed', code: 'INTERNAL' });
   }
 });
 
