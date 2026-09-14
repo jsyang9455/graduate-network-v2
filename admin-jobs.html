@@ -266,8 +266,10 @@
                     ];
                 }
             } catch (err) {
-                // API 전체 실패 시 localStorage 폴백
-                allJobs = JSON.parse(localStorage.getItem('jobPostings') || '[]');
+                console.error('채용공고 목록 로드 실패:', err);
+                allJobs = [];
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:#b91c1c;">채용공고를 불러오지 못했습니다. 로그인 상태와 API 서버를 확인하세요.</td></tr>';
+                return;
             }
             displayJobs(allJobs);
         }

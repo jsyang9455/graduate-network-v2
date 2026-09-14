@@ -85,6 +85,7 @@ async function initJournalPage() {
     }
 
     await fetchJournals();
+    await loadJournalStats();
 }
 
 // ─── 목록 렌더링 ──────────────────────────────────────────────
@@ -129,8 +130,14 @@ function renderJournals() {
         ) ? `
             <div class="journal-card-actions">
                 <button class="btn btn-secondary btn-sm" onclick="openJournalModal('${j.id}')">수정</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportJournal('${j.id}','pdf')">PDF</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportJournal('${j.id}','docx')">DOCX</button>
                 <button class="btn btn-danger btn-sm" onclick="deleteJournal('${j.id}')">삭제</button>
-            </div>` : '';
+            </div>` : `
+            <div class="journal-card-actions">
+                <button class="btn btn-secondary btn-sm" onclick="exportJournal('${j.id}','pdf')">PDF</button>
+                <button class="btn btn-secondary btn-sm" onclick="exportJournal('${j.id}','docx')">DOCX</button>
+            </div>`;
 
         const privateBadge = j.is_private ? `<span class="privacy-badge">🔒 비공개</span>` : '';
 
@@ -178,6 +185,8 @@ function openJournalModal(id) {
         document.getElementById('journalTitle').value = j.title || '';
         document.getElementById('journalContent').value = j.content || '';
         document.getElementById('journalFollowUp').value = j.follow_up || '';
+        document.getElementById('journalActionTaken').value = j.action_taken || '';
+        document.getElementById('journalFollowUpAt').value = (j.follow_up_at || '').substring(0, 10);
         document.getElementById('journalPrivate').checked = !!j.is_private;
     } else {
         document.getElementById('journalDate').value = new Date().toISOString().slice(0, 10);
@@ -202,6 +211,8 @@ async function saveJournal(event) {
         title:           document.getElementById('journalTitle').value.trim(),
         content:         document.getElementById('journalContent').value.trim(),
         follow_up:       document.getElementById('journalFollowUp').value.trim() || null,
+        action_taken:    (document.getElementById('journalActionTaken')?.value || '').trim() || null,
+        follow_up_at:    document.getElementById('journalFollowUpAt')?.value || null,
         is_private:      document.getElementById('journalPrivate').checked,
     };
 
@@ -211,6 +222,7 @@ async function saveJournal(event) {
         closeJournalModal();
         await fetchJournals();
         showToast(id ? '상담일지가 수정되었습니다.' : '상담일지가 저장되었습니다.');
+        await loadJournalStats();
     } catch (e) {
         alert('저장 실패: ' + e.message);
     }
@@ -223,9 +235,36 @@ async function deleteJournal(id) {
     try {
         await apiCall('DELETE', '/counseling-journals/' + id);
         await fetchJournals();
+        await loadJournalStats();
         showToast('상담일지가 삭제되었습니다.');
     } catch (e) {
         alert('삭제 실패: ' + e.message);
+    }
+}
+
+async function exportJournal(id, format) {
+    try {
+        if (format === 'docx') {
+            await api.counselingJournals.docx(id, 'journal');
+        } else {
+            await api.counselingJournals.pdf(id, 'journal');
+        }
+        showToast((format === 'docx' ? 'DOCX' : 'PDF') + ' 다운로드를 시작했습니다.');
+    } catch (e) {
+        alert('내보내기 실패: ' + e.message);
+    }
+}
+
+async function loadJournalStats() {
+    const el = document.getElementById('journalStatsBar');
+    if (!el) return;
+    try {
+        const data = await apiCall('GET', '/counseling-journals/stats');
+        const stats = data.stats || {};
+        const parts = (stats.by_type || []).map((r) => `${r.type} ${r.count}건`);
+        el.textContent = `총 ${stats.total || 0}건` + (parts.length ? ' · ' + parts.join(' / ') : '');
+    } catch {
+        el.textContent = '';
     }
 }
 
@@ -253,6 +292,11 @@ function openDetailModal(id) {
             <p style="font-weight:600; margin-bottom:0.5rem; color:#1f2937;">상담 내용</p>
             <div style="padding:0.9rem; background:#f9fafb; border-radius:6px; line-height:1.7; white-space:pre-wrap;">${escHtml(j.content || '')}</div>
         </div>
+        ${j.action_taken ? `
+        <div style="margin-top:1rem;">
+            <p style="font-weight:600; margin-bottom:0.5rem; color:#1f2937;">조치</p>
+            <div style="padding:0.9rem; background:#f9fafb; border-radius:6px; line-height:1.7; white-space:pre-wrap;">${escHtml(j.action_taken)}</div>
+        </div>` : ''}
         ${j.follow_up ? `
         <div style="margin-top:1rem;">
             <p style="font-weight:600; margin-bottom:0.5rem; color:#15803d;">후속 조치 / 다음 상담 계획</p>

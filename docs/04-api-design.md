@@ -46,7 +46,7 @@
 |--------|------|----|
 | GET | `/` | `source=internal\|worknet\|all`, school 필터 |
 | GET/POST/PUT/DELETE | `/:id` | 가드 |
-| POST | `/:id/apply` | `resume_id` 필수화 방향 |
+| POST | `/:id/apply` | `resume_id` 수용 (소유 이력서만). 없으면 대표 이력서 자동 첨부 |
 | GET | `/:id/applicants` | 기업/관리 |
 | GET | `/my/applications` | 워크플로우 상태 |
 | POST | `/admin/sync-counts` | 유지 |
@@ -153,6 +153,7 @@
 - JWT `user_type` 필드 유지 (`school_admin` 추가). `role`, `school_id` 클레임 추가.
 - `test_token_` / `user_token_` 우회 **제거**.
 - Wave 1 구현: `GET/POST /api/schools`, `GET/PATCH /api/schools/:id`, `GET/POST /api/schools/:id/departments`, `GET /api/me/permissions`, `GET /api/audit-logs`, `POST /api/users/:id/roles`, `POST /api/users/:id/transfer`. OpenAPI 초안: `docs/openapi.yaml`.
+- Sprint 1 구현: `GET/POST /api/resumes`, `GET/PUT/DELETE /api/resumes/:id`, `POST /api/resumes/:id/primary`, `GET /api/resumes/:id/preview`, `POST /api/resumes/:id/pdf`, `GET /api/files/:id`, `POST /api/jobs/:id/apply` `resume_id`, `POST /api/counseling-journals/:id/pdf|docx`, `GET /api/counseling-journals/stats`, `GET /api/counseling-journals/timeline/:studentId`.
 
 ## 5. OpenAPI
 

@@ -32,6 +32,8 @@ const messageRoutes = require('./routes/messages');
 const schoolRoutes = require('./routes/schools');
 const meRoutes = require('./routes/me');
 const auditLogRoutes = require('./routes/audit-logs');
+const resumeRoutes = require('./routes/resumes');
+const fileRoutes = require('./routes/files');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -49,12 +51,14 @@ app.use('/api/messages', messageRoutes);
 app.use('/api/schools', schoolRoutes);
 app.use('/api/me', meRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/resumes', resumeRoutes);
+app.use('/api/files', fileRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     message: 'Graduate Network API is running',
-    version: '2.0.0-wave1',
+    version: '2.0.0-sprint1',
     timestamp: new Date().toISOString()
   });
 });
@@ -62,7 +66,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Graduate Network API',
-    version: '2.0.0-wave1',
+    version: '2.0.0-sprint1',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -70,6 +74,8 @@ app.get('/', (req, res) => {
       schools: '/api/schools',
       me: '/api/me/permissions',
       auditLogs: '/api/audit-logs',
+      resumes: '/api/resumes',
+      files: '/api/files',
       networking: '/api/networking',
       counseling: '/api/counseling',
       certificates: '/api/certificates',

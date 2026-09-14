@@ -30,7 +30,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 대시보드 | `dashboard.html` | 추천 카드, 지원 현황, 견학, 상담 일정 |
 | 채용 | `jobs.html` | 자체/워크넷 뱃지, 추천 정렬 |
 | 공고 상세/지원 | jobs 상세 흐름 | 이력서 선택 첨부 |
-| 경력/이력 | `career.html` | **이력서 마법사로 재구성**. LocalStorage 제거 |
+| 경력/이력 | `career.html` + `js/career.js` | **Sprint 1:** 이력서 마법사(복수·대표·미리보기·PDF). LocalStorage `career_*` 제거. `/api/resumes` |
 | 이력서 PDF | (신규 `resume.html` 또는 career 확장) | 미리보기·다운로드 |
 | 상담 예약 | `counseling.html` | 유지 |
 | 자격/교육/박람회/견학 | `certificates.html`, `education-programs.html`, `job-fair.html`, `industry-visit.html`, `certification-support.html` | 견학은 `field-trips.html`로 이관 권장, 옛 URL 리다이렉트 |
@@ -41,7 +41,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 | 화면 | 파일 | v2 |
 |------|------|----|
-| 상담일지 | `counseling-journal.html` | 유형 확장, PDF/DOCX, 타임라인 |
+| 상담일지 | `counseling-journal.html` | 유형 확장(진학/취업/생활/심리), PDF/DOCX, 통계 바, 타임라인 API |
 | 대시보드 | `dashboard.html` | 폴백 제거, 소속 학생만 |
 
 ### 기업
@@ -57,7 +57,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 화면 | 파일 | v2 |
 |------|------|----|
 | 회원 | `admin-users.html` | school_admin은 소속만, 전입/전출, 역할 지정 |
-| 공고 | `admin-jobs.html` | LocalStorage 폴백 삭제, 워크넷 구분 |
+| 공고 | `admin-jobs.html` | **Sprint 1:** LocalStorage `jobPostings` 폴백 삭제. `/api/jobs`만 |
 | 게시판 | `admin-board.html` | API만, 블라인드/신고 |
 | 공지/행사 | `admin-announcements.html` | 견학 모듈과 정렬 |
 | 코드 | `admin-codes.html` | **Wave 1:** `GET/POST/PATCH /api/schools`. 비활성화만(하드 삭제 없음). LocalStorage 삭제 |

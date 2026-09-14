@@ -306,11 +306,22 @@ async function applyJob(jobId) {
     
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
-    
-    if (!confirm(`${job.company}의 ${job.position} 포지션에 지원하시겠습니까?`)) return;
 
+    let resumeId = null;
     try {
-        await api.post(`/jobs/${jobId}/apply`, {});
+        const data = await api.resumes.list();
+        const list = data.resumes || [];
+        const primary = list.find(r => r.is_primary) || list[0];
+        if (!primary) {
+            if (confirm('등록된 이력서가 없습니다. 경력 관리에서 이력서를 작성할까요?')) {
+                window.location.href = 'career.html';
+            }
+            return;
+        }
+        resumeId = primary.id;
+        const label = primary.is_primary ? '대표 이력서' : primary.title;
+        if (!confirm(`${job.company || job.company_name || ''}의 ${job.position || job.title || ''} 포지션에\n「${label}」를 첨부하여 지원하시겠습니까?`)) return;
+        await api.post(`/jobs/${jobId}/apply`, { resume_id: resumeId });
         alert('지원이 완료되었습니다!');
         await loadJobs();
     } catch (e) {

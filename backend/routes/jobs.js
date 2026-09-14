@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { auth, checkRole } = require('../middleware/auth');
+const { sendError } = require('../lib/httpErrors');
+const { forbidCrossSchool } = require('../middleware/schoolScope');
 
 // Get all jobs (with filters)
 router.get('/', async (req, res) => {
@@ -292,6 +294,7 @@ router.post('/:id/apply', auth, async (req, res) => {
   try {
     const { id } = req.params;
     const { cover_letter, resume_url } = req.body;
+    let resumeId = req.body.resume_id ? Number(req.body.resume_id) : null;
 
     // Check if already applied
     const existing = await query(
@@ -317,11 +320,40 @@ router.post('/:id/apply', auth, async (req, res) => {
       return res.status(400).json({ error: 'Job is not active' });
     }
 
+    if (!resumeId) {
+      const primary = await query(
+        `SELECT id FROM resumes WHERE user_id = $1 AND is_primary = true LIMIT 1`,
+        [req.user.id]
+      );
+      resumeId = primary.rows[0]?.id || null;
+    }
+
+    let storedResumeUrl = resume_url || null;
+    if (resumeId) {
+      const resume = await query(
+        `SELECT id, user_id, school_id FROM resumes WHERE id = $1`,
+        [resumeId]
+      );
+      if (!resume.rows.length) {
+        return sendError(res, 404, 'NOT_FOUND', '이력서를 찾을 수 없습니다');
+      }
+      if (Number(resume.rows[0].user_id) !== Number(req.user.id)) {
+        return forbidCrossSchool(res);
+      }
+      const latestDoc = await query(
+        `SELECT file_id FROM resume_documents WHERE resume_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [resumeId]
+      );
+      if (latestDoc.rows.length) {
+        storedResumeUrl = storedResumeUrl || `/api/files/${latestDoc.rows[0].file_id}`;
+      }
+    }
+
     const result = await query(
-      `INSERT INTO job_applications (job_id, user_id, cover_letter, resume_url)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO job_applications (job_id, user_id, cover_letter, resume_url, resume_id)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [id, req.user.id, cover_letter, resume_url]
+      [id, req.user.id, cover_letter, storedResumeUrl, resumeId]
     );
 
     // Update applications count
@@ -355,6 +387,7 @@ router.get('/:id/applicants', auth, checkRole('admin', 'company'), async (req, r
 
     const result = await query(
       `SELECT ja.id, ja.status as application_status, ja.applied_at, ja.cover_letter,
+              ja.resume_id, ja.resume_url,
               u.id as user_id, u.name, u.email, u.phone, u.school_name, u.major,
               u.user_type, u.graduation_year
        FROM job_applications ja

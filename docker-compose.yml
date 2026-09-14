@@ -39,6 +39,10 @@ services:
       JWT_SECRET: graduate_network_secret_key_2026_jeonju_tech
       JWT_EXPIRE: 7d
       CORS_ORIGIN: "*"
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: /app/uploads
+    volumes:
+      - backend_uploads:/app/uploads
     ports:
       - "5000:5000"
     depends_on:
@@ -75,4 +79,6 @@ networks:
 
 volumes:
   postgres_data:
+    driver: local
+  backend_uploads:
     driver: local

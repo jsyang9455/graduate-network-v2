@@ -25,9 +25,10 @@ Thumbs.db
 logs/
 *.log
 
-# Database
-*.sqlite
-*.db
+uploads/
+backend/uploads/
+tmp-test-uploads/
+
 
 # Docker volumes
 postgres-data/

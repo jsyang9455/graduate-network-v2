@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-14  
-현재 단계: **Phase 3 Wave 1 (멀티스쿨·RBAC·schools API)**  
-전체 P0 구현: **약 18%** (기반 IAM/가드. 이력서·워크넷·추천 미착수)
+현재 단계: **Sprint 1 (이력서 PDF · 상담 문서)**  
+전체 P0 구현: **약 34%** (Wave 1 IAM + Sprint 1 이력서/상담 문서. 워크넷·추천·견학 미착수)
 
 ## Gates (학교 제공물)
 
@@ -19,12 +19,12 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 |-------|------|-------|---|------|
 | 0 | 비전/요구/아키텍처/역할, v2 저장소 | architect | 100 | done |
 | 1 | 착수 보고·게이트 확인·현행 이슈 목록 | architect | 0 | todo |
-| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 40 | in-progress (OpenAPI Wave 1 초안) |
-| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 55 | in-progress (Wave 1 IAM/가드) |
-| Sprint 1 | 이력서·상담 문서 | backend + frontend | 0 | todo |
-| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 0 | todo |
+| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 70 | in-progress (OpenAPI Sprint 1) |
+| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 80 | in-progress (Wave 1 IAM + local/S3 스토리지) |
+| Sprint 1 | 이력서·상담 문서 | backend + frontend | 90 | in-progress (PDF/DOCX·career API. CNS-003 후속 알림은 Sprint 2/3) |
+| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 5 | todo (apply resume_id만 선행) |
 | Sprint 3 | 추천·견학·커뮤니티·메시지 | all implementers | 0 | todo |
-| 4 | 테스트·UAT·보안 | qa | 20 | in-progress (타교 403 픽스처) |
+| 4 | 테스트·UAT·보안 | qa | 40 | in-progress (타교 403 + Sprint 1 API 테스트) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
@@ -32,26 +32,29 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
 | 멀티스쿨 스키마/가드 | backend | 80 | Wave 1: 010 마이그레이션, authorize+schoolScope, audit_logs |
-| IAM API·OpenAPI | api | 70 | `/api/schools`, `/api/me/permissions`, JWT role/school, port 5000 |
+| IAM API·OpenAPI | api | 80 | `/api/schools`, `/api/me/permissions`, JWT role/school, resumes/files OpenAPI |
 | 권한 메뉴·schools UI | frontend | 70 | permissions 메뉴, 회원가입/코드관리 schools API, test_token 제거 |
-| 이력서 PDF | backend/frontend | 0 | |
-| 상담 문서 | backend/frontend | 0 | 유형 코드 불일치 해소 |
-| 채용 워크플로우 알림 | api/frontend | 0 | |
+| 이력서 PDF | backend/frontend | 90 | 011 스키마, `/api/resumes`, career.html API, 한글 PDF |
+| 상담 문서 | backend/frontend | 85 | 유형 진학/생활 확장, PDF/DOCX, stats/timeline. CNS-003 알림 미착수 |
+| 채용 워크플로우 알림 | api/frontend | 15 | `POST /jobs/:id/apply` `resume_id` 수용. 상태 PATCH·인앱은 Sprint 2 |
 | 워크넷 | backend | 0 | 게이트 |
 | 추천 엔진 | backend | 0 | |
 | 견학 모듈 | backend/frontend | 0 | announcements 이관 |
 | 커뮤니티 고도화 | api/frontend | 0 | |
 | 알림톡/SMS | backend | 0 | 게이트 |
-| QA 스위트 | qa | 35 | 2교 픽스처 + 타교 403 (`backend/tests`) |
+| QA 스위트 | qa | 50 | Wave 1 타교 403 + `sprint1-documents.test.js` |
 
 ## Blockers
 
 | ID | 내용 | 영향 | Owner |
 |----|------|------|-------|
 | B-GATE | 학교 측 워크넷 키·알림톡 계정 미확인 | Sprint 2/3 일부 | architect |
-| B-LS | career/admin-jobs 등 LocalStorage 운영 데이터 이관 불가 | 재입력 필요 | architect |
+| B-LS | admin-board/profile 등 잔여 LocalStorage | 재입력 안내 | architect |
 
-해소: **B-PORT** — 프론트 `js/api.js` 로컬 API를 **5000**으로 통일 (compose/backend와 동일).
+해소: **B-PORT** — 프론트 `js/api.js` 로컬 API를 **5000**으로 통일 (compose/backend와 동일).  
+해소: **B-LS career/admin-jobs** — `career_*` 및 `jobPostings` 폴백 제거. 이력서/공고는 API만.
+
+로컬 백엔드: 기본 `PORT=5000`. macOS AirPlay가 5000을 쓰면 `PORT=5050 npm start` 후 브라우저는 `js/api.js`가 5000을 가리키므로 프록시하거나 일시적으로 API_BASE를 맞출 것.
 
 ## 에이전트 갱신 규칙
 
@@ -99,3 +102,38 @@ Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.*
 - STATUS 「REQ-IAM-001~010 완료」·Phase 3 **55%**는 **과대**. 모니터 추정: 전체 P0 **14–16%**, Phase 3 **35–45%**. 위 표 %는 Sprint 1 에이전트와 충돌하지 않도록 여기서 바꾸지 않음 — Architect가 정정.
 - Sprint 1 전 블로커급: `files` 스토리지 없음, `career.html` LS, jobs/상담예약 테넌시 미장착, `GET /api/users` 로그인 필수 회귀.
 - 게이트 Worknet/Alimtalk `unknown`, **B-LS** 유지. B-PORT 해소는 확인.
+
+Sprint 1 이후 업데이트: `files` 스토리지·`career.html` API 이관은 본 커밋에서 해소. jobs 목록 테넌시·GET /api/users 회귀는 잔여 (Sprint 2/QA).
+
+## Sprint 1 완료 기록 (REQ-RSM-001~005, REQ-CNS-001/002/004/005, REQ-PLT-001/004, REQ-JOB-005)
+
+- 마이그레이션 `database/migrations/011_v2_sprint1_resumes.sql`
+- 스토리지 `backend/modules/storage` (local 기본, S3는 자격 있을 때만)
+- 문서 `backend/modules/documents` (한글 폰트 PDF, DOCX)
+- API: `/api/resumes*`, `/api/files/:id`, counseling pdf/docx/stats/timeline, apply `resume_id`
+- 프론트: `career.html`/`js/career.js` API, `admin-jobs` LS 폴백 제거, 상담 내보내기, 공고 지원 시 대표 이력서
+- QA: `backend/tests/sprint1-documents.test.js` (CRUD, PDF smoke, apply, 타교 403). Wave 1 테스트 유지
+
+브라우저 검증: 백엔드가 기동되면 career 이력서 저장·PDF, 상담 PDF/DOCX를 확인. AirPlay가 5000을 점유하면 다른 PORT.
+
+```
+Handoff: sprint1-owner → frontend
+REQ: REQ-JOB-003/004
+Need: 지원 상태 PATCH UI, 지원 시 이력서 선택 드롭다운 고도화 (현재 대표 자동)
+Done: career API, apply resume_id, admin-jobs LS 제거
+
+Handoff: sprint1-owner → backend
+REQ: REQ-CNS-003, REQ-JOB-004, REQ-MSG-010
+Need: 후속상담·지원 상태 인앱 알림
+Done: 상담 PDF/DOCX, files 스토리지
+
+Handoff: sprint1-owner → qa
+REQ: REQ-RSM-004, REQ-CNS-004
+Need: Playwright 페르소나 (이력서 마법사→PDF, 교사 문서 다운로드)
+Done: node:test 통합 (PDF magic bytes, 타교 403)
+
+Handoff: sprint1-owner → api
+REQ: REQ-JOB-003
+Need: PATCH /api/jobs/applications/:id/status + OpenAPI (Sprint 2)
+Done: apply resume_id, resumes OpenAPI
+```

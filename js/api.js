@@ -95,6 +95,35 @@ const api = {
     return this.request(endpoint, { method: 'DELETE' });
   },
 
+  async download(endpoint, { method = 'GET', body, filename } = {}) {
+    const token = this.getToken();
+    const headers = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    if (body) headers['Content-Type'] = 'application/json';
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) {
+      let msg = 'Download failed';
+      try {
+        const data = await response.json();
+        msg = (typeof data.error === 'string' ? data.error : data.error?.message) || msg;
+      } catch { /* ignore */ }
+      throw new Error(msg);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename || 'download';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   // Auth APIs
   auth: {
     async register(userData) {
@@ -190,6 +219,71 @@ const api = {
 
     async getMyApplications() {
       return api.get('/jobs/my/applications');
+    },
+  },
+
+  resumes: {
+    async list(userId) {
+      const q = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+      return api.get(`/resumes${q}`);
+    },
+    async get(id) {
+      return api.get(`/resumes/${id}`);
+    },
+    async create(data) {
+      return api.post('/resumes', data);
+    },
+    async update(id, data) {
+      return api.put(`/resumes/${id}`, data);
+    },
+    async remove(id) {
+      return api.delete(`/resumes/${id}`);
+    },
+    async setPrimary(id) {
+      return api.post(`/resumes/${id}/primary`, {});
+    },
+    async preview(id) {
+      return api.get(`/resumes/${id}/preview`);
+    },
+    async pdf(id, template_code) {
+      return api.download(`/resumes/${id}/pdf?download=1`, {
+        method: 'POST',
+        body: template_code ? { template_code } : {},
+        filename: 'resume.pdf',
+      });
+    },
+  },
+
+  counselingJournals: {
+    async list() {
+      return api.get('/counseling-journals');
+    },
+    async stats(params = {}) {
+      const q = new URLSearchParams(params).toString();
+      return api.get(`/counseling-journals/stats${q ? `?${q}` : ''}`);
+    },
+    async timeline(studentId) {
+      return api.get(`/counseling-journals/timeline/${studentId}`);
+    },
+    async pdf(id, kind) {
+      return api.download(`/counseling-journals/${id}/pdf?download=1`, {
+        method: 'POST',
+        body: kind ? { kind } : {},
+        filename: 'counseling.pdf',
+      });
+    },
+    async docx(id, kind) {
+      return api.download(`/counseling-journals/${id}/docx?download=1`, {
+        method: 'POST',
+        body: kind ? { kind } : {},
+        filename: 'counseling.docx',
+      });
+    },
+  },
+
+  files: {
+    async download(id, filename) {
+      return api.download(`/files/${id}?download=1`, { filename: filename || 'file' });
     },
   },
 
