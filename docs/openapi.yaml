@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: jjobb_v2 Graduate Network API
-  version: 2.0.0-sprint2
-  description: Sprint 2 jobs workflow, school-scoped jobs/counseling, in-app notify. v1 `/api` keys are preserved.
+  version: 2.0.0-sprint4
+  description: Sprint 4 recommendations, field trips, networking school scope (+ Sprint 2–3). v1 `/api` keys are preserved.
 servers:
   - url: http://localhost:5000
     description: Local / Docker Compose backend
@@ -14,6 +14,9 @@ tags:
   - name: Files
   - name: Jobs
   - name: Counseling
+  - name: Recommendations
+  - name: FieldTrips
+  - name: Networking
 paths:
   /api/health:
     get:
@@ -260,6 +263,71 @@ paths:
       summary: Counseling journal/confirmation DOCX (REQ-CNS-004)
       responses:
         '201': { description: '{ file, document }' }
+  /api/recommendations/me:
+    get:
+      tags: [Recommendations]
+      security: [{ bearerAuth: [] }]
+      summary: Ranked recommendations with reasons (REQ-REC-004)
+      responses:
+        '200': { description: '{ recommendations, scoring_factors }' }
+  /api/recommendations/recompute:
+    post:
+      tags: [Recommendations]
+      security: [{ bearerAuth: [] }]
+      summary: Recompute self/school/cron (REQ-REC-005)
+      responses:
+        '200': { description: recomputed }
+  /api/recommendations/feedback:
+    post:
+      tags: [Recommendations]
+      security: [{ bearerAuth: [] }]
+      summary: impression|click|apply (REQ-REC-006)
+      responses:
+        '201': { description: recorded }
+  /api/field-trips:
+    get:
+      tags: [FieldTrips]
+      summary: List field trips (school scoped, REQ-TRP-001)
+      responses:
+        '200': { description: '{ field_trips }' }
+    post:
+      tags: [FieldTrips]
+      security: [{ bearerAuth: [] }]
+      summary: Create field trip
+      responses:
+        '201': { description: created }
+  /api/field-trips/{id}/apply:
+    post:
+      tags: [FieldTrips]
+      security: [{ bearerAuth: [] }]
+      summary: Apply with capacity/fifo|approval (REQ-TRP-002)
+      responses:
+        '201': { description: application }
+        '400': { description: CAPACITY }
+        '403': { description: cross-school }
+  /api/field-trips/{id}/roster:
+    get:
+      tags: [FieldTrips]
+      security: [{ bearerAuth: [] }]
+      summary: Roster (REQ-TRP-003)
+      responses:
+        '200': { description: roster }
+        '403': { description: cross-school }
+  /api/networking/mentors:
+    get:
+      tags: [Networking]
+      security: [{ bearerAuth: [] }]
+      summary: Same-school mentors (REQ-IAM-009)
+      responses:
+        '200': { description: mentors }
+  /api/networking/connect/{userId}:
+    post:
+      tags: [Networking]
+      security: [{ bearerAuth: [] }]
+      summary: Connect; cross-school 403
+      responses:
+        '201': { description: pending }
+        '403': { description: FORBIDDEN }
 components:
   securitySchemes:
     bearerAuth:

@@ -233,15 +233,21 @@
 
         async function loadAnnouncements() {
             try {
-                const res = await fetch(API_BASE + '/announcements/industry-visit');
-                if (!res.ok) throw new Error('서버 오류: ' + res.status);
-                const response = await res.json();
-                announcements = response.announcements || [];
+                // Sprint 4: field_trips API (announcements industry-visit 이관)
+                let response;
+                if (typeof api !== 'undefined' && auth.getToken && auth.getToken()) {
+                    response = await api.get('/field-trips');
+                } else {
+                    const res = await fetch(API_BASE + '/field-trips');
+                    if (!res.ok) throw new Error('서버 오류: ' + res.status);
+                    response = await res.json();
+                }
+                announcements = response.field_trips || response.trips || [];
                 displayAnnouncements(announcements);
             } catch (error) {
                 console.error('산업체 견학 로드 실패:', error);
                 document.getElementById('emptyState').style.display = 'block';
-                document.getElementById('emptyState').querySelector('p').textContent = '데이터를 불러오지 못했습니다. 서버가 실행 중인지 확인해주세요.';
+                document.getElementById('emptyState').querySelector('p').textContent = '데이터를 불러오지 못했습니다. 로그인 후 다시 시도하거나 서버 상태를 확인해주세요.';
             }
         }
 
@@ -432,8 +438,8 @@
             btn.textContent = '처리 중...';
             btn.disabled = true;
             try {
-                await api.post('/announcements/apply', {
-                    announcement_id: parseInt(document.getElementById('applyAnnouncementId').value),
+                const tripId = parseInt(document.getElementById('applyAnnouncementId').value, 10);
+                await api.post('/field-trips/' + tripId + '/apply', {
                     applicant_name: document.getElementById('applyName').value.trim(),
                     applicant_phone: document.getElementById('applyPhone').value.trim(),
                     applicant_email: document.getElementById('applyEmail').value.trim(),

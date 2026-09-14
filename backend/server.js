@@ -35,6 +35,8 @@ const auditLogRoutes = require('./routes/audit-logs');
 const resumeRoutes = require('./routes/resumes');
 const fileRoutes = require('./routes/files');
 const notificationRoutes = require('./routes/notifications');
+const recommendationRoutes = require('./routes/recommendations');
+const fieldTripRoutes = require('./routes/field-trips');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -55,12 +57,14 @@ app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/field-trips', fieldTripRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     message: 'Graduate Network API is running',
-    version: '2.0.0-sprint2',
+    version: '2.0.0-sprint4',
     timestamp: new Date().toISOString()
   });
 });
@@ -68,7 +72,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Graduate Network API',
-    version: '2.0.0-sprint2',
+    version: '2.0.0-sprint4',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',
@@ -81,7 +85,9 @@ app.get('/', (req, res) => {
       networking: '/api/networking',
       counseling: '/api/counseling',
       certificates: '/api/certificates',
-      posts: '/api/posts'
+      posts: '/api/posts',
+      recommendations: '/api/recommendations',
+      fieldTrips: '/api/field-trips'
     }
   });
 });
@@ -112,6 +118,12 @@ async function start() {
     if (process.env.NODE_ENV === 'production') {
       process.exit(1);
     }
+  }
+
+  try {
+    require('./jobs/cron').startCronJobs();
+  } catch (err) {
+    console.warn('⚠️  Cron init skipped:', err.message);
   }
 
   const server = app.listen(PORT, () => {

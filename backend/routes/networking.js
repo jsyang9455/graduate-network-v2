@@ -2,9 +2,22 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { auth } = require('../middleware/auth');
+const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin } = require('../lib/roles');
+const { sendError } = require('../lib/httpErrors');
+
+async function loadUserSchool(userId) {
+  const result = await query('SELECT id, school_id, name FROM users WHERE id = $1 AND is_active = true', [userId]);
+  return result.rows[0] || null;
+}
+
+function sameSchoolOrAdmin(req, otherSchoolId) {
+  if (isSystemAdmin(req.user)) return true;
+  return assertSameSchool(req, otherSchoolId);
+}
 
 // Get connections
-router.get('/connections', auth, async (req, res) => {
+router.get('/connections', auth, schoolScope, async (req, res) => {
   try {
     const result = await query(
       `SELECT c.*,
@@ -47,7 +60,7 @@ router.get('/connections', auth, async (req, res) => {
 });
 
 // Get connection requests (pending)
-router.get('/requests', auth, async (req, res) => {
+router.get('/requests', auth, schoolScope, async (req, res) => {
   try {
     const result = await query(
       `SELECT c.*, 
@@ -69,17 +82,24 @@ router.get('/requests', auth, async (req, res) => {
   }
 });
 
-// Send connection request
-router.post('/connect/:userId', auth, async (req, res) => {
+// Send connection request — same school only (REQ-IAM-009)
+router.post('/connect/:userId', auth, schoolScope, async (req, res) => {
   try {
     const { userId } = req.params;
     const { message } = req.body;
 
-    if (parseInt(userId) === req.user.id) {
+    if (parseInt(userId, 10) === req.user.id) {
       return res.status(400).json({ error: 'Cannot connect to yourself' });
     }
 
-    // Check if connection already exists
+    const target = await loadUserSchool(userId);
+    if (!target) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    if (!sameSchoolOrAdmin(req, target.school_id)) {
+      return forbidCrossSchool(res);
+    }
+
     const existing = await query(
       `SELECT id, status FROM connections 
        WHERE (requester_id = $1 AND receiver_id = $2) 
@@ -112,7 +132,7 @@ router.post('/connect/:userId', auth, async (req, res) => {
 });
 
 // Accept/Reject connection request
-router.put('/requests/:id', auth, async (req, res) => {
+router.put('/requests/:id', auth, schoolScope, async (req, res) => {
   try {
     const { id } = req.params;
     const { action } = req.body; // 'accept' or 'reject'
@@ -121,7 +141,6 @@ router.put('/requests/:id', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid action' });
     }
 
-    // Check if request exists and user is receiver
     const requestCheck = await query(
       'SELECT * FROM connections WHERE id = $1 AND receiver_id = $2',
       [id, req.user.id]
@@ -152,7 +171,7 @@ router.put('/requests/:id', auth, async (req, res) => {
 });
 
 // Remove connection
-router.delete('/connect/:userId', auth, async (req, res) => {
+router.delete('/connect/:userId', auth, schoolScope, async (req, res) => {
   try {
     const { userId } = req.params;
     await query(
@@ -168,13 +187,13 @@ router.delete('/connect/:userId', auth, async (req, res) => {
   }
 });
 
-// Get mentors
-router.get('/mentors', async (req, res) => {
+// Get mentors — school-scoped (REQ-IAM-009)
+router.get('/mentors', auth, schoolScope, async (req, res) => {
   try {
     const { major, company, search } = req.query;
 
     let queryText = `
-      SELECT u.id, u.name, u.profile_image,
+      SELECT u.id, u.name, u.profile_image, u.school_id,
              gp.graduation_year, gp.major, gp.current_company, 
              gp.current_position, gp.bio, gp.skills, gp.mentor_capacity
       FROM users u
@@ -183,6 +202,15 @@ router.get('/mentors', async (req, res) => {
     `;
     const params = [];
     let paramCount = 0;
+
+    if (!isSystemAdmin(req.user)) {
+      if (req.user.school_id == null) {
+        return res.json({ mentors: [] });
+      }
+      paramCount += 1;
+      queryText += ` AND u.school_id = $${paramCount}`;
+      params.push(req.user.school_id);
+    }
 
     if (major) {
       paramCount++;
@@ -212,13 +240,20 @@ router.get('/mentors', async (req, res) => {
   }
 });
 
-// Request mentorship
-router.post('/mentorship/:mentorId', auth, async (req, res) => {
+// Request mentorship — same school only
+router.post('/mentorship/:mentorId', auth, schoolScope, async (req, res) => {
   try {
     const { mentorId } = req.params;
     const { notes } = req.body;
 
-    // Check if mentor exists and has capacity
+    const mentorUser = await loadUserSchool(mentorId);
+    if (!mentorUser) {
+      return sendError(res, 404, 'NOT_FOUND', 'Mentor not found');
+    }
+    if (!sameSchoolOrAdmin(req, mentorUser.school_id)) {
+      return forbidCrossSchool(res);
+    }
+
     const mentorCheck = await query(
       `SELECT gp.is_mentor, gp.mentor_capacity,
               (SELECT COUNT(*) FROM mentorships WHERE mentor_id = $1 AND status = 'active') as active_mentees
@@ -236,7 +271,6 @@ router.post('/mentorship/:mentorId', auth, async (req, res) => {
       return res.status(400).json({ error: 'Mentor not available' });
     }
 
-    // Check if mentorship already exists
     const existing = await query(
       `SELECT id FROM mentorships 
        WHERE mentor_id = $1 AND mentee_id = $2 AND status = 'active'`,
@@ -265,7 +299,7 @@ router.post('/mentorship/:mentorId', auth, async (req, res) => {
 });
 
 // Get my mentorships
-router.get('/my-mentorships', auth, async (req, res) => {
+router.get('/my-mentorships', auth, schoolScope, async (req, res) => {
   try {
     const result = await query(
       `SELECT m.*,

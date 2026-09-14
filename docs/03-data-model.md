@@ -123,6 +123,8 @@ roles *──* menus          (role_menu_permissions)
    Wave 1에서 적용: `schools`, `departments`, `roles`, `menus`, `role_menu_permissions`, `user_roles`, `school_transfers`, `audit_logs`, `users.school_id` backfill(전주공업고), `counseling_journals.school_id`.
    Sprint 1에서 적용: `database/migrations/011_v2_sprint1_resumes.sql` — `files`, `resumes`, `resume_items`, `resume_documents`, `counseling_documents`, `counseling_journals` 유형 확장(진학/생활) + `action_taken`/`follow_up_at`, `job_applications.resume_id`.
    Sprint 2에서 적용: `database/migrations/012_v2_sprint2_workflow.sql` — `notifications.event_code`/`channel`/`school_id`/`payload`, `jobs.school_id` 기업 소속 백필.
+   Sprint 3에서 적용: `database/migrations/013_v2_sprint3_community_tenancy.sql` — announcements/certificates/education_programs.school_id, posts backfill.
+   Sprint 4에서 적용: `database/migrations/014_v2_sprint4_recommendations_fieldtrips.sql` — job_recommendations·keywords·feedback, field_trips 이관(industry-visit).
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내.
 
 ## 6. 인덱스·무결성 (최소)

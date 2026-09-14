@@ -160,7 +160,18 @@
 - Sprint 1 구현: `GET/POST /api/resumes`, `GET/PUT/DELETE /api/resumes/:id`, `POST /api/resumes/:id/primary`, `GET /api/resumes/:id/preview`, `POST /api/resumes/:id/pdf`, `GET /api/files/:id`, `POST /api/jobs/:id/apply` `resume_id`, `POST /api/counseling-journals/:id/pdf|docx`, `GET /api/counseling-journals/stats`, `GET /api/counseling-journals/timeline/:studentId`.
 - Sprint 2 구현: jobs list/get/update school 가드, `PATCH /api/jobs/applications/:id/status`, `GET /api/jobs/applications/:id`, `GET /api/notifications`, counseling teachers/sessions school 가드. 워크넷·알림톡 실연동 없음 (`NOT_CONFIGURED`).
 - Sprint 3 구현: `GET/POST /api/posts*`, `GET /api/announcements/*`, `GET /api/certificates/:id`, `GET /api/education-programs*` school 범위(optionalAuth 목록·403 타교). `GET /api/files/:id` 동일교 타 사용자 이력서 PDF 403.
+- Sprint 4 구현: `GET /api/recommendations/me`, `POST /api/recommendations/recompute`, `POST /api/recommendations/feedback`; `GET/POST /api/field-trips`, `GET/PUT /api/field-trips/:id`, `POST /api/field-trips/:id/apply`, `PATCH /api/field-trips/applications/:id`, `GET /api/field-trips/:id/roster`, `PATCH /api/field-trips/:id/attendance`; networking mentors/connect schoolScope. 워크넷·알림톡 실연동 없음.
 
 ## 5. OpenAPI
 
 구현 착수 시 `docs/openapi.yaml`을 API 에이전트가 소유한다. 본 문서가 인벤토리, OpenAPI가 스키마 진실 공급원.
+
+### 추천 스코어링 요인 (REQ-REC-001/003)
+
+| code | 설명 | 가중(대략) |
+|------|------|-----------|
+| skill_overlap | 이력서·공고 키워드 코사인 유사 | ≤0.55 |
+| location_match | 희망 지역 ↔ 공고 location | +0.15 |
+| deadline_boost | 마감 7일 이내 | +0.12 |
+| major_fit | 학과/전공 토큰 공고 본문 | +0.10 |
+| freshness | 공고 생성 14일 이내 | +0.08 |

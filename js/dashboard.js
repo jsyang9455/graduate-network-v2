@@ -434,24 +434,38 @@ async function loadRecommendedJobs() {
     recommendedJobsContainer.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">불러오는 중...</p>';
 
     try {
-        const data = await api.get('/jobs?status=active&limit=3');
-        const activeJobs = data.jobs || [];
+        // Sprint 4: explainable recommendations feed (REQ-REC-004)
+        let items = [];
+        try {
+            const data = await api.get('/recommendations/me?limit=3');
+            items = (data.recommendations || []).map((r) => ({
+                ...(r.job || {}),
+                score: r.score,
+                reasons: r.reasons || [],
+            }));
+        } catch (_) {
+            const data = await api.get('/jobs?status=active&limit=3');
+            items = data.jobs || [];
+        }
 
-        if (activeJobs.length === 0) {
-            recommendedJobsContainer.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">추천 채용공고가 없습니다.</p>';
+        if (items.length === 0) {
+            recommendedJobsContainer.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">추천 채용공고가 없습니다. 이력서를 등록하면 맞춤 추천이 생성됩니다.</p>';
             return;
         }
 
-        recommendedJobsContainer.innerHTML = activeJobs.map(job => {
+        recommendedJobsContainer.innerHTML = items.map(job => {
             const deadline = job.deadline ? String(job.deadline).substring(0, 10) : '상시채용';
             const salary = job.salary_range || '협의';
             const desc = (job.description || '');
             const shortDesc = desc.length > 80 ? desc.substring(0, 80) + '...' : desc;
+            const reasonText = Array.isArray(job.reasons) && job.reasons.length
+                ? job.reasons.slice(0, 2).map((x) => x.label || x.code).join(' · ')
+                : '';
             return `
             <div class="job-card">
                 <div class="job-card-header">
                     <h3>${job.company_name || '-'}</h3>
-                    <span class="job-badge">모집중</span>
+                    <span class="job-badge">${job.score != null ? '추천 ' + Number(job.score).toFixed(2) : '모집중'}</span>
                 </div>
                 <div class="job-card-body">
                     <h4>${job.title || '-'}</h4>
@@ -461,6 +475,7 @@ async function loadRecommendedJobs() {
                         <span>📅 ${deadline}</span>
                     </div>
                     <p class="job-description">${shortDesc}</p>
+                    ${reasonText ? `<p class="job-description" style="color:#1d4ed8;font-size:0.85rem;">사유: ${reasonText}</p>` : ''}
                 </div>
                 <div class="job-card-footer">
                     <button class="btn btn-primary btn-sm" onclick="location.href='jobs.html'">지원하기</button>

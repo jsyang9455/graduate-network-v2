@@ -33,7 +33,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 경력/이력 | `career.html` + `js/career.js` | **Sprint 1:** 이력서 마법사(복수·대표·미리보기·PDF). LocalStorage `career_*` 제거. `/api/resumes` |
 | 이력서 PDF | (신규 `resume.html` 또는 career 확장) | 미리보기·다운로드 |
 | 상담 예약 | `counseling.html` | 유지 |
-| 자격/교육/박람회/견학 | `certificates.html`, `education-programs.html`, `job-fair.html`, `industry-visit.html`, `certification-support.html` | 견학은 `field-trips.html`로 이관 권장, 옛 URL 리다이렉트 |
+| 자격/교육/박람회/견학 | `certificates.html`, `education-programs.html`, `job-fair.html`, `industry-visit.html`, `certification-support.html` | Sprint 4: `industry-visit.html`은 `/api/field-trips` 사용(구 announcements type 유지 호환 별칭). 전용 `field-trips.html`은 선택 |
 | 네트워킹 | `networking.html` | 유지 + 커뮤니티와 역할 정리 |
 | 프로필 | `profile.html` | `/auth/me`만 |
 
