@@ -70,7 +70,7 @@ v1은 자동 테스트 스위트가 거의 없다. v2는 **권한·테넌시·�
 ### NFR
 
 - [ ] REQ-NFR-001~003,005,006
-- [ ] REQ-NFR-010 compose 기본 비밀 운영 사용 안 함
+- [x] REQ-NFR-010 compose 기본 비밀 운영 사용 안 함 (Sprint 7: env / `.env.example`)
 
 ## 5. 회귀
 
