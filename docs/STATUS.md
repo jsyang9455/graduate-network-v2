@@ -94,6 +94,15 @@ Done: REC P0 batch + field_trips P0 + networking tenancy
 
 posts/announcements/certificates/education-programs school 가드, files 동일교 프라이버시, admin-board/profile API. 39→(Sprint4)46 tests.
 
+## Sprint 4 verification (2026-09-14, read-only)
+
+Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.** 본문은 [docs/qa/sprint4-verification.md](qa/sprint4-verification.md). **기준 커밋 `b7277f2`.**
+
+- 커밋 `b7277f2`: networking mentors/connect 학교 범위·타교 403, recommendations 스키마·explainable factors·`/me`·cron, `field_trips` 이관·apply/roster/attendance는 실재. 판정 **partial** (P0 슬라이스 강함; REC-002·COM·사후보고·Playwright 미충족).
+- 본 세션 `npm --prefix backend test`: **46/46 pass**. Playwright 없음.
+- STATUS Sprint 4 **75%**·전체 P0 **~52%**·워크넷 **0%**/게이트 `unknown`·알림톡 `NOT_CONFIGURED`: **대체로 정직** (상단 표 유지).
+- 잔여: REQ-WN-*·REQ-REC-002·REQ-COM-*·TRP 사후 보고·Playwright·B-LS `company_profile_*`.
+
 ## Sprint 3 verification (2026-09-14, read-only)
 
 Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.** 본문은 [docs/qa/sprint3-verification.md](qa/sprint3-verification.md). **기준 커밋 `78ba7ee`(Sprint 3 주장 35% / P0 ~44%).** 위 표 %는 Sprint 4에서 갱신됨.
