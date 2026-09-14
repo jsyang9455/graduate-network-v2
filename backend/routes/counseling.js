@@ -1,37 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { auth, checkRole } = require('../middleware/auth');
+const { auth } = require('../middleware/auth');
+const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middleware/schoolScope');
+const { isSystemAdmin, isStaffAdmin } = require('../lib/roles');
+const { sendError } = require('../lib/httpErrors');
+const notify = require('../modules/notify');
 
-// is_counselor 컬럼 자동 추가 (AWS DB 안전 마이그레이션)
 async function ensureIsCounselorColumn() {
   try {
     await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_counselor BOOLEAN DEFAULT false`);
-    console.log('✅ is_counselor 컬럼 준비 완료');
   } catch (err) {
     console.warn('is_counselor 컬럼 마이그레이션 경고:', err.message);
   }
 }
 ensureIsCounselorColumn();
 
-// Get teachers (counselors) - is_counselor = true 인 교사만 반환
-router.get('/teachers', async (req, res) => {
+function canAccessSession(req, session) {
+  if (!session) return false;
+  if (isSystemAdmin(req.user)) return true;
+  if (Number(session.user_id) === Number(req.user.id)) return true;
+  if (session.counselor_id != null && Number(session.counselor_id) === Number(req.user.id)) return true;
+  if ((isStaffAdmin(req.user) || req.user.user_type === 'teacher') && assertSameSchool(req, session.school_id)) {
+    return true;
+  }
+  return false;
+}
+
+function denySession(res, session, req) {
+  if (session && session.school_id != null && !isSystemAdmin(req.user) && !assertSameSchool(req, session.school_id)
+      && Number(session.user_id) !== Number(req.user.id)
+      && Number(session.counselor_id) !== Number(req.user.id)) {
+    return forbidCrossSchool(res);
+  }
+  return sendError(res, 404, 'NOT_FOUND', 'Session not found');
+}
+
+router.get('/teachers', auth, schoolScope, async (req, res) => {
   try {
-    // school_name 컬럼 존재 여부 확인 (AWS DB 버전 차이 대응)
     const colCheck = await query(
       `SELECT column_name FROM information_schema.columns
        WHERE table_name = 'users' AND column_name = 'school_name'`
     );
     const hasSchoolName = colCheck.rows.length > 0;
-    const schoolNameSel = hasSchoolName ? 'school_name' : "null AS school_name";
+    const schoolNameSel = hasSchoolName ? 'school_name' : 'null AS school_name';
 
-    const result = await query(
-      `SELECT id, name, email, ${schoolNameSel}
-       FROM users
-       WHERE user_type = 'teacher' AND is_active = true
-         AND COALESCE(is_counselor, false) = true
-       ORDER BY name`
-    );
+    const params = [];
+    let sql = `
+      SELECT id, name, email, ${schoolNameSel}, school_id
+      FROM users
+      WHERE user_type = 'teacher' AND is_active = true
+        AND COALESCE(is_counselor, false) = true
+    `;
+    if (!isSystemAdmin(req.user)) {
+      if (!req.user.school_id) {
+        return res.json({ teachers: [] });
+      }
+      params.push(req.user.school_id);
+      sql += ` AND school_id = $1`;
+    }
+    sql += ' ORDER BY name';
+    const result = await query(sql, params);
     res.json({ teachers: result.rows });
   } catch (error) {
     console.error('Get teachers error:', error);
@@ -39,41 +68,96 @@ router.get('/teachers', async (req, res) => {
   }
 });
 
-// Get counseling sessions
-router.get('/', auth, async (req, res) => {
+router.get('/available-slots', auth, schoolScope, async (req, res) => {
   try {
-    // counselor_id 컬럼 존재 여부 동적 확인 (AWS DB 버전 차이 대응)
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+
+    const counselorParams = [];
+    let counselorSql = `SELECT id, name FROM users WHERE user_type = 'teacher' AND is_active = true`;
+    if (!isSystemAdmin(req.user)) {
+      if (!req.user.school_id) {
+        return res.json({ date, counselors: [], slots: [], bookedSessions: [] });
+      }
+      counselorParams.push(req.user.school_id);
+      counselorSql += ' AND school_id = $1';
+    }
+    const counselors = await query(counselorSql, counselorParams);
+
+    const bookedSessions = await query(
+      `SELECT counselor_id, session_date, duration_minutes
+       FROM counseling_sessions
+       WHERE DATE(session_date) = $1 AND status = 'scheduled'
+         ${(!isSystemAdmin(req.user) && req.user.school_id) ? 'AND (school_id = $2 OR school_id IS NULL)' : ''}`,
+      (!isSystemAdmin(req.user) && req.user.school_id) ? [date, req.user.school_id] : [date]
+    );
+
+    const slots = [];
+    for (let hour = 9; hour <= 17; hour++) {
+      slots.push({
+        time: `${hour.toString().padStart(2, '0')}:00`,
+        available: true,
+      });
+    }
+
+    res.json({
+      date,
+      counselors: counselors.rows,
+      slots,
+      bookedSessions: bookedSessions.rows,
+    });
+  } catch (error) {
+    console.error('Get slots error:', error);
+    res.status(500).json({ error: 'Failed to get available slots' });
+  }
+});
+
+router.get('/', auth, schoolScope, async (req, res) => {
+  try {
     const colCheck = await query(
       `SELECT column_name FROM information_schema.columns
        WHERE table_name = 'counseling_sessions' AND column_name = 'counselor_id'`
     );
     const hasCounselorId = colCheck.rows.length > 0;
 
-    let result;
-    if (hasCounselorId) {
-      result = await query(
-        `SELECT cs.*,
-                u1.name as user_name, u1.email as user_email,
-                u2.name as counselor_name
-         FROM counseling_sessions cs
-         JOIN users u1 ON cs.user_id = u1.id
-         LEFT JOIN users u2 ON cs.counselor_id = u2.id
-         WHERE cs.user_id = $1 OR cs.counselor_id = $1
-         ORDER BY cs.session_date DESC`,
-        [req.user.id]
-      );
+    const params = [];
+    let where;
+    if (isSystemAdmin(req.user)) {
+      where = '1=1';
+    } else if (isStaffAdmin(req.user) && req.user.school_id) {
+      params.push(req.user.school_id);
+      where = 'cs.school_id = $1';
+    } else if (hasCounselorId) {
+      params.push(req.user.id);
+      where = '(cs.user_id = $1 OR cs.counselor_id = $1)';
+      if (req.user.school_id) {
+        params.push(req.user.school_id);
+        where += ` AND (cs.school_id = $${params.length} OR cs.school_id IS NULL)`;
+      }
     } else {
-      result = await query(
-        `SELECT cs.*,
-                u1.name as user_name, u1.email as user_email,
-                null as counselor_name
-         FROM counseling_sessions cs
-         JOIN users u1 ON cs.user_id = u1.id
-         WHERE cs.user_id = $1
-         ORDER BY cs.session_date DESC`,
-        [req.user.id]
-      );
+      params.push(req.user.id);
+      where = 'cs.user_id = $1';
     }
+
+    const counselorJoin = hasCounselorId
+      ? 'LEFT JOIN users u2 ON cs.counselor_id = u2.id'
+      : '';
+    const counselorSel = hasCounselorId ? 'u2.name as counselor_name' : 'null as counselor_name';
+
+    const result = await query(
+      `SELECT cs.*,
+              u1.name as user_name, u1.email as user_email,
+              ${counselorSel}
+       FROM counseling_sessions cs
+       JOIN users u1 ON cs.user_id = u1.id
+       ${counselorJoin}
+       WHERE ${where}
+       ORDER BY cs.session_date DESC`,
+      params
+    );
 
     res.json({ sessions: result.rows });
   } catch (error) {
@@ -82,7 +166,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Book counseling session
 router.post('/', auth, async (req, res) => {
   try {
     const {
@@ -90,21 +173,34 @@ router.post('/', auth, async (req, res) => {
       session_date,
       duration_minutes = 60,
       topic,
-      counselor_id
+      counselor_id,
     } = req.body;
 
     if (!session_date) {
       return res.status(400).json({ error: 'Session date is required' });
     }
 
-    // counselor_id 컬럼 존재 여부 확인
+    if (counselor_id) {
+      const counselor = await query(
+        `SELECT id, school_id, name FROM users WHERE id = $1 AND user_type = 'teacher' AND is_active = true`,
+        [counselor_id]
+      );
+      if (!counselor.rows.length) {
+        return sendError(res, 404, 'NOT_FOUND', '상담교사를 찾을 수 없습니다');
+      }
+      if (!isSystemAdmin(req.user) && req.user.school_id
+          && counselor.rows[0].school_id != null
+          && Number(counselor.rows[0].school_id) !== Number(req.user.school_id)) {
+        return forbidCrossSchool(res);
+      }
+    }
+
     const colCheck = await query(
       `SELECT column_name FROM information_schema.columns
        WHERE table_name = 'counseling_sessions' AND column_name = 'counselor_id'`
     );
     const hasCounselorId = colCheck.rows.length > 0;
 
-    // status 제약조건 확인 - 'pending' 허용 여부
     const statusCheck = await query(
       `SELECT pg_get_constraintdef(c.oid) as def
        FROM pg_constraint c
@@ -112,32 +208,46 @@ router.post('/', auth, async (req, res) => {
        WHERE t.relname = 'counseling_sessions' AND c.contype = 'c'
          AND c.conname LIKE '%status%'`
     );
-    const allowsPending = !statusCheck.rows.length ||
-      statusCheck.rows.some(r => r.def && r.def.includes('pending'));
+    const allowsPending = !statusCheck.rows.length
+      || statusCheck.rows.some((r) => r.def && r.def.includes('pending'));
     const insertStatus = allowsPending ? 'pending' : 'scheduled';
+    const schoolId = req.user.school_id || null;
 
     let result;
     if (hasCounselorId) {
       result = await query(
         `INSERT INTO counseling_sessions
-         (user_id, counselor_id, session_type, session_date, duration_minutes, topic, status)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (user_id, counselor_id, session_type, session_date, duration_minutes, topic, status, school_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING *`,
-        [req.user.id, counselor_id || null, session_type, session_date, duration_minutes, topic, insertStatus]
+        [req.user.id, counselor_id || null, session_type, session_date, duration_minutes, topic, insertStatus, schoolId]
       );
     } else {
       result = await query(
         `INSERT INTO counseling_sessions
-         (user_id, session_type, session_date, duration_minutes, topic, status)
-         VALUES ($1, $2, $3, $4, $5, $6)
+         (user_id, session_type, session_date, duration_minutes, topic, status, school_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-        [req.user.id, session_type, session_date, duration_minutes, topic, insertStatus]
+        [req.user.id, session_type, session_date, duration_minutes, topic, insertStatus, schoolId]
       );
+    }
+
+    const session = result.rows[0];
+    if (session.counselor_id) {
+      await notify.emit('CNS_RESERVATION', {
+        userId: session.counselor_id,
+        type: 'counseling',
+        title: '새 상담 예약이 있습니다',
+        message: `${req.user.name || '학생'}님이 상담을 신청했습니다.`,
+        link: '/counseling.html',
+        schoolId,
+        payload: { session_id: session.id },
+      });
     }
 
     res.status(201).json({
       message: 'Counseling session booked successfully',
-      session: result.rows[0]
+      session,
     });
   } catch (error) {
     console.error('Book session error:', error);
@@ -145,7 +255,6 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Update counseling session
 router.put('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -154,22 +263,25 @@ router.put('/:id', auth, async (req, res) => {
       session_date,
       duration_minutes,
       status,
-      notes
+      notes,
     } = req.body;
 
-    // Check if session exists and user has access
     const sessionCheck = await query(
-      `SELECT * FROM counseling_sessions 
-       WHERE id = $1 AND (user_id = $2 OR counselor_id = $2)`,
-      [id, req.user.id]
+      'SELECT * FROM counseling_sessions WHERE id = $1',
+      [id]
     );
 
     if (sessionCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Session not found' });
     }
 
+    const session = sessionCheck.rows[0];
+    if (!canAccessSession(req, session)) {
+      return denySession(res, session, req);
+    }
+
     const result = await query(
-      `UPDATE counseling_sessions 
+      `UPDATE counseling_sessions
        SET counselor_id = COALESCE($1, counselor_id),
            session_date = COALESCE($2, session_date),
            duration_minutes = COALESCE($3, duration_minutes),
@@ -183,7 +295,7 @@ router.put('/:id', auth, async (req, res) => {
 
     res.json({
       message: 'Session updated successfully',
-      session: result.rows[0]
+      session: result.rows[0],
     });
   } catch (error) {
     console.error('Update session error:', error);
@@ -191,14 +303,12 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Cancel counseling session
 router.delete('/:id', auth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if session exists and user is the owner
     const sessionCheck = await query(
-      'SELECT user_id FROM counseling_sessions WHERE id = $1',
+      'SELECT * FROM counseling_sessions WHERE id = $1',
       [id]
     );
 
@@ -206,12 +316,17 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    if (sessionCheck.rows[0].user_id !== req.user.id) {
-      return res.status(403).json({ error: 'Not authorized' });
+    const session = sessionCheck.rows[0];
+    if (Number(session.user_id) !== Number(req.user.id) && !isSystemAdmin(req.user)
+        && !(isStaffAdmin(req.user) && assertSameSchool(req, session.school_id))) {
+      if (session.school_id != null && !assertSameSchool(req, session.school_id)) {
+        return forbidCrossSchool(res);
+      }
+      return sendError(res, 403, 'FORBIDDEN', 'Not authorized');
     }
 
     await query(
-      `UPDATE counseling_sessions 
+      `UPDATE counseling_sessions
        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
        WHERE id = $1`,
       [id]
@@ -221,49 +336,6 @@ router.delete('/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('Cancel session error:', error);
     res.status(500).json({ error: 'Failed to cancel session' });
-  }
-});
-
-// Get available time slots (for counselors)
-router.get('/available-slots', async (req, res) => {
-  try {
-    const { date } = req.query;
-
-    if (!date) {
-      return res.status(400).json({ error: 'Date is required' });
-    }
-
-    // Get all counselors
-    const counselors = await query(
-      `SELECT id, name FROM users WHERE user_type = 'teacher' AND is_active = true`
-    );
-
-    // Get booked sessions for the date
-    const bookedSessions = await query(
-      `SELECT counselor_id, session_date, duration_minutes 
-       FROM counseling_sessions 
-       WHERE DATE(session_date) = $1 AND status = 'scheduled'`,
-      [date]
-    );
-
-    // Generate available slots (simplified version)
-    const slots = [];
-    for (let hour = 9; hour <= 17; hour++) {
-      slots.push({
-        time: `${hour.toString().padStart(2, '0')}:00`,
-        available: true
-      });
-    }
-
-    res.json({
-      date,
-      counselors: counselors.rows,
-      slots,
-      bookedSessions: bookedSessions.rows
-    });
-  } catch (error) {
-    console.error('Get slots error:', error);
-    res.status(500).json({ error: 'Failed to get available slots' });
   }
 });
 

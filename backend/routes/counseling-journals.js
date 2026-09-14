@@ -7,6 +7,21 @@ const { isSystemAdmin, isSchoolAdmin } = require('../lib/roles');
 const { sendError } = require('../lib/httpErrors');
 const { saveGeneratedFile } = require('../modules/documents/store');
 const { renderCounselingPdf, renderCounselingDocx } = require('../modules/documents/counseling');
+const notify = require('../modules/notify');
+const { isValidCounselingType } = require('../lib/counselingTypes');
+
+async function notifyFollowUp(journal) {
+    if (!journal || !journal.follow_up_at || !journal.student_id) return;
+    await notify.emit('CNS_FOLLOW_UP', {
+        userId: journal.student_id,
+        type: 'counseling_followup',
+        title: '후속 상담 일정이 등록되었습니다',
+        message: `${journal.counseling_date ? '' : ''}「${journal.title || '상담'}」 후속 상담이 ${String(journal.follow_up_at).substring(0, 10)}에 예정되어 있습니다.`,
+        link: '/counseling.html',
+        schoolId: journal.school_id,
+        payload: { journal_id: journal.id, follow_up_at: journal.follow_up_at },
+    });
+}
 
 function canStaffReadJournal(user, journal) {
   if (isSystemAdmin(user)) return true;
@@ -262,7 +277,9 @@ router.post('/', auth, checkRole('teacher', 'admin', 'school_admin'), async (req
              req.user.school_id || null]
         );
 
-        res.status(201).json({ journal: result.rows[0] });
+        const created = result.rows[0];
+        await notifyFollowUp(created);
+        res.status(201).json({ journal: created });
     } catch (error) {
         console.error('Create journal error:', error);
         res.status(500).json({ error: '상담일지 작성에 실패했습니다.' });
@@ -318,7 +335,12 @@ router.put('/:id', auth, checkRole('teacher', 'admin', 'school_admin'), async (r
              title, content, follow_up, action_taken, follow_up_at, is_private, req.params.id]
         );
 
-        res.json({ journal: result.rows[0] });
+        const updated = result.rows[0];
+        const followUpChanged = String(journal.follow_up_at || '') !== String(updated.follow_up_at || '');
+        if (followUpChanged || (updated.follow_up_at && !journal.follow_up_at)) {
+            await notifyFollowUp(updated);
+        }
+        res.json({ journal: updated });
     } catch (error) {
         console.error('Update journal error:', error);
         res.status(500).json({ error: '상담일지 수정에 실패했습니다.' });

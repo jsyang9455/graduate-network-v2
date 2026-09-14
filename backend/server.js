@@ -34,6 +34,7 @@ const meRoutes = require('./routes/me');
 const auditLogRoutes = require('./routes/audit-logs');
 const resumeRoutes = require('./routes/resumes');
 const fileRoutes = require('./routes/files');
+const notificationRoutes = require('./routes/notifications');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -53,12 +54,13 @@ app.use('/api/me', meRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 app.use('/api/resumes', resumeRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'OK',
     message: 'Graduate Network API is running',
-    version: '2.0.0-sprint1',
+    version: '2.0.0-sprint2',
     timestamp: new Date().toISOString()
   });
 });
@@ -66,7 +68,7 @@ app.get('/api/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({
     message: 'Welcome to Graduate Network API',
-    version: '2.0.0-sprint1',
+    version: '2.0.0-sprint2',
     endpoints: {
       auth: '/api/auth',
       users: '/api/users',

@@ -89,19 +89,13 @@ async function loadTeachers() {
     } catch (firstErr) {
         console.warn('/counseling/teachers 실패, fallback 시도:', firstErr.message);
         try {
-            const data2 = await fetch(
-                (typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api')
-                + '/users?user_type=teacher&is_counselor=true&limit=100'
-            );
-            if (data2.ok) {
-                const json = await data2.json();
-                teachers = (json.users || []).map(u => ({
-                    id: u.id,
-                    name: u.name,
-                    email: u.email,
-                    school_name: u.school_name || null
-                }));
-            }
+            const json = await api.get('/users?user_type=teacher&is_counselor=true&limit=100');
+            teachers = (json.users || []).map(u => ({
+                id: u.id,
+                name: u.name,
+                email: u.email,
+                school_name: u.school_name || null
+            }));
         } catch (secondErr) {
             console.error('교사 목록 fallback도 실패:', secondErr.message);
         }

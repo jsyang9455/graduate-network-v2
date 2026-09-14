@@ -29,7 +29,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 |------|------|----|
 | 대시보드 | `dashboard.html` | 추천 카드, 지원 현황, 견학, 상담 일정 |
 | 채용 | `jobs.html` | 자체/워크넷 뱃지, 추천 정렬 |
-| 공고 상세/지원 | jobs 상세 흐름 | 이력서 선택 첨부 |
+| 공고 상세/지원 | jobs 상세 흐름 | **Sprint 2:** 지원 시 이력서 선택 모달 (`resume_id`) |
 | 경력/이력 | `career.html` + `js/career.js` | **Sprint 1:** 이력서 마법사(복수·대표·미리보기·PDF). LocalStorage `career_*` 제거. `/api/resumes` |
 | 이력서 PDF | (신규 `resume.html` 또는 career 확장) | 미리보기·다운로드 |
 | 상담 예약 | `counseling.html` | 유지 |
@@ -41,7 +41,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 | 화면 | 파일 | v2 |
 |------|------|----|
-| 상담일지 | `counseling-journal.html` | 유형 확장(진학/취업/생활/심리), PDF/DOCX, 통계 바, 타임라인 API |
+| 상담일지 | `counseling-journal.html` | **Sprint 2:** 소속 학생 타임라인 조회. 유형 확장, PDF/DOCX, 통계 바 |
 | 대시보드 | `dashboard.html` | 폴백 제거, 소속 학생만 |
 
 ### 기업
@@ -49,7 +49,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 화면 | 파일 | v2 |
 |------|------|----|
 | 공고 등록/수정 | `job-create.html`, `job-edit.html` | 직종·스킬 필드 |
-| 지원자 | `applicant-detail.html` | 상태 머신 UI, PDF |
+| 지원자 | `applicant-detail.html` | **Sprint 2:** 상태 머신 UI + `PATCH .../status` |
 | 기업 프로필 | `company-profile.html` | API만 |
 
 ### 관리
@@ -83,7 +83,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 1. 로그인 → 대시보드 추천 N건 (사유 표시)
 2. 이력서 마법사 임시저장 → 대표 지정 → PDF
-3. 공고 상세 → 대표 이력서 첨부 지원 → 내 지원 현황
+3. 공고 상세 → **이력서 선택** 첨부 지원 → 내 지원 현황
 
 ### 교사: 상담 문서화
 

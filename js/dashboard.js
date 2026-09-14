@@ -65,6 +65,7 @@ function showDefaultDashboard() {
     loadRecommendedJobs();
     loadRecentNews();
     loadEducationPrograms();
+    loadInAppNotifications();
 }
 
 function hideStudentMenuItems() {
@@ -404,6 +405,28 @@ async function loadStudentStats() {
     }
 }
 
+async function loadInAppNotifications() {
+    const el = document.getElementById('inAppNotifications');
+    if (!el) return;
+    try {
+        const data = await api.notifications.list();
+        const items = data.notifications || [];
+        if (!items.length) {
+            el.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 1.5rem;">새 알림이 없습니다.</p>';
+            return;
+        }
+        el.innerHTML = items.slice(0, 8).map((n) => `
+            <div class="news-item" ${n.link ? `style="cursor:pointer;" onclick="location.href='${n.link}'"` : ''}>
+                <h4>${n.title || '알림'}</h4>
+                <p>${n.message || ''}</p>
+                <span style="font-size:0.8rem;color:#6b7280;">${n.created_at ? String(n.created_at).substring(0, 16) : ''}${n.is_read ? '' : ' · 새 알림'}</span>
+            </div>
+        `).join('');
+    } catch (e) {
+        el.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 1.5rem;">알림을 불러오지 못했습니다.</p>';
+    }
+}
+
 async function loadRecommendedJobs() {
     const recommendedJobsContainer = document.getElementById('recommendedJobs');
     if (!recommendedJobsContainer) return;
@@ -561,48 +584,70 @@ function editJob(jobId) {
     window.location.href = `job-edit.html?id=${jobId}`;
 }
 
-function loadRecentApplicants() {
+async function loadRecentApplicants() {
     const applicantsList = document.getElementById('recentApplicantsList');
     if (!applicantsList) return;
-    
-    // Sample applicants data
-    const applicants = [
-        {
-            id: '1',
-            name: '김OO',
-            position: '프론트엔드 개발자',
-            status: 'applied',
-            statusText: '지원중',
-            appliedDate: '2024-09-30',
-            email: 'kim@example.com',
-            phone: '010-1234-5678'
-        },
-        {
-            id: '2',
-            name: '이OO',
-            position: '백엔드 개발자',
-            status: 'interview',
-            statusText: '면접완료',
-            appliedDate: '2024-09-29',
-            email: 'lee@example.com',
-            phone: '010-2345-6789'
+
+    const user = auth.getCurrentUser();
+    if (!user) return;
+    applicantsList.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">불러오는 중...</p>';
+
+    const statusLabel = {
+        pending: '접수',
+        reviewed: '서류검토',
+        interviewed: '면접',
+        accepted: '합격',
+        rejected: '불합격',
+    };
+    const statusClass = {
+        pending: 'applied',
+        reviewed: 'applied',
+        interviewed: 'interview',
+        accepted: 'interview',
+        rejected: 'rejected',
+    };
+
+    try {
+        const data = await api.get('/jobs?status=all&limit=50');
+        const myJobs = (data.jobs || []).filter((j) => String(j.company_id) === String(user.id));
+        const collected = [];
+        for (const job of myJobs.slice(0, 8)) {
+            const appData = await api.get(`/jobs/${job.id}/applicants`);
+            (appData.applicants || []).forEach((a) => {
+                collected.push({
+                    id: a.id,
+                    name: a.name,
+                    position: job.title,
+                    status: a.application_status,
+                    appliedDate: a.applied_at ? String(a.applied_at).substring(0, 10) : '',
+                    resumeUrl: a.resume_url,
+                });
+            });
         }
-    ];
-    
-    applicantsList.innerHTML = applicants.map(applicant => `
-        <div class="applicant-item">
-            <div class="applicant-info">
-                <h4>${applicant.name}</h4>
-                <p>${applicant.position}</p>
-                <span class="applicant-status ${applicant.status}">${applicant.statusText}</span>
-                <p style="margin-top: 0.5rem; font-size: 0.85rem;">신청일: ${applicant.appliedDate}</p>
+        collected.sort((x, y) => String(y.appliedDate).localeCompare(String(x.appliedDate)));
+        const slice = collected.slice(0, 8);
+        if (!slice.length) {
+            applicantsList.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">최근 지원자가 없습니다.</p>';
+            return;
+        }
+        applicantsList.innerHTML = slice.map((applicant) => `
+            <div class="applicant-item">
+                <div class="applicant-info">
+                    <h4>${applicant.name || '-'}</h4>
+                    <p>${applicant.position || ''}</p>
+                    <span class="applicant-status ${statusClass[applicant.status] || ''}">${statusLabel[applicant.status] || applicant.status || '-'}</span>
+                    <p style="margin-top: 0.5rem; font-size: 0.85rem;">신청일: ${applicant.appliedDate || '-'}</p>
+                </div>
+                <div class="applicant-actions">
+                    ${applicant.resumeUrl ? `<a class="btn btn-secondary" href="${applicant.resumeUrl}" target="_blank" rel="noopener">이력서</a>` : ''}
+                    <button class="btn btn-primary" onclick="manageApplicant('${applicant.id}')">상태 변경</button>
+                </div>
             </div>
-            <div class="applicant-actions">
-                <button class="btn btn-secondary" onclick="viewResume('${applicant.id}')">이력서</button>
-                <button class="btn btn-primary" onclick="manageApplicant('${applicant.id}')">관리</button>
-            </div>
-        </div>
-    `).join('');
+        `).join('');
+    } catch (e) {
+        console.error('최근 지원자 로드 실패:', e);
+        applicantsList.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 2rem;">지원자 정보를 불러오지 못했습니다.</p>';
+    }
 }
 
 function viewResume(applicantId) {

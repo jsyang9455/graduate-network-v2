@@ -86,6 +86,7 @@ async function initJournalPage() {
 
     await fetchJournals();
     await loadJournalStats();
+    await setupStudentTimeline();
 }
 
 // ─── 목록 렌더링 ──────────────────────────────────────────────
@@ -265,6 +266,52 @@ async function loadJournalStats() {
         el.textContent = `총 ${stats.total || 0}건` + (parts.length ? ' · ' + parts.join(' / ') : '');
     } catch {
         el.textContent = '';
+    }
+}
+
+async function setupStudentTimeline() {
+    const box = document.getElementById('timelineBox');
+    if (!box || !isTeacherOrAdminUser(currentUser)) return;
+    box.style.display = 'block';
+    try {
+        const data = await apiCall('GET', '/users?user_type=student,graduate&limit=200');
+        const select = document.getElementById('timelineStudentSelect');
+        const users = data.users || [];
+        if (!select) return;
+        select.innerHTML = '<option value="">학생 선택</option>' + users.map((u) =>
+            `<option value="${u.id}">${escHtml(u.name || '')} (${escHtml(u.school_name || '')})</option>`
+        ).join('');
+    } catch (e) {
+        console.warn('타임라인 학생 목록 실패:', e.message);
+    }
+}
+
+async function loadStudentTimeline() {
+    const select = document.getElementById('timelineStudentSelect');
+    const el = document.getElementById('studentTimeline');
+    if (!select || !el) return;
+    const studentId = select.value;
+    if (!studentId) {
+        el.textContent = '학생을 선택하세요.';
+        return;
+    }
+    el.textContent = '불러오는 중...';
+    try {
+        const data = await apiCall('GET', '/counseling-journals/timeline/' + studentId);
+        const journals = data.journals || [];
+        if (!journals.length) {
+            el.textContent = '이 학생의 상담 이력이 없습니다.';
+            return;
+        }
+        el.innerHTML = journals.map((j) => `
+            <div style="border-left:3px solid #1e40af; padding:0.5rem 0.85rem; margin-bottom:0.65rem;">
+                <div style="font-size:0.8rem; color:#6b7280;">${formatDate(j.counseling_date)} · ${escHtml(j.type || '')}</div>
+                <div style="font-weight:600;">${escHtml(j.title || '')}</div>
+                ${j.follow_up_at ? `<div style="font-size:0.82rem; color:#15803d;">후속: ${formatDate(j.follow_up_at)}</div>` : ''}
+            </div>
+        `).join('');
+    } catch (e) {
+        el.textContent = '타임라인을 불러오지 못했습니다. ' + (e.message || '');
     }
 }
 

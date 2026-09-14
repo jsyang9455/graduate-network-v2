@@ -220,6 +220,31 @@ const api = {
     async getMyApplications() {
       return api.get('/jobs/my/applications');
     },
+
+    async getApplicants(jobId) {
+      return api.get(`/jobs/${jobId}/applicants`);
+    },
+
+    async getApplication(id) {
+      return api.get(`/jobs/applications/${id}`);
+    },
+
+    async updateApplicationStatus(id, status) {
+      return api.patch(`/jobs/applications/${id}/status`, { status });
+    },
+  },
+
+  notifications: {
+    async list(unreadOnly) {
+      const q = unreadOnly ? '?unread=true' : '';
+      return api.get(`/notifications${q}`);
+    },
+    async markRead(id) {
+      return api.patch(`/notifications/${id}/read`);
+    },
+    async markAllRead() {
+      return api.post('/notifications/read-all', {});
+    },
   },
 
   resumes: {

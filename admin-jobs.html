@@ -357,12 +357,20 @@
                     emptyEl.style.display = 'block';
                 } else {
                     emptyEl.style.display = 'none';
-                    const statusLabel = { pending: '검토중', reviewed: '검토완료', interviewed: '면접', accepted: '합격', rejected: '불합격' };
+                    const statusLabel = { pending: '접수', reviewed: '서류검토', interviewed: '면접', accepted: '합격', rejected: '불합격' };
                     const statusColor = { pending: '#6b7280', reviewed: '#2563eb', interviewed: '#d97706', accepted: '#16a34a', rejected: '#dc2626' };
                     tbodyEl.innerHTML = applicants.map((a, i) => {
                         const appliedDate = a.applied_at ? new Date(a.applied_at).toLocaleDateString('ko-KR') : '-';
-                        const color = statusColor[a.application_status] || '#6b7280';
-                        const label = statusLabel[a.application_status] || (a.application_status || '-');
+                        const current = a.application_status || 'pending';
+                        const options = [
+                            ['pending', '접수'],
+                            ['reviewed', '서류검토'],
+                            ['interviewed', '면접'],
+                            ['accepted', '합격'],
+                            ['rejected', '불합격'],
+                        ].map(([value, label]) =>
+                            `<option value="${value}"${value === current ? ' selected' : ''}>${label}</option>`
+                        ).join('');
                         return `
                             <tr style="border-bottom:1px solid #e5e7eb;">
                                 <td style="padding:0.75rem 1rem;">${i + 1}</td>
@@ -372,7 +380,11 @@
                                 <td style="padding:0.75rem 1rem;">${a.school_name || '-'}</td>
                                 <td style="padding:0.75rem 1rem;">${a.major || '-'}</td>
                                 <td style="padding:0.75rem 1rem;">${appliedDate}</td>
-                                <td style="padding:0.75rem 1rem; color:${color}; font-weight:600;">${label}</td>
+                                <td style="padding:0.75rem 1rem;">
+                                    <select data-prev="${current}" onchange="changeApplicantStatus(${a.id}, this.value, this)" style="padding:0.35rem 0.5rem; border:1px solid #d1d5db; border-radius:6px;">
+                                        ${options}
+                                    </select>
+                                </td>
                             </tr>`;
                     }).join('');
                 }
@@ -386,6 +398,18 @@
                     ? `<p style="color:#d97706;">⚠️ 지원자 조회 기능을 사용하려면<br>서버 백엔드를 업데이트해야 합니다.</p>
                        <p style="font-size:0.8rem; color:#6b7280; margin-top:0.5rem;">SSH 접속 후: <code>docker-compose build --no-cache backend &amp;&amp; docker-compose up -d backend</code></p>`
                     : `<p style="color:#dc2626;">오류가 발생했습니다.<br><small>${err.message || ''}</small></p>`;
+            }
+        }
+
+        async function changeApplicantStatus(applicationId, status, selectEl) {
+            const previous = selectEl ? selectEl.getAttribute('data-prev') : null;
+            try {
+                await api.patch(`/jobs/applications/${applicationId}/status`, { status });
+                if (selectEl) selectEl.setAttribute('data-prev', status);
+                alert('지원 상태가 변경되었습니다. 지원자에게 인앱 알림이 전달됩니다.');
+            } catch (err) {
+                if (selectEl && previous) selectEl.value = previous;
+                alert('상태 변경 실패: ' + (err.message || ''));
             }
         }
 

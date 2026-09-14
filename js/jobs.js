@@ -297,31 +297,72 @@ function closeJobDetailModal() {
 }
 window.closeJobDetailModal = closeJobDetailModal;
 
+let pendingApplyJobId = null;
+
+function closeApplyResumeModal() {
+    pendingApplyJobId = null;
+    const modal = document.getElementById('applyResumeModal');
+    if (modal) modal.style.display = 'none';
+}
+window.closeApplyResumeModal = closeApplyResumeModal;
+
 async function applyJob(jobId) {
     if (!auth.isLoggedIn()) {
         alert('로그인이 필요한 서비스입니다.');
         window.location.href = 'login.html';
         return;
     }
-    
+
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
 
-    let resumeId = null;
     try {
         const data = await api.resumes.list();
         const list = data.resumes || [];
-        const primary = list.find(r => r.is_primary) || list[0];
-        if (!primary) {
+        if (!list.length) {
             if (confirm('등록된 이력서가 없습니다. 경력 관리에서 이력서를 작성할까요?')) {
                 window.location.href = 'career.html';
             }
             return;
         }
-        resumeId = primary.id;
-        const label = primary.is_primary ? '대표 이력서' : primary.title;
-        if (!confirm(`${job.company || job.company_name || ''}의 ${job.position || job.title || ''} 포지션에\n「${label}」를 첨부하여 지원하시겠습니까?`)) return;
-        await api.post(`/jobs/${jobId}/apply`, { resume_id: resumeId });
+
+        pendingApplyJobId = jobId;
+        const summary = document.getElementById('applyJobSummary');
+        if (summary) {
+            summary.textContent = `${job.company || job.company_name || ''} · ${job.position || job.title || ''}`;
+        }
+        const select = document.getElementById('applyResumeSelect');
+        if (select) {
+            const primary = list.find(r => r.is_primary) || list[0];
+            select.innerHTML = list.map((r) => {
+                const mark = r.is_primary ? ' (대표)' : '';
+                const selected = String(r.id) === String(primary.id) ? ' selected' : '';
+                return `<option value="${r.id}"${selected}>${escHtmlJ(r.title || '이력서')}${mark}</option>`;
+            }).join('');
+        }
+        const modal = document.getElementById('applyResumeModal');
+        if (modal) modal.style.display = 'flex';
+
+        const submitBtn = document.getElementById('applyResumeSubmitBtn');
+        if (submitBtn) {
+            submitBtn.onclick = submitSelectedResumeApplication;
+        }
+    } catch (e) {
+        alert('이력서를 불러오지 못했습니다: ' + (e.message || ''));
+    }
+}
+
+async function submitSelectedResumeApplication() {
+    if (!pendingApplyJobId) return;
+    const select = document.getElementById('applyResumeSelect');
+    const resumeId = select && select.value ? Number(select.value) : null;
+    if (!resumeId) {
+        alert('첨부할 이력서를 선택하세요.');
+        return;
+    }
+    try {
+        await api.post(`/jobs/${pendingApplyJobId}/apply`, { resume_id: resumeId });
+        closeApplyResumeModal();
         alert('지원이 완료되었습니다!');
         await loadJobs();
     } catch (e) {

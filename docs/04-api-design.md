@@ -54,9 +54,13 @@
 
 지원 상태 변경 전용 `PATCH /api/jobs/applications/:id/status` 를 **신규**로 둔다 (알림 트리거).
 
+상태 코드: `pending`(접수) → `reviewed`(서류검토) → `interviewed`(면접) → `accepted`/`rejected`. 허용되지 않는 전이는 400.
+
+인앱 알림: `GET /api/notifications`, `PATCH /api/notifications/:id/read`, `POST /api/notifications/read-all`. 알림톡/SMS는 키 없으면 `NOT_CONFIGURED` no-op (REQ-MSG-010).
+
 ### Counseling
 
-- `/api/counseling` 예약 유지 + school_id
+- `/api/counseling` 예약 유지 + school_id. `GET /teachers`, sessions list/get/update는 소속 학교 범위. 타교 403.
 - `/api/counseling-journals` → 문서 생성 액션 추가
 
 ### 기타 유지
@@ -154,6 +158,7 @@
 - `test_token_` / `user_token_` 우회 **제거**.
 - Wave 1 구현: `GET/POST /api/schools`, `GET/PATCH /api/schools/:id`, `GET/POST /api/schools/:id/departments`, `GET /api/me/permissions`, `GET /api/audit-logs`, `POST /api/users/:id/roles`, `POST /api/users/:id/transfer`. OpenAPI 초안: `docs/openapi.yaml`.
 - Sprint 1 구현: `GET/POST /api/resumes`, `GET/PUT/DELETE /api/resumes/:id`, `POST /api/resumes/:id/primary`, `GET /api/resumes/:id/preview`, `POST /api/resumes/:id/pdf`, `GET /api/files/:id`, `POST /api/jobs/:id/apply` `resume_id`, `POST /api/counseling-journals/:id/pdf|docx`, `GET /api/counseling-journals/stats`, `GET /api/counseling-journals/timeline/:studentId`.
+- Sprint 2 구현: jobs list/get/update school 가드, `PATCH /api/jobs/applications/:id/status`, `GET /api/jobs/applications/:id`, `GET /api/notifications`, counseling teachers/sessions school 가드. 워크넷·알림톡 실연동 없음 (`NOT_CONFIGURED`).
 
 ## 5. OpenAPI
 

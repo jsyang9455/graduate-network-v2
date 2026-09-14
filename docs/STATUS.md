@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-14  
-현재 단계: **Sprint 1 (이력서 PDF · 상담 문서)**  
-전체 P0 구현: **약 34%** (Wave 1 IAM + Sprint 1 이력서/상담 문서. 워크넷·추천·견학 미착수)
+현재 단계: **Sprint 2 (채용 워크플로우 · 인앱 알림)**  
+전체 P0 구현: **약 42%** (Wave 1 IAM + Sprint 1 문서 + Sprint 2 지원 상태/테넌시/인앱. 워크넷·추천·견학 미착수. Phase 3를 80%로 두지 않음 — jobs/상담 가드는 이번 스프린트에서 보완, posts 등은 잔여)
 
 ## Gates (학교 제공물)
 
@@ -19,30 +19,30 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 |-------|------|-------|---|------|
 | 0 | 비전/요구/아키텍처/역할, v2 저장소 | architect | 100 | done |
 | 1 | 착수 보고·게이트 확인·현행 이슈 목록 | architect | 0 | todo |
-| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 70 | in-progress (OpenAPI Sprint 1) |
-| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 80 | in-progress (Wave 1 IAM + local/S3 스토리지) |
-| Sprint 1 | 이력서·상담 문서 | backend + frontend | 90 | in-progress (PDF/DOCX·career API. CNS-003 후속 알림은 Sprint 2/3) |
-| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 5 | todo (apply resume_id만 선행) |
+| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 80 | in-progress (OpenAPI Sprint 2) |
+| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 70 | in-progress (IAM + storage + jobs/상담 가드 + notify. posts 등 잔여) |
+| Sprint 1 | 이력서·상담 문서 | backend + frontend | 95 | done (CNS-003 인앱은 Sprint 2에서 연결) |
+| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 70 | in-progress (상태 PATCH·인앱·테넌시. **워크넷 0%**) |
 | Sprint 3 | 추천·견학·커뮤니티·메시지 | all implementers | 0 | todo |
-| 4 | 테스트·UAT·보안 | qa | 40 | in-progress (타교 403 + Sprint 1 API 테스트) |
+| 4 | 테스트·UAT·보안 | qa | 50 | in-progress (타교 403 + Sprint 1/2 API 테스트. Playwright 없음) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 80 | Wave 1: 010 마이그레이션, authorize+schoolScope, audit_logs |
-| IAM API·OpenAPI | api | 80 | `/api/schools`, `/api/me/permissions`, JWT role/school, resumes/files OpenAPI |
+| 멀티스쿨 스키마/가드 | backend | 75 | jobs list/get/update + counseling teachers/sessions 가드 추가. posts/announcements 미장착 |
+| IAM API·OpenAPI | api | 85 | Sprint 2 application status + notifications OpenAPI |
 | 권한 메뉴·schools UI | frontend | 70 | permissions 메뉴, 회원가입/코드관리 schools API, test_token 제거 |
 | 이력서 PDF | backend/frontend | 90 | 011 스키마, `/api/resumes`, career.html API, 한글 PDF |
-| 상담 문서 | backend/frontend | 85 | 유형 진학/생활 확장, PDF/DOCX, stats/timeline. CNS-003 알림 미착수 |
-| 채용 워크플로우 알림 | api/frontend | 15 | `POST /jobs/:id/apply` `resume_id` 수용. 상태 PATCH·인앱은 Sprint 2 |
-| 워크넷 | backend | 0 | 게이트 |
+| 상담 문서 | backend/frontend | 95 | PDF/DOCX, stats/timeline UI, CNS-003 후속 인앱 |
+| 채용 워크플로우 알림 | api/frontend | 70 | PATCH status, 이력서 선택 지원, 기업/관리 상태 UI, 인앱 알림 |
+| 워크넷 | backend | 0 | 게이트 unknown. 실연동 없음 |
 | 추천 엔진 | backend | 0 | |
 | 견학 모듈 | backend/frontend | 0 | announcements 이관 |
 | 커뮤니티 고도화 | api/frontend | 0 | |
-| 알림톡/SMS | backend | 0 | 게이트 |
-| QA 스위트 | qa | 50 | Wave 1 타교 403 + `sprint1-documents.test.js` |
+| 알림톡/SMS | backend | 15 | notify no-op + `NOT_CONFIGURED`. 실발송 없음 |
+| QA 스위트 | qa | 60 | Wave 1 + sprint1-documents + sprint2-workflow |
 
 ## Blockers
 
@@ -136,4 +136,43 @@ Handoff: sprint1-owner → api
 REQ: REQ-JOB-003
 Need: PATCH /api/jobs/applications/:id/status + OpenAPI (Sprint 2)
 Done: apply resume_id, resumes OpenAPI
+```
+
+## Sprint 1 verification (2026-09-14, read-only)
+
+Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.** 본문은 [docs/qa/sprint1-verification.md](qa/sprint1-verification.md). **기준 커밋 `4ef8a38`(Sprint 1 주장 90% / P0 34%).** 위 표의 Sprint 2 WIP %는 이 절에서 바꾸지 않음.
+
+- 커밋 `4ef8a38`: 이력서 API·로컬 스토리지 어댑터·PDF `%PDF`·apply `resume_id`·career/admin-jobs LS 철거는 실재. 판정 **partial**.
+- `npm --prefix backend test` (Sprint 1 트리): **21/21 pass** (roles 2 + sprint1 9 + tenancy 10). Playwright 없음. career/PDF UI는 **미검증**.
+- `4ef8a38` 당시 STATUS Sprint 1 **90%**·전체 P0 **34%**는 **과대**. 모니터 추정: Sprint 1 **70–75%**, P0 **28–32%**, Phase 3 **55–65%**. Architect가 정정.
+- 해소: REQ-PLT-004 스토리지, career LS, admin-jobs `jobPostings` 폴백, 유형 진학/생활(스키마/UI).
+- `4ef8a38` 잔여(당시 미구현): jobs 목록 테넌시, 상담 예약/`GET /counseling/teachers`, `GET /api/users` 로그인 필수 회귀, 일지 POST `isValidCounselingType` import 누락, `GET /api/files` 동일교 타 사용자 가능.
+- 게이트 Worknet/Alimtalk `unknown` 유지. B-LS는 board/profile 잔여.
+
+## Sprint 2 완료 기록 (REQ-JOB-003/004, REQ-CNS-003, REQ-MSG-010, REQ-IAM-009 jobs/상담)
+
+- 마이그레이션 `database/migrations/012_v2_sprint2_workflow.sql` (`notifications` event/channel, jobs.school_id 백필)
+- notify 모듈: 인앱 기록 + 알림톡/SMS **NOT_CONFIGURED no-op** (실발송 없음)
+- Jobs school-scope: list/get/update/applicants. 타교 GET/PUT 403
+- `PATCH /api/jobs/applications/:id/status` 워크플로우 + 지원자 인앱 알림
+- Counseling `GET /teachers`, sessions list/update: 로그인 + 학교 범위. 타교 403
+- `GET /api/users` 무토큰 401 유지. counseling teachers 폴백은 JWT `api.get`
+- 프론트: 지원 시 이력서 선택, admin-jobs/applicant-detail 상태 UI, 상담 학생 타임라인, 대시보드 인앱 알림
+- 상담일지 POST `isValidCounselingType` require 누락 수정 (Sprint 1 검증 잔여)
+- QA: `backend/tests/sprint2-workflow.test.js`
+- 워크넷 실연동 **안 함**. Playwright **안 함**. posts/announcements 테넌시는 잔여
+- Phase 3를 80%로 올리지 않음 (Wave 1/Sprint 1 검증의 과대 보고를 반영해 70%)
+
+브라우저: 백엔드 기동 시 지원 모달·상태 select·타임라인 확인. AirPlay가 5000이면 `PORT=5050`.
+
+```
+Handoff: sprint2-owner → qa
+REQ: REQ-JOB-003/004, REQ-IAM-009
+Need: Playwright 페르소나 (지원 이력서 선택→상태 변경→알림). API는 node:test
+Done: jobs/상담 타교 403, status PATCH, 인앱 알림 레코드
+
+Handoff: sprint2-owner → backend
+REQ: REQ-WN-*, posts 테넌시
+Need: 워크넷 게이트, posts/announcements schoolScope (Sprint 3)
+Done: jobs + counseling 예약 가드, notify 스켈레톤
 ```

@@ -1,8 +1,8 @@
 openapi: 3.0.3
 info:
   title: jjobb_v2 Graduate Network API
-  version: 2.0.0-sprint1
-  description: Sprint 1 resumes/counseling documents additive contract. v1 `/api` keys are preserved.
+  version: 2.0.0-sprint2
+  description: Sprint 2 jobs workflow, school-scoped jobs/counseling, in-app notify. v1 `/api` keys are preserved.
 servers:
   - url: http://localhost:5000
     description: Local / Docker Compose backend
@@ -205,6 +205,33 @@ paths:
       summary: Apply; accepts resume_id (REQ-JOB-005)
       responses:
         '201': { description: application }
+  /api/jobs/applications/{id}/status:
+    patch:
+      tags: [Jobs]
+      security: [{ bearerAuth: [] }]
+      summary: Application workflow status (REQ-JOB-003/004)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, reviewed, interviewed, accepted, rejected]
+      responses:
+        '200': { description: updated }
+        '400': { description: VALIDATION }
+        '403': { description: FORBIDDEN }
+  /api/notifications:
+    get:
+      tags: [Notify]
+      security: [{ bearerAuth: [] }]
+      summary: In-app notifications (REQ-MSG-010)
+      responses:
+        '200': { description: '{ notifications, unread_count }' }
   /api/counseling-journals/stats:
     get:
       tags: [Counseling]

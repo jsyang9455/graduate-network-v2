@@ -2,6 +2,14 @@ const jwt = require('jsonwebtoken');
 const { canonicalRole, isSystemAdmin } = require('../lib/roles');
 const { sendError } = require('../lib/httpErrors');
 
+function attachUserFromToken(decoded) {
+  return {
+    ...decoded,
+    role: decoded.role || canonicalRole(decoded),
+    school_id: decoded.school_id ?? null,
+  };
+}
+
 const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -11,12 +19,24 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = {
-      ...decoded,
-      role: decoded.role || canonicalRole(decoded),
-      school_id: decoded.school_id ?? null,
-    };
+    req.user = attachUserFromToken(decoded);
     next();
+  } catch (error) {
+    return sendError(res, 401, 'UNAUTHENTICATED', 'Invalid token');
+  }
+};
+
+const optionalAuth = async (req, res, next) => {
+  const header = req.header('Authorization');
+  const token = header ? header.replace('Bearer ', '') : '';
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = attachUserFromToken(decoded);
+    return next();
   } catch (error) {
     return sendError(res, 401, 'UNAUTHENTICATED', 'Invalid token');
   }
@@ -47,4 +67,4 @@ const checkRole = (...roles) => {
   };
 };
 
-module.exports = { auth, checkRole, isSystemAdmin };
+module.exports = { auth, optionalAuth, checkRole, isSystemAdmin };

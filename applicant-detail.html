@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>지원자 상세 정보 - 전북지역 졸업생 네트워크</title>
+    <title>지원자 상세 - 전북지역 졸업생 네트워크</title>
     <link rel="icon" type="image/png" href="images/favicon.png">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
 </head>
 <body>
     <header id="mainHeader">
@@ -16,7 +17,7 @@
             <ul class="nav-links">
                 <li><a href="dashboard.html">대시보드</a></li>
                 <li><a href="jobs.html" class="active">채용 정보</a></li>
-                <li><a href="networking.html">JOB밴드</a></li>
+                <li><a href="admin-jobs.html">공고 관리</a></li>
             </ul>
             <div class="user-menu">
                 <span class="user-name" id="userName"></span>
@@ -25,14 +26,80 @@
         </nav>
     </header>
 
-    <div class="applicant-container">
-        <h1>지원자 상세 정보</h1>
-        <div id="applicantDetail">
-            <!-- Applicant details will be loaded dynamically -->
-        </div>
+    <div class="dashboard-container">
+        <main class="main-content" style="max-width:720px; margin:2rem auto;">
+            <h1 style="color:#1e3a8a;">지원자 상세 · 상태 변경</h1>
+            <p style="color:#6b7280;">접수 → 서류검토 → 면접 → 합격/불합격. 변경 시 지원자에게 인앱 알림이 갑니다.</p>
+            <div id="applicantDetail" style="margin-top:1.5rem; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:1.5rem;">
+                불러오는 중...
+            </div>
+        </main>
     </div>
 
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
+    <script>
+        const STATUS_LABELS = {
+            pending: '접수',
+            reviewed: '서류검토',
+            interviewed: '면접',
+            accepted: '합격',
+            rejected: '불합격',
+        };
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            if (!auth.isLoggedIn()) {
+                window.location.href = 'login.html';
+                return;
+            }
+            const user = auth.getCurrentUser();
+            const nameEl = document.getElementById('userName');
+            if (nameEl) nameEl.textContent = user && user.name ? user.name : '';
+            await loadApplicant();
+        });
+
+        async function loadApplicant() {
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+            const el = document.getElementById('applicantDetail');
+            if (!id) {
+                el.textContent = '지원 ID가 없습니다.';
+                return;
+            }
+            try {
+                const data = await api.jobs.getApplication(id);
+                const a = data.application;
+                const options = Object.keys(STATUS_LABELS).map((value) =>
+                    `<option value="${value}"${value === a.status ? ' selected' : ''}>${STATUS_LABELS[value]}</option>`
+                ).join('');
+                const resumeLink = a.resume_url
+                    ? `<p><a href="${a.resume_url}" target="_blank" rel="noopener">첨부 이력서</a></p>`
+                    : '';
+                el.innerHTML = `
+                    <p><strong>${a.applicant_name || '-'}</strong> · ${a.applicant_email || ''}</p>
+                    <p>공고: ${a.job_title || '-'} · 연락처 ${a.applicant_phone || '-'}</p>
+                    <p>현재 상태: <strong>${STATUS_LABELS[a.status] || a.status}</strong></p>
+                    ${resumeLink}
+                    ${a.cover_letter ? `<p style="white-space:pre-wrap; background:#f9fafb; padding:0.75rem; border-radius:8px;">${a.cover_letter}</p>` : ''}
+                    <label for="appStatus" style="display:block; margin:1rem 0 0.4rem; font-weight:600;">상태 변경</label>
+                    <select id="appStatus" style="padding:0.5rem 0.75rem; border-radius:8px; border:1px solid #d1d5db;">${options}</select>
+                    <button class="btn btn-primary" style="margin-left:0.5rem;" onclick="saveStatus(${a.id})">저장</button>
+                `;
+            } catch (err) {
+                el.innerHTML = `<p style="color:#dc2626;">불러오지 못했습니다. ${err.message || ''}</p>`;
+            }
+        }
+
+        async function saveStatus(id) {
+            const status = document.getElementById('appStatus').value;
+            try {
+                await api.jobs.updateApplicationStatus(id, status);
+                alert('상태가 변경되었습니다.');
+                await loadApplicant();
+            } catch (err) {
+                alert('변경 실패: ' + (err.message || ''));
+            }
+        }
+    </script>
 </body>
 </html>
