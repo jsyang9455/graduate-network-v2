@@ -176,3 +176,14 @@ REQ: REQ-WN-*, posts 테넌시
 Need: 워크넷 게이트, posts/announcements schoolScope (Sprint 3)
 Done: jobs + counseling 예약 가드, notify 스켈레톤
 ```
+
+## Sprint 2 verification (2026-09-14, read-only)
+
+Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.** 본문은 [docs/qa/sprint2-verification.md](qa/sprint2-verification.md). **기준 커밋 `73e33a8`(Sprint 2 주장 70% / P0 42%).** 위 표 %는 본 절에서 재조정하지 않음 — Architect 선택.
+
+- 커밋 `73e33a8`: jobs/상담 테넌시·PATCH 지원 상태·인앱 notify·이력서 선택 UI 마크업·users 무토큰 401·일지 import 수정은 실재. 판정 **partial**.
+- `npm --prefix backend test`: **33/33 pass** (roles 2 + wave1 10 + sprint1 9 + sprint2 12). Playwright 없음. 지원 모달·상태 UI·대시보드 알림 **브라우저 미검증**.
+- STATUS Sprint 2 **70%**·P0 **42%**는 **경계~약간 과대**. 모니터 추정: Sprint 2 **58–68%**, P0 **38–44%**, Phase 3 **65–72%** (posts open). 워크넷 **0%** 주장은 정직.
+- Sprint 1 검증 잔여 해소: jobs 목록·상담 teachers/PUT 타교, `GET /api/users` 401, `isValidCounselingType`, CNS-003 인앱( API ).
+- 잔여: posts/announcements 테넌시, `GET /api/files` 동일교 누수, B-LS board/profile, Playwright, UI DoD.
+- 게이트 Worknet/Alimtalk `unknown` 유지. notify alimtalk는 env 없을 때 `NOT_CONFIGURED` (의도적 no-op).
