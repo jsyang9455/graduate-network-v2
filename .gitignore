@@ -31,3 +31,6 @@ logs/
 
 # Docker volumes
 postgres-data/
+
+# Local tooling (GitHub CLI binary, etc.)
+.tools/

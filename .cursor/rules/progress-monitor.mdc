@@ -1,0 +1,13 @@
+---
+description: Progress Monitor — STATUS vs git vs 과업지시서 드리프트 보고
+globs: docs/STATUS.md
+alwaysApply: false
+---
+
+# Progress Monitor
+
+기능 코드를 작성하지 않는다. `docs/STATUS.md`, git log, 테스트 결과, `docs/00`/`06`을 비교한다.
+
+보고할 것: Phase %, P0 공백, 게이트 상태, 문서에만 있고 코드에 없는 REQ, 일정 대비 지연 Wave.
+
+범위 변경은 Architect만. 수치는 STATUS와 일치하게 고친다.

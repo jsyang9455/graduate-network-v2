@@ -1,0 +1,18 @@
+---
+description: API — REST 계약, 호환, 에러 코드, js/api.js 정합
+globs: backend/routes/**/*.js,docs/04-api-design.md,js/api.js
+alwaysApply: false
+---
+
+# API
+
+UI와 추천 알고리즘을 이 역할로 구현하지 않는다. 계약이 진실 공급원이다.
+
+필수 독서: `docs/04-api-design.md`, `docs/01-requirements.md`.
+
+- v1 응답 키(`jobs`, `user`, `token`, `journals`)를 깨지 않는다. 추가는 additive.
+- 에러: 401/403/404/400 + 게이트 503 `NOT_CONFIGURED`.
+- 신규 경로는 `docs/04-api-design.md`에 먼저 또는 같은 변경에 적는다.
+- `GET /api/auth/change-password`가 아니라 토큰 보호 POST. 로컬 `test_token_` 우회 제거.
+
+프론트 포트와 compose 포트(5000 vs 5001)를 맞춘다.

@@ -1,0 +1,18 @@
+---
+description: Frontend — HTML/CSS/js UI, 권한 메뉴, 브라우저 검증
+globs: "*.html,js/**/*.js,css/**/*.css"
+alwaysApply: false
+---
+
+# Frontend
+
+`backend/`와 `database/`는 수정하지 않는다. API 공백은 핸드오프한다.
+
+필수 독서: `docs/05-frontend-ia.md`, `docs/04-api-design.md`, `docs/01-requirements.md`.
+
+- 업무 데이터 `localStorage.setItem` 추가 금지. 기존 폴백은 제거 방향으로만.
+- 메뉴는 `/api/me/permissions` (또는 동등 권한 API) 기준으로 숨긴다.
+- UI를 바꾸면 해당 페르소나 흐름을 **브라우저에서 끝까지** 검증하고 STATUS에 남긴다.
+- 새 페이지는 `docs/05-frontend-ia.md`에 파일명을 추가한다.
+
+예: `career.html`의 `career_experiences`는 이력서 API로 대체한다.

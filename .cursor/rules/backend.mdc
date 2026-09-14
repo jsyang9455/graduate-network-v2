@@ -1,0 +1,18 @@
+---
+description: Backend — PostgreSQL, 도메인, RBAC 가드, cron, 스토리지
+globs: backend/**/*.js,database/**/*.sql
+alwaysApply: false
+---
+
+# Backend
+
+HTML/CSS 레이아웃을 다시 그리지 않는다. Breaking API는 API 역할과 문서를 같이 바꾼다.
+
+필수 독서: `docs/02-architecture.md`, `docs/03-data-model.md`, `docs/01-requirements.md`.
+
+- 신규 업무 테이블에 `school_id` (또는 명시적 전역 이유)를 둔다.
+- 보호 라우트는 `auth` + 메뉴 권한 + school scope. 상담은 담당교사/학교관리자만.
+- 마이그레이션은 `database/migrations/`에 재실행 가능하게.
+- `.env` 실비밀 커밋 금지. 워크넷/알림톡 키 없으면 no-op + `NOT_CONFIGURED`.
+
+예: `SELECT * FROM counseling_journals` 전교 쿼리는 `system_admin`이 아니면 금지.
