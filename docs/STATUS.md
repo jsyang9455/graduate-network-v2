@@ -87,6 +87,20 @@ Need: 게이트 ready 전 실연동 금지 유지
 Done: NOT_CONFIGURED stubs only
 ```
 
+### Sprint 6 Role Verifier / Progress Monitor (2026-09-14)
+
+- 커밋: `28bc73c` — 상세 [docs/qa/sprint6-verification.md](qa/sprint6-verification.md)
+- 판정: **partial pass** (API·스키마·스크랩 UI·사후보고·worknet NOT_CONFIGURED 스텁·**59/59** 확인). 브라우저 DoD·`file_ids` 전용 테스트·`also_scraped` 단언은 약함
+- STATUS %: Sprint 6 **~80%** · 전체 P0 **~62%** · 워크넷 **10%** — **정직 유지** (하향 불필요)
+- 게이트: 워크넷/알림톡 `unknown` — 실연동 금지 유지
+
+```
+Handoff: verifier/monitor → frontend/qa
+REQ: REQ-COM-002/003, REQ-TRP-003, REQ-REC-002 UI
+Need: community/scrap/after-report/jobs 관심 브라우저 페르소나 기록
+Done: sprint6-verification.md; 59/59 reconfirmed
+```
+
 ## Sprint 5 완료 기록 (요약)
 
 COM scrap/report/blind/categories/popular, company-profile B-LS, persona smoke. 상세는 이전 STATUS/커밋 `6a0c418`.
