@@ -89,3 +89,13 @@ REQ: REQ-IAM-009
 Need: Playwright 페르소나 E2E (로그인→메뉴). API 타교 403은 node:test로 커버
 Done: 2교 픽스처 + 통합 테스트
 ```
+
+## Wave 1 verification (2026-09-14, read-only)
+
+Role Verifier + Progress Monitor. **앱/테스트/마이그레이션 미수정.** 본문은 [docs/qa/wave1-verification.md](qa/wave1-verification.md).
+
+- 커밋 `bb64a39`: IAM 기반은 실재. 판정 **partial** (전체 Pass 아님).
+- `npm --prefix backend test`: **12/12 pass** (roles 2 + tenancy 10). Playwright 없음.
+- STATUS 「REQ-IAM-001~010 완료」·Phase 3 **55%**는 **과대**. 모니터 추정: 전체 P0 **14–16%**, Phase 3 **35–45%**. 위 표 %는 Sprint 1 에이전트와 충돌하지 않도록 여기서 바꾸지 않음 — Architect가 정정.
+- Sprint 1 전 블로커급: `files` 스토리지 없음, `career.html` LS, jobs/상담예약 테넌시 미장착, `GET /api/users` 로그인 필수 회귀.
+- 게이트 Worknet/Alimtalk `unknown`, **B-LS** 유지. B-PORT 해소는 확인.
