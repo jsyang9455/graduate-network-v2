@@ -63,4 +63,4 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다.
 - v1 소스 분석 (graduate-network `main` / `7f331fc`)
 - 고도화 과업지시서 반영한 docs 00–08
 - Cursor 규칙/스킬 및 `AGENTS.md`
-- GitHub v2 원격: 부트스트랩 시점에 `gh` 미로그인일 수 있음. 확정 URL은 README 상단과 이 칸을 동기화한다.
+- GitHub v2: https://github.com/jsyang9455/graduate-network-v2 (public). 원본은 remote `v1`.
