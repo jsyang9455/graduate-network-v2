@@ -2,10 +2,17 @@
 
 전북 졸업생 취업지원플랫폼 **v2**를 EC2(Ubuntu)에서 Docker Compose로 기동·검증하는 순서이다.
 
+### 배포 대상 (필수)
+
+- **v2는 새로 프로비저닝한 전용 EC2**에서만 기동한다. **기존 v1 운영 서버에 올리지 말 것.**
+- v1과 **DB·볼륨·호스트 포트(80/5000/5432 등)를 공유하지 않는다.** 별도 인스턴스·별도 Compose·별도 `.env`.
+- 이 문서의 `docker compose down -v`는 **이 v2 인스턴스의 볼륨만** 지운다. v1 데이터에는 영향 없음.
+- Postgres 기동 실패는 **첫 부팅/init·healthcheck·디스크·메모리·`.env`** 쪽을 본다. v1과의 포트·볼륨 충돌로 가정하지 말 것(분리 전제).
+
 | 문서 | 용도 |
 |------|------|
-| **이 문서** (`docs/deploy-aws.md`) | **v2** — 저장소 `graduate-network-v2` |
-| [`AWS-DEPLOYMENT.md`](../AWS-DEPLOYMENT.md), [`deploy-aws.sh`](../deploy-aws.sh) | **v1 지향** — `graduate-network` + 태그 `v1.1`. v2 테스트에 쓰지 말 것 |
+| **이 문서** (`docs/deploy-aws.md`) | **v2** — 저장소 `graduate-network-v2` · **신규 EC2 전용** |
+| [`AWS-DEPLOYMENT.md`](../AWS-DEPLOYMENT.md), [`deploy-aws.sh`](../deploy-aws.sh) | **v1 지향** — `graduate-network` + 태그 `v1.1`. v2 테스트·이 서버에 쓰지 말 것 |
 
 관련: 루트 [`.env.example`](../.env.example), [`docker-compose.yml`](../docker-compose.yml), REQ-NFR-010.
 
@@ -21,7 +28,9 @@
 
 ---
 
-## 2. EC2 인스턴스 (Ubuntu)
+## 2. EC2 인스턴스 (Ubuntu) — v2 전용 신규
+
+**v1 운영 호스트가 아닌 새 인스턴스**를 만든다. 동일 머신에서 v1·v2를 병행하지 않는다.
 
 | 항목 | 권장 |
 |------|------|
@@ -138,7 +147,7 @@ docker compose run --rm \
 
 (대안: EC2에 Node가 있으면 `backend`에서 `DB_HOST=127.0.0.1` + `.env`의 DB 비밀번호로 `npm run migrate`.)
 
-완전 초기화(데이터 삭제):
+완전 초기화(데이터 삭제) — **이 v2 EC2의 Compose 볼륨만** 삭제. v1과 무관:
 
 ```bash
 docker compose down -v
@@ -199,6 +208,9 @@ http://<EC2공인IP>/login.html
 백엔드가 `depends_on: postgres: condition: service_healthy`라서, DB가 healthy가 아니면  
 `dependency failed to start` / `container graduate-network-db …` 형태로 보인다.
 
+**전제:** v2 전용 신규 EC2이므로 **v1과의 DB/포트 충돌이 원인인 경우는 거의 없다.**  
+우선 **첫 부팅 init·healthcheck·디스크·메모리·`.env`**를 본다.
+
 **원인 가능성 (높은 순)**
 
 | 순위 | 원인 | 증상 |
@@ -206,9 +218,9 @@ http://<EC2공인IP>/login.html
 | 1 | 첫 기동 init(schema+seed+010) 중 healthcheck 실패 / 손상된 `postgres_data` | `Exited` 또는 `unhealthy`, 로그에 init/SQL/`PANIC` |
 | 2 | EC2 디스크 부족 | `No space left on device`, `df -h` 루트 거의 100% |
 | 3 | 메모리 부족(t2.micro 등) | OOM / 컨테이너 즉시 종료, `dmesg`에 kill |
-| 4 | 호스트 **5432** 이미 사용 | `bind: address already in use` |
-| 5 | `.env`의 `DB_PASSWORD`와 **기존 볼륨** 불일치 | Postgres는 떠도 백엔드 auth 실패(기동 실패와는 별개). `POSTGRES_*`는 **최초 볼륨 생성 시에만** 적용 |
-| 6 | init SQL 파일 누락/깨진 마운트 | 로그에 init 스크립트 오류, `database/*.sql` 경로 확인 |
+| 4 | `.env`의 `DB_PASSWORD`와 **기존 볼륨** 불일치 | Postgres는 떠도 백엔드 auth 실패(기동 실패와는 별개). `POSTGRES_*`는 **최초 볼륨 생성 시에만** 적용 |
+| 5 | init SQL 파일 누락/깨진 마운트 | 로그에 init 스크립트 오류, `database/*.sql` 경로 확인 |
+| 6 | 호스트 **5432** 이미 사용(드묾·이 전용 인스턴스에 다른 서비스가 있을 때만) | `bind: address already in use` |
 
 **EC2에서 바로 실행**
 
