@@ -1,12 +1,17 @@
 services:
   # PostgreSQL Database
+  # Service name must stay `postgres` (backend DB_HOST + depends_on).
+  # container_name `graduate-network-db` is cosmetic only — do not depends_on it.
   postgres:
     image: postgres:15-alpine
     container_name: graduate-network-db
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: graduate_network
+      # Keep in sync with backend DB_* (from host `.env` / .env.example).
+      # POSTGRES_* apply only on first volume init; changing .env later does not
+      # rewrite an existing postgres_data volume.
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-graduate_network}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
@@ -14,13 +19,20 @@ services:
       - ./database/migrations/010_v2_multischool.sql:/docker-entrypoint-initdb.d/3-v2-multischool.sql
     ports:
       - "5432:5432"
+    # Small EC2: default /dev/shm (64MB) can make Postgres crash under load/init.
+    shm_size: 256mb
     networks:
       - graduate-network
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # First boot runs schema+seed+010; without start_period, early pg_isready
+      # failures mark the container unhealthy and backend depends_on fails with
+      # "dependency postgres failed to start".
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+      start_period: 90s
 
   # Backend API
   # REQ-NFR-010: JWT_SECRET / DB_PASSWORD come from host env or root `.env`

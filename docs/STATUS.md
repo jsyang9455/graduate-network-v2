@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) v2 체크리스트 (v1 `AWS-DEPLOYMENT.md`와 구분) |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + compose postgres healthcheck/`DB_*` 동기화 (2026-09-15) |
 
 ## Blockers
 
@@ -86,6 +86,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 ## Ops note (2026-09-15)
 
 - v2 AWS 실행·테스트: [docs/deploy-aws.md](deploy-aws.md) (`graduate-network-v2` + Compose + migrate 011+). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
+- Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`. EC2에서 `dependency postgres failed to start` → deploy-aws §10.1.
 
 ## Persona E2E 캠페인 (2026-09-15)
 

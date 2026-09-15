@@ -85,10 +85,12 @@ nano .env
 ```env
 DB_USER=postgres
 DB_PASSWORD=<강한비밀번호>
+DB_NAME=graduate_network
 JWT_SECRET=<긴랜덤문자열>
 JWT_EXPIRE=7d
 ```
 
+- Compose `postgres` 서비스는 같은 값으로 `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`를 설정한다(최초 볼륨 생성 시에만 적용).
 - Compose가 이미 `DB_HOST=postgres`, 백엔드 `PORT=5000`, `STORAGE_DRIVER=local`을 넣는다.
 - **`.env`는 커밋하지 않는다.** 실비밀번호·실 JWT를 이 문서나 git에 넣지 말 것.
 - S3는 선택(기본 로컬 볼륨 `backend_uploads`).
@@ -181,7 +183,8 @@ http://<EC2공인IP>/login.html
 ## 10. 자주 막히는 지점
 
 1. **JWT_SECRET 없음** → compose 기동 실패. 루트 `.env` 확인.
-2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`·루트 `.env` 미반영.
+2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`·루트 `.env` 미반영.  
+   v2 서비스명은 **`postgres`**(컨테이너명만 `graduate-network-db`). `depends_on`/`DB_HOST`에 `db`를 쓰지 말 것.
 3. **마이그레이션 누락** → init은 010까지. 이력서·기업승인·정책 테이블이 없으면 §7 migrate.
 4. **공인 IP + 5000 미개방** → 로그인/API 실패. SG에 5000 추가, 또는 브라우저 콘솔에서  
    `localStorage.setItem('jjobb_api_base','/api')` 후 새로고침.
@@ -189,6 +192,71 @@ http://<EC2공인IP>/login.html
 6. **보안 그룹 80 미개방** → 브라우저 타임아웃.
 7. **워크넷·알림톡** → 게이트 전까지 실연동 없음(`NOT_CONFIGURED`). 가짜 키로 완성하지 말 것.
 8. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
+9. **`dependency postgres failed to start` / `graduate-network-db` unhealthy** → 아래 [§10.1](#101-postgres-기동-실패-진단).
+
+### 10.1 Postgres 기동 실패 진단
+
+백엔드가 `depends_on: postgres: condition: service_healthy`라서, DB가 healthy가 아니면  
+`dependency failed to start` / `container graduate-network-db …` 형태로 보인다.
+
+**원인 가능성 (높은 순)**
+
+| 순위 | 원인 | 증상 |
+|------|------|------|
+| 1 | 첫 기동 init(schema+seed+010) 중 healthcheck 실패 / 손상된 `postgres_data` | `Exited` 또는 `unhealthy`, 로그에 init/SQL/`PANIC` |
+| 2 | EC2 디스크 부족 | `No space left on device`, `df -h` 루트 거의 100% |
+| 3 | 메모리 부족(t2.micro 등) | OOM / 컨테이너 즉시 종료, `dmesg`에 kill |
+| 4 | 호스트 **5432** 이미 사용 | `bind: address already in use` |
+| 5 | `.env`의 `DB_PASSWORD`와 **기존 볼륨** 불일치 | Postgres는 떠도 백엔드 auth 실패(기동 실패와는 별개). `POSTGRES_*`는 **최초 볼륨 생성 시에만** 적용 |
+| 6 | init SQL 파일 누락/깨진 마운트 | 로그에 init 스크립트 오류, `database/*.sql` 경로 확인 |
+
+**EC2에서 바로 실행**
+
+```bash
+cd ~/graduate-network-v2   # 클론 경로에 맞게
+
+docker compose ps -a
+docker compose logs postgres --tail=200
+docker inspect graduate-network-db --format '{{.State.Status}} {{.State.Health.Status}} {{.State.Error}}'
+
+df -h
+free -h
+sudo ss -lptn 'sport = :5432' || sudo lsof -i :5432
+
+# 볼륨·이미지 상태
+docker volume ls | grep postgres
+docker compose config | head -80
+```
+
+로그에서 `initdb`, `ERROR:`, `FATAL`, `No space`, `Permission denied`, `Address already in use`를 찾는다.
+
+**복구 (데이터 삭제 허용 시 — `down -v`는 DB 전부 삭제)**
+
+```bash
+# 1) 디스크 확보 후
+docker system df
+# 필요 시: docker builder prune -f   # 이미지만 정리, 볼륨은 유지
+
+# 2) 포트 충돌이면 호스트 Postgres 중지 또는 compose ports 변경
+
+# 3) 손상 볼륨/실패한 첫 init → 볼륨 삭제 후 재기동
+docker compose down
+# ⚠️ 아래는 postgres_data·업로드 볼륨 삭제. 백업 없으면 실행하지 말 것.
+docker compose down -v
+cp -n .env.example .env   # 없을 때만
+# .env: JWT_SECRET 필수, DB_PASSWORD는 앞으로 쓸 값으로 통일
+docker compose up -d --build
+docker compose ps
+docker compose logs postgres --tail=100
+
+# 4) 011+ 마이그레이션
+docker compose run --rm \
+  -v "$(pwd)/database:/database:ro" \
+  backend npm run migrate
+```
+
+**복구 (데이터 유지)** — 볼륨을 지우지 않고, 로그만으로 원인 제거(디스크 확보·5432 해제·`git pull` 후 compose 재기동).  
+비밀번호만 바꾼 경우 기존 볼륨의 슈퍼유저 비밀번호는 자동 변경되지 않는다.
 
 ---
 
