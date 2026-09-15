@@ -117,28 +117,17 @@ docker compose restart
 
 ### AWS Ubuntu 배포
 
-#### 자동 설치 (권장 ⭐)
+**v2 (이 저장소):** EC2 + Docker Compose 체크리스트는 **[`docs/deploy-aws.md`](docs/deploy-aws.md)** 를 따른다 (`graduate-network-v2`, 루트 `.env`의 `JWT_SECRET` 필수, migrate 011+).
 
-AWS EC2 Ubuntu 인스턴스에서 다음 명령어로 자동 설치:
+아래 자동 설치·[`AWS-DEPLOYMENT.md`](AWS-DEPLOYMENT.md)는 **v1**(`graduate-network` / `v1.1`) 기준이다. v2 테스트에 쓰지 말 것.
+
+#### 자동 설치 (v1 전용 — v2 비권장)
 
 ```bash
-# 스크립트 다운로드 및 실행
+# v1.1 스크립트 — graduate-network-v2 에는 사용하지 말 것
 curl -fsSL https://raw.githubusercontent.com/jsyang9455/graduate-network/v1.1/deploy-aws.sh -o deploy-aws.sh
 chmod +x deploy-aws.sh
 ./deploy-aws.sh
-```
-
-이 스크립트는 다음을 자동으로 수행합니다:
-- 시스템 업데이트
-- Docker 및 필수 패키지 설치
-- 애플리케이션 클론 및 설정
-- 환경 변수 자동 생성
-- 방화벽 설정
-- 서비스 시작
-
-#### 수동 설치
-
-상세한 단계별 가이드는 [AWS-DEPLOYMENT.md](AWS-DEPLOYMENT.md)를 참조하세요.
 ```
 
 ## 📚 문서 및 가이드
@@ -153,15 +142,9 @@ chmod +x deploy-aws.sh
 - [테스트 계정 정보](TEST-ACCOUNTS.md) ⚠️ 개발 전용 (프로덕션 사용 금지)
 
 ### 배포 가이드
-- [**AWS Ubuntu 배포 가이드**](AWS-DEPLOYMENT.md) - EC2 인스턴스 배포 (v1.1)
-  - 시스템 요구사항 및 EC2 인스턴스 설정
-  - Docker 설치 가이드
-  - 애플리케이션 배포 단계
-  - 환경 변수 설정
-  - 방화벽 및 보안 설정
-  - 도메인 연결 및 SSL 인증서 설정
-  - 문제 해결 및 유지보수
-- [자동 설치 스크립트](deploy-aws.sh) - 원클릭 AWS 배포
+- [**v2 AWS EC2 + Compose 체크리스트**](docs/deploy-aws.md) — `graduate-network-v2` (권장)
+- [AWS Ubuntu 배포 가이드](AWS-DEPLOYMENT.md) — **v1.1 지향** (참고만)
+- [자동 설치 스크립트](deploy-aws.sh) — **v1 전용**, v2 비권장
 
 ## 🔧 시스템 요구사항
 
