@@ -48,7 +48,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 |--------|-------|---|------|
 | 멀티스쿨 스키마/가드 | backend | 95 | 기업 승인 school 범위 |
 | IAM API·OpenAPI | api | 95 | company register + approval 계약 |
-| 권한 메뉴·schools UI | frontend | 92 | 기업 승인 UI + UI/CSS QA + **모바일 햄버거/드로어** (`docs/qa/mobile-nav.md`) |
+| 권한 메뉴·schools UI | frontend | 93 | 기업 승인 UI + UI/CSS QA + **모바일 햄버거/드로어** (+ `help.html` 공유 헤더, `docs/qa/mobile-nav.md`) |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |

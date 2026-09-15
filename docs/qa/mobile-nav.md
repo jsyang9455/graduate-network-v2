@@ -17,7 +17,7 @@ Frontend fix for QA finding: at ≤768px top nav links were `display: none` with
 | `js/nav.js` | new shared mobile nav |
 | `css/style.css` | toggle, drawer, backdrop, mobile-sidebar-bar |
 | `css/dashboard.css` | sidebar off-canvas; hide in-flow sidebar when embedded |
-| `*.html` (26 w/ `auth.js`) | `<script src="js/nav.js">` after auth |
+| `*.html` (26 w/ `auth.js` + **`help.html`**) | `<script src="js/nav.js">` after auth; help also got shared header chrome |
 
 ## Browser verification (375×812, MCP)
 
@@ -27,11 +27,12 @@ Frontend fix for QA finding: at ≤768px top nav links were `display: none` with
 | `dashboard.html` | Top links + embedded sidebar (“전체 메뉴”) in one drawer |
 | `community.html` | Mobile bar + left sidebar drawer |
 | `login.html` | Hamburger present (session may show logout) |
+| `help.html` | Shared header + logo; hamburger opens drawer; Esc closes; nav links present (2026-09-15 follow-up) |
 
 Also checked open state computed `transform` / `getBoundingClientRect` at 375px.
 
 ## Remaining gaps
 
-- `help.html` / dev pages without shared chrome not wired.
+- Dev utilities without app chrome intentionally excluded: `setup-test-profile.html`, `check-storage.html`.
 - Full form responsive polish still out of scope.
 - Admin pages need staff session for full RBAC menu check in browser (company session redirects).

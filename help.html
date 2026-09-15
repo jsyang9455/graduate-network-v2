@@ -244,6 +244,29 @@
     </style>
 </head>
 <body>
+    <header id="mainHeader">
+        <nav>
+            <div class="logo">
+                <a href="index.html"><img src="images/logo.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="118" height="40"></a>
+            </div>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="index.html">홈</a></li>
+                <li><a href="#" onclick="navigateWithAuth(event, 'jobs.html')">채용 정보</a></li>
+                <li><a href="#" onclick="navigateWithAuth(event, 'networking.html')">JJOBB 밴드</a></li>
+                <li><a href="#" onclick="navigateWithAuth(event, 'counseling.html')">진로 상담</a></li>
+                <li><a href="help.html" class="active" aria-current="page">도움말</a></li>
+            </ul>
+            <div class="auth-buttons" id="authButtons">
+                <a href="login.html" class="btn-login">로그인</a>
+                <a href="register.html" class="btn-register">회원가입</a>
+            </div>
+            <div class="user-menu" id="userMenu" style="display: none;">
+                <span class="user-name" id="userName"></span>
+                <button type="button" onclick="logout()" class="btn-logout">로그아웃</button>
+            </div>
+        </nav>
+    </header>
+
     <div class="help-container">
         <div class="help-header">
             <h1>📚 사용 가이드</h1>
@@ -757,6 +780,10 @@
         ↑
     </div>
 
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/main.js"></script>
     <script>
         // 탭 전환
         function switchTab(tabName) {
