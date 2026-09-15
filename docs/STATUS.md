@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-15  
-현재 단계: **Sprint 7+ (기업 승인 플래그 REQ-JOB-007)**  
-전체 P0 구현: **약 67%** (Wave 1–Sprint 6 + Sprint 7 QA/NFR + 기업 signup + **기업 승인**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
+현재 단계: **Sprint 7+ / 페르소나 E2E 캠페인**  
+전체 P0 구현: **약 68%** (Wave 1–Sprint 6 + Sprint 7 QA/NFR + 기업 signup/승인 + **전 페르소나 E2E**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
 
 ## Gates (학교 제공물)
 
@@ -39,7 +39,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | Sprint 5 | COM P0·B-LS·persona smoke | backend + api + frontend + qa | 85 | done-ish |
 | Sprint 6 | REC-002·COM-002·스크랩 UI·사후보고 | backend + api + frontend + qa | 85 | done-ish (브라우저 DoD → Sprint7) |
 | Sprint 7 | QA hardening · NFR-010 · UAT | qa (+ nfr) | 90 | done-ish |
-| 4 | 테스트·UAT·보안 | qa | 92 | in-progress (API **73/73** + company approval API UAT) |
+| 4 | 테스트·UAT·보안 | qa | 95 | in-progress (API **86/86** + persona E2E 캠페인 보고서) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
@@ -57,7 +57,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 견학 모듈 | backend/frontend | 80 | 사후 보고 API+industry-visit UI |
 | 커뮤니티 고도화 | api/frontend | 75 | COM-002 태그·첨부·스크랩 UI |
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
-| QA 스위트 | qa | 96 | company-approval + signup → **73/73** |
+| QA 스위트 | qa | 98 | persona-e2e-campaign + legacy-company-repair → **86/86** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
 
 ## Blockers
@@ -81,6 +81,21 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 - 구현 완료 시 해당 행 %와 메모만 수정하고 날짜를 올린다.
 - 범위 변경은 Architect만 `00`/`01`과 함께 수정한다.
 - Progress Monitor는 매주 %의 합이 git 실제 진척과 맞는지 검사한다.
+
+## Persona E2E 캠페인 (2026-09-15)
+
+- 전 페르소나(student/graduate/teacher/company/school_admin/system_admin←admin) API 캠페인: `backend/tests/persona-e2e-campaign.test.js`
+- 보고서: [docs/qa/persona-e2e-report.md](qa/persona-e2e-report.md)
+- 버그 수정: DX `company@jjob.com` 프로필 누락·`school_id` null → 마이그레이션 **018** + test-accounts 정렬 + `company-profile` 404 `code`
+- 전체 테스트 **86/86**. Puppeteer UI는 Chrome 미설치로 스킵(API 스모크 OK). IDE register UI(기업 유형) 확인
+- **정책 확인 요청**(발명 금지 — Architect/사용자 회신 대기): 교사 기업승인 여부, 졸업생 무학교 가입, 재학생 졸업년도 필수, PW 8 vs 6, 레거시 null school 바인딩, null school 공고 전역 노출, admin 표기
+
+```
+Handoff: qa → architect
+REQ: REQ-IAM-006/009, REQ-JOB-007, REQ-PLT-002
+Need: 정책 Q1–Q7 회신 (보고서 §5); optional Chrome Puppeteer
+Done: persona E2E 86/86, 018 repair, report+STATUS
+```
 
 ## Company approval 완료 기록 (2026-09-15)
 

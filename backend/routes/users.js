@@ -123,7 +123,7 @@ router.get('/company-profile', auth, async (req, res) => {
       [req.user.id]
     );
     if (!result.rows.length) {
-      return res.status(404).json({ error: 'Company profile not found' });
+      return sendError(res, 404, 'NOT_FOUND', 'Company profile not found');
     }
     res.json({ profile: result.rows[0] });
   } catch (error) {

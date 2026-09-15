@@ -26,6 +26,8 @@
 - **이메일**: `company@jjob.com`
 - **회사명**: JJOB채용
 - **업종**: IT/서비스
+- **소속 학교**: 전주공업고등학교 (`school_id` 바인딩)
+- **승인**: `approval_status=approved` (DX 전용 — 공개 가입 기업은 기본 `pending`)
 - **설명**: 채용 담당자 계정 (채용 공고 등록 가능)
 
 ### ⚙️ 관리자 (Admin)
