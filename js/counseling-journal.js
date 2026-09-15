@@ -14,10 +14,7 @@ function isTeacherOrAdminUser(user) {
 // ─── API 헬퍼 ─────────────────────────────────────────────────
 
 function getApiBase() {
-    const h = window.location.hostname;
-    if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:5000/api';
-    if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return 'http://' + h + ':5000/api';
-    return '/api';
+    return typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api';
 }
 
 async function apiCall(method, endpoint, body) {

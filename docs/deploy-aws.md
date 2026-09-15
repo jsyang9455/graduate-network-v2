@@ -22,8 +22,7 @@
 
 - AWS 계정, 키 페어(`.pem`)
 - 보안 그룹 인바운드: **22**(SSH), **80**(HTTP), (선택) **443**(HTTPS)
-  - 공인 **IP로** 접속하면 프론트가 API를 `http://<IP>:5000/api`로 호출한다 (`js/api.js`). 브라우저 검증 시 **5000**도 인바운드에 열거나, 아래 [함정](#10-자주-막히는-지점)의 `/api` 오버라이드를 쓴다.
-  - 도메인(비-IP)으로 접속하면 `/api` 프록시만으로 충분해 5000 외부 개방이 불필요하다.
+  - 브라우저 API는 **같은 호스트의 `/api`** (Nginx → backend). **5000을 SG에 열 필요 없음** (SSH·로컬 디버그용).
 - Elastic IP 권장(재기동 후 IP 고정)
 
 ---
@@ -123,9 +122,12 @@ docker compose logs --tail=80
 헬스:
 
 ```bash
-curl -s http://127.0.0.1:5000/api/health
+curl -s http://127.0.0.1/api/health    # Nginx 프록시 (브라우저와 동일)
+curl -s http://127.0.0.1:5000/api/health   # 백엔드 직접 (선택)
 curl -sI http://127.0.0.1/
 ```
+
+`/api/health`가 **502**이면 백엔드 컨테이너가 죽었거나 DB 연결 실패다. `docker compose ps`, `docker compose logs backend --tail=100`을 본다.
 
 ---
 
@@ -161,12 +163,16 @@ docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrat
 
 - Compose 기본 시드: `database/seed.sql` (데모 졸업생 등).
 - DX용 페르소나 계정 목록·비밀번호: **[`TEST-ACCOUNTS.md`](../TEST-ACCOUNTS.md)** (개발 DB 전용).
-- 시드에 DX 계정이 없으면(선택):
+- Compose init에는 **`seed.sql`만** (`student@jjob.com` 등 DX 계정 **없음**). dev/test EC2에서 DX 로그인이 필요하면:
 
 ```bash
-docker compose exec -T postgres \
-  psql -U postgres -d graduate_network < database/test-accounts.sql
+chmod +x scripts/load-test-accounts.sh
+./scripts/load-test-accounts.sh
 ```
+
+(동일: `docker compose exec -T postgres psql -U postgres -d graduate_network < database/test-accounts.sql`)
+
+- init 시드만 쓸 때는 `choi.seungmin@example.com` / `password123` (student) 등 **`seed.sql` 계정**으로 로그인 가능.
 
 **프로덕션·공개 EC2에 테스트 계정/약한 비밀번호 시드를 남기지 말 것** (`docs/08-test-strategy.md`).
 
@@ -182,8 +188,7 @@ http://<EC2공인IP>/login.html
 ```
 
 - UI: 포트 **80** (프론트 Nginx, `nginx.conf`가 `/api/` → backend:5000 프록시)
-- 공인 IP 접속 시 API 기본값은 **`:5000`** (보안 그룹 또는 아래 오버라이드 필요)
-- 도메인 접속 시 기본값은 **`/api`** (프록시만으로 동작)
+- API: **`/api`** (공인 IP·도메인 동일, `js/api.js`)
 
 도메인·Let's Encrypt는 선택. Compose 프론트가 이미 80을 쓰므로 **호스트에 별도 Nginx를 또 올리면 포트 충돌**에 주의한다. 1차 검증은 Elastic IP + HTTP로 충분하다.
 
@@ -195,13 +200,14 @@ http://<EC2공인IP>/login.html
 2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`·루트 `.env` 미반영.  
    v2 서비스명은 **`postgres`**(컨테이너명만 `graduate-network-db`). `depends_on`/`DB_HOST`에 `db`를 쓰지 말 것.
 3. **마이그레이션 누락** → init은 010까지. 이력서·기업승인·정책 테이블이 없으면 §7 migrate.
-4. **공인 IP + 5000 미개방** → 로그인/API 실패. SG에 5000 추가, 또는 브라우저 콘솔에서  
-   `localStorage.setItem('jjobb_api_base','/api')` 후 새로고침.
-5. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`. 학교관리자 승인 후 재시험.
-6. **보안 그룹 80 미개방** → 브라우저 타임아웃.
-7. **워크넷·알림톡** → 게이트 전까지 실연동 없음(`NOT_CONFIGURED`). 가짜 키로 완성하지 말 것.
-8. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
-9. **`dependency postgres failed to start` / `graduate-network-db` unhealthy** → 아래 [§10.1](#101-postgres-기동-실패-진단).
+4. **`/api/health` 502** → 백엔드 미기동·DB 오류. `docker compose logs backend`. (구버전 `js/api.js`는 공인 IP에서 `:5000`을 썼음 — `git pull` 후 프론트 재빌드.)
+5. **`student@jjob.com` 로그인 실패** → DX 계정 미적재. §8 `./scripts/load-test-accounts.sh` 또는 seed 계정 사용.
+6. **구버전 프론트 캐시** → 강력 새로고침. 로컬 API 포트 변경 시만 `localStorage.jjobb_api_base` 사용.
+7. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`. 학교관리자 승인 후 재시험.
+8. **보안 그룹 80 미개방** → 브라우저 타임아웃.
+9. **워크넷·알림톡** → 게이트 전까지 실연동 없음(`NOT_CONFIGURED`). 가짜 키로 완성하지 말 것.
+10. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
+11. **`dependency postgres failed to start` / `graduate-network-db` unhealthy** → 아래 [§10.1](#101-postgres-기동-실패-진단).
 
 ### 10.1 Postgres 기동 실패 진단
 

@@ -9,9 +9,7 @@ const API_BASE_URL = (() => {
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:5000/api';
   }
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(hostname)) {
-    return `http://${hostname}:5000/api`;
-  }
+  // EC2 공인 IP·도메인: Nginx `/api` 프록시 (호스트 5000 개방 불필요)
   return '/api';
 })();
 

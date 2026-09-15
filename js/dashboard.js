@@ -1022,12 +1022,7 @@ async function loadTeacherCounselingJournal() {
 
     try {
         const token = localStorage.getItem('token') || '';
-        const apiBase = (() => {
-            const h = window.location.hostname;
-            if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:5000/api';
-            if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return `http://${h}:5000/api`;
-            return '/api';
-        })();
+        const apiBase = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : '/api';
         const res = await fetch(`${apiBase}/counseling-journals`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
