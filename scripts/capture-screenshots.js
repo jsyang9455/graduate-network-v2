@@ -33,7 +33,7 @@ const PAGES = [
   { id: '07_student_industryvisit', url: '/industry-visit.html',         auth: 'student', title: '산업체 견학' },
   { id: '08_student_certification', url: '/certification-support.html',  auth: 'student', title: '자격증 지원' },
   { id: '09_student_counseling',    url: '/counseling.html',             auth: 'student', title: '진로 상담' },
-  { id: '10_student_networking',    url: '/networking.html',             auth: 'student', title: 'JOB밴드' },
+  { id: '10_student_networking',    url: '/networking.html',             auth: 'student', title: 'JJOBB 밴드' },
   { id: '11_student_profile',       url: '/profile.html',                auth: 'student', title: '내 프로필' },
   { id: '12_student_career',        url: '/career.html',                 auth: 'student', title: '경력 관리' },
 

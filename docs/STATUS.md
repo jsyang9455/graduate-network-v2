@@ -123,7 +123,8 @@ posts/announcements/certificates/education-programs school 가드, files 동일�
 
 - Tone: 로고 정렬 네이비·리프그린, 보라 그라데이션 제거 (`css/style.css` 토큰)
 - Assets: `images/main-banner.jpg` (랜딩·대시보드 hero), `images/empty-state-career.png`
-- Logo: `images/logo.svg` (헤더 워드마크·다크 헤더용), `images/logo-color.svg` (라이트용), `images/logo-mark.svg` (마크)
+- Logo: `images/logo.svg` (헤더 워드마크·다크 헤더용), `images/logo-color.svg` (라이트용), `images/logo-mark.svg` (마크) — JJOBB 워드마크 자간 타이트화
+- Nav label: `JOB밴드` → `JJOBB 밴드` (헤더/사이드바/도움말 등)
 - Surfaces: `index.html` 풀블리드 메인 배너, `dashboard.html` welcome 배너 톤, 주요 페이지 헤더 로고 SVG 교체
 - REQ: PLT/UI 공통 크롬 (IA §3). RBAC·API·JWT-only 미변경
 
