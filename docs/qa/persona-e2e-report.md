@@ -53,9 +53,9 @@ API_BASE=http://127.0.0.1:5050/api FRONT_BASE=http://127.0.0.1:8080 npm run test
 
 | 이슈 | 영향 | 수정 | 커밋 |
 |------|------|------|------|
-| DX 계정 `company@jjob.com`에 `company_profiles` 없음 + `school_id` null → 프로필 404, 공고 불가 (`TEST-ACCOUNTS` 문서와 불일치) | 기업 페르소나 시드 UAT | 마이그레이션 `018_v2_legacy_company_seed_repair.sql` (null school 바인딩 + DX 프로필 approved), `database/test-accounts.sql` / `TEST-ACCOUNTS.md` 갱신, 회귀 테스트 | *(푸시 후 해시 기입)* |
-| `GET /api/users/company-profile` 404에 `code` 없음 | 클라이언트 에러 분기 | `sendError(..., 'NOT_FOUND', ...)` | 동일 커밋 |
-| 페르소나 캠페인 cleanup SQL `posts.author_id` 오타 | 테스트 after 경고 | `user_id`로 수정 | 동일 커밋 |
+| DX 계정 `company@jjob.com`에 `company_profiles` 없음 + `school_id` null → 프로필 404, 공고 불가 (`TEST-ACCOUNTS` 문서와 불일치) | 기업 페르소나 시드 UAT | 마이그레이션 `018_v2_legacy_company_seed_repair.sql` (null school 바인딩 + DX 프로필 approved), `database/test-accounts.sql` / `TEST-ACCOUNTS.md` 갱신, 회귀 테스트 | `d24a389` |
+| `GET /api/users/company-profile` 404에 `code` 없음 | 클라이언트 에러 분기 | `sendError(..., 'NOT_FOUND', ...)` | `d24a389` |
+| 페르소나 캠페인 cleanup SQL `posts.author_id` 오타 | 테스트 after 경고 | `user_id`로 수정 | `d24a389` |
 
 ## 4. 잔여 실패 / 스킵
 
