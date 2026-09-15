@@ -72,6 +72,10 @@ services:
       retries: 3
 
   # Frontend
+  # nginx.conf is baked into the image (/etc/nginx/conf.d/). After changing it:
+  #   docker compose up -d --build frontend
+  # The bind mount refreshes HTML/JS/CSS after git pull without rebuild, but does
+  # NOT update nginx.conf. Sensitive paths are denied in nginx.conf.
   frontend:
     build:
       context: .

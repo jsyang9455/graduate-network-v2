@@ -119,15 +119,48 @@ docker compose logs --tail=80
 - `graduate-network-backend` (호스트 **5000**)
 - `graduate-network-db` (호스트 **5432**)
 
-헬스:
+헬스 (경로 주의):
+
+| URL | 의미 |
+|-----|------|
+| **`GET /api/health`** | 정식 헬스. Express `backend/server.js` + Nginx `location /api/` 프록시 |
+| `GET /health` | Nginx 별칭 → 같은 백엔드 헬스 (이미지 재빌드 후). **구 이미지는 정적 404** |
+| `/api/v1/health` | **없음** (404) |
+| 호스트 `:5000` 외부 | SG에서 막혀 있으면 타임아웃이 정상. 내부/`docker`로 확인 |
 
 ```bash
-curl -s http://127.0.0.1/api/health    # Nginx 프록시 (브라우저와 동일)
-curl -s http://127.0.0.1:5000/api/health   # 백엔드 직접 (선택)
+# EC2 호스트에서 (권장)
+curl -sS -i http://127.0.0.1/api/health
+# 기대: HTTP 200 + {"status":"OK",...}
+
+curl -sS -i http://127.0.0.1/health          # 별칭(프론트 재빌드 후)
+curl -sS -i http://127.0.0.1:5000/api/health # 백엔드 직접(로컬만)
 curl -sI http://127.0.0.1/
 ```
 
-`/api/health`가 **502**이면 백엔드 컨테이너가 죽었거나 DB 연결 실패다. `docker compose ps`, `docker compose logs backend --tail=100`을 본다.
+**상태 코드 해석**
+
+- **404** on `/health` (구 Nginx) → 잘못된 경로. **`/api/health`를 치세요.** 정적 root에 파일이 없어 Nginx가 404.
+- **404** on `/api/health` → 프론트 Nginx에 `/api/` 프록시가 없거나 잘못된 이미지. `docker compose up -d --build frontend` 후 재확인.
+- **502** on `/api/health` → 프록시는 동작, **백엔드 미기동·크래시·DB 실패**. 아래 진단.
+
+```bash
+cd ~/graduate-network-v2   # 클론 경로에 맞게
+
+docker compose ps -a
+docker compose logs backend --tail=120
+docker compose logs postgres --tail=80
+
+# 프론트 컨테이너 → 백엔드 서비스명으로 직접 호출
+docker compose exec frontend wget -qO- http://backend:5000/api/health
+# 또는: docker compose exec frontend curl -sS http://backend:5000/api/health
+
+# 백엔드 컨테이너 내부
+docker compose exec backend wget -qO- http://127.0.0.1:5000/api/health
+
+# nginx.conf 변경 반영은 html 볼륨만으로는 안 됨 → 프론트 이미지 재빌드
+docker compose up -d --build frontend
+```
 
 ---
 
@@ -200,7 +233,8 @@ http://<EC2공인IP>/login.html
 2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`·루트 `.env` 미반영.  
    v2 서비스명은 **`postgres`**(컨테이너명만 `graduate-network-db`). `depends_on`/`DB_HOST`에 `db`를 쓰지 말 것.
 3. **마이그레이션 누락** → init은 010까지. 이력서·기업승인·정책 테이블이 없으면 §7 migrate.
-4. **`/api/health` 502** → 백엔드 미기동·DB 오류. `docker compose logs backend`. (구버전 `js/api.js`는 공인 IP에서 `:5000`을 썼음 — `git pull` 후 프론트 재빌드.)
+4. **`/api/health` 502** → 백엔드 미기동·DB 오류. §6 진단 + `docker compose logs backend`. (구버전 `js/api.js`는 공인 IP에서 `:5000`을 썼음 — `git pull` 후 프론트 재빌드.)
+4b. **`/health` 404** → 정식 경로는 **`/api/health`**. `/health` 별칭은 `nginx.conf` 재빌드 후에만 동작.
 5. **`student@jjob.com` 로그인 실패** → DX 계정 미적재. §8 `./scripts/load-test-accounts.sh` 또는 seed 계정 사용.
 6. **구버전 프론트 캐시** → 강력 새로고침. 로컬 API 포트 변경 시만 `localStorage.jjobb_api_base` 사용.
 7. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`. 학교관리자 승인 후 재시험.
