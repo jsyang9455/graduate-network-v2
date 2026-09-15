@@ -1,6 +1,7 @@
-# jjobb_v2 — AWS EC2 + Docker Compose 실행·테스트 체크리스트
+# jjobb_v2 — AWS EC2 + Docker Compose 실행 가이드 (현재판)
 
-전북 졸업생 취업지원플랫폼 **v2**를 EC2(Ubuntu)에서 Docker Compose로 기동·검증하는 순서이다.
+전북 졸업생 취업지원플랫폼 **v2**를 **신규 전용 EC2(Ubuntu)** 에서 Docker Compose로 기동·검증하는 **end-to-end** 순서이다.  
+복사해 쓸 명령은 아래 §1–§12를 따른다.
 
 ### 배포 대상 (필수)
 
@@ -14,28 +15,21 @@
 | **이 문서** (`docs/deploy-aws.md`) | **v2** — 저장소 `graduate-network-v2` · **신규 EC2 전용** |
 | [`AWS-DEPLOYMENT.md`](../AWS-DEPLOYMENT.md), [`deploy-aws.sh`](../deploy-aws.sh) | **v1 지향** — `graduate-network` + 태그 `v1.1`. v2 테스트·이 서버에 쓰지 말 것 |
 
-관련: 루트 [`.env.example`](../.env.example), [`docker-compose.yml`](../docker-compose.yml), REQ-NFR-010.
+관련: 루트 [`.env.example`](../.env.example), [`docker-compose.yml`](../docker-compose.yml), [`nginx.conf`](../nginx.conf), [`scripts/load-test-accounts.sh`](../scripts/load-test-accounts.sh), REQ-NFR-010.
 
 ---
 
-## 1. 사전 준비
+## 1. 사전 준비 (보안 그룹 · 전용 EC2)
 
 - AWS 계정, 키 페어(`.pem`)
+- **v1이 아닌 새 EC2** (Ubuntu 22.04/24.04 LTS 권장, 최소 t2.small / 권장 t2.medium, 디스크 ≥20GB gp3)
 - 보안 그룹 인바운드: **22**(SSH), **80**(HTTP), (선택) **443**(HTTPS)
-  - 브라우저 API는 **같은 호스트의 `/api`** (Nginx → backend). **5000을 SG에 열 필요 없음** (SSH·로컬 디버그용).
+  - 브라우저 API는 **같은 호스트의 `/api`** (Nginx → backend). **5000을 SG에 열 필요 없음**
 - Elastic IP 권장(재기동 후 IP 고정)
 
 ---
 
-## 2. EC2 인스턴스 (Ubuntu) — v2 전용 신규
-
-**v1 운영 호스트가 아닌 새 인스턴스**를 만든다. 동일 머신에서 v1·v2를 병행하지 않는다.
-
-| 항목 | 권장 |
-|------|------|
-| OS | Ubuntu **22.04** 또는 **24.04** LTS |
-| 타입 | 최소 **t2.small**(2GB) / 권장 **t2.medium**(4GB) |
-| 디스크 | 최소 **20GB** gp3 |
+## 2. SSH 접속
 
 ```bash
 chmod 400 your-key.pem
@@ -65,7 +59,7 @@ docker compose version
 
 ---
 
-## 4. 저장소 클론 (v2만)
+## 4. 저장소 클론 (`graduate-network-v2`)
 
 ```bash
 cd ~
@@ -78,13 +72,14 @@ cd graduate-network-v2
 
 ---
 
-## 5. 루트 `.env` (JWT_SECRET 필수)
+## 5. 루트 `.env` (`JWT_SECRET` · `DB_PASSWORD` 필수)
 
 Compose는 `${JWT_SECRET:?…}`를 사용한다. **미설정 시 `docker compose up` 실패** (REQ-NFR-010).
 
 ```bash
 cp .env.example .env
-# JWT_SECRET·DB_PASSWORD를 강한 값으로 설정 (예: openssl rand -base64 48)
+# JWT_SECRET·DB_PASSWORD를 강한 값으로 설정
+openssl rand -base64 48   # JWT_SECRET 후보
 nano .env
 ```
 
@@ -98,234 +93,245 @@ JWT_SECRET=<긴랜덤문자열>
 JWT_EXPIRE=7d
 ```
 
-- Compose `postgres` 서비스는 같은 값으로 `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`를 설정한다(최초 볼륨 생성 시에만 적용).
-- Compose가 이미 `DB_HOST=postgres`, 백엔드 `PORT=5000`, `STORAGE_DRIVER=local`을 넣는다.
+- Compose `postgres`는 같은 값으로 `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`를 설정한다(**최초 볼륨 생성 시에만** 적용).
+- Compose가 `DB_HOST=postgres`, 백엔드 `PORT=5000`, `STORAGE_DRIVER=local`을 넣는다.
 - **`.env`는 커밋하지 않는다.** 실비밀번호·실 JWT를 이 문서나 git에 넣지 말 것.
-- S3는 선택(기본 로컬 볼륨 `backend_uploads`).
 
 ---
 
 ## 6. Docker Compose 기동
 
 ```bash
+cd ~/graduate-network-v2
 docker compose up -d --build
 docker compose ps
 docker compose logs --tail=80
 ```
 
-기대 컨테이너명:
+기대 컨테이너:
 
-- `graduate-network-frontend` (호스트 **80**)
-- `graduate-network-backend` (호스트 **5000**)
-- `graduate-network-db` (호스트 **5432**)
+| 컨테이너명 | 역할 | 호스트 포트 |
+|------------|------|-------------|
+| `graduate-network-frontend` | Nginx + 정적 | **80** |
+| `graduate-network-backend` | Express API | **5000** (SG 외부 개방 불필요) |
+| `graduate-network-db` | Postgres 15 | **5432** |
 
-헬스 (경로 주의):
+서비스명은 **`postgres`**(컨테이너명만 `graduate-network-db`). `depends_on`/`DB_HOST`에 `db`를 쓰지 말 것.
 
-| URL | 의미 |
-|-----|------|
-| **`GET /api/health`** | 정식 헬스. Express `backend/server.js` + Nginx `location /api/` 프록시 |
-| `GET /health` | Nginx 별칭 → 같은 백엔드 헬스 (이미지 재빌드 후). **구 이미지는 정적 404** |
-| `/api/v1/health` | **없음** (404) |
-| 호스트 `:5000` 외부 | SG에서 막혀 있으면 타임아웃이 정상. 내부/`docker`로 확인 |
+Postgres는 `healthcheck` + `start_period: 90s`(첫 init: schema+seed+010) 후 백엔드가 기동한다.
+
+---
+
+## 7. 마이그레이션 (011+ 필수)
+
+첫 볼륨 생성 시 Postgres init에만 올라가는 것:
+
+- `database/schema.sql`
+- `database/seed.sql`
+- **`010_v2_multischool.sql`까지**
+
+**011~019** 등 나머지는 별도 적용. 백엔드 이미지에 `database/`가 없으므로 **호스트 `database`를 `/database`에 마운트**한 뒤 migrate한다.
+
+```bash
+cd ~/graduate-network-v2
+docker compose run --rm \
+  -v "$(pwd)/database:/database:ro" \
+  backend npm run migrate
+```
+
+완전 초기화(데이터 삭제) — **이 v2 EC2의 Compose 볼륨만**:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
+```
+
+---
+
+## 8. 헬스 체크 (`/api/health` — bare `/health` 아님)
+
+정식 경로는 **`GET /api/health`** (Express `backend/server.js` + Nginx `location /api/`).
 
 ```bash
 # EC2 호스트에서 (권장)
 curl -sS -i http://127.0.0.1/api/health
 # 기대: HTTP 200 + {"status":"OK",...}
 
-curl -sS -i http://127.0.0.1/health          # 별칭(프론트 재빌드 후)
+# 참고 (정식이 아님)
+curl -sS -i http://127.0.0.1/health          # nginx.conf 별칭 → 같은 백엔드. 구 이미지는 정적 404
 curl -sS -i http://127.0.0.1:5000/api/health # 백엔드 직접(로컬만)
-curl -sI http://127.0.0.1/
 ```
 
-**상태 코드 해석**
+**404 vs 502**
 
-- **404** on `/health` (구 Nginx) → 잘못된 경로. **`/api/health`를 치세요.** 정적 root에 파일이 없어 Nginx가 404.
-- **404** on `/api/health` → 프론트 Nginx에 `/api/` 프록시가 없거나 잘못된 이미지. `docker compose up -d --build frontend` 후 재확인.
-- **502** on `/api/health` → 프록시는 동작, **백엔드 미기동·크래시·DB 실패**. 아래 진단.
+| 응답 | 의미 | 다음 조치 |
+|------|------|-----------|
+| **404** on bare `/health` | 잘못된 경로(구 Nginx는 정적 root에 파일 없음) | **`/api/health`를 치세요** |
+| **404** on `/api/health` | `/api/` 프록시 없음·구 프론트 이미지 | `docker compose up -d --build frontend` |
+| **502** on `/api/health` | 프록시는 됨, **백엔드 미기동·크래시·DB 실패** | §11 + `docker compose logs backend` |
+| `/api/v1/health` | **없음** → 404 | `/api/health` 사용 |
 
 ```bash
-cd ~/graduate-network-v2   # 클론 경로에 맞게
-
 docker compose ps -a
 docker compose logs backend --tail=120
-docker compose logs postgres --tail=80
-
-# 프론트 컨테이너 → 백엔드 서비스명으로 직접 호출
 docker compose exec frontend wget -qO- http://backend:5000/api/health
-# 또는: docker compose exec frontend curl -sS http://backend:5000/api/health
-
-# 백엔드 컨테이너 내부
-docker compose exec backend wget -qO- http://127.0.0.1:5000/api/health
-
-# nginx.conf 변경 반영은 html 볼륨만으로는 안 됨 → 프론트 이미지 재빌드
-docker compose up -d --build frontend
 ```
 
 ---
 
-## 7. 마이그레이션 (011+ 필수)
+## 9. DX 테스트 계정 (`student@jjob.com`)
 
-첫 볼륨 생성 시 Postgres init에만 올라가는 것 (`docker-compose.yml`):
+Compose init에는 **`seed.sql`만** 있다. `student@jjob.com` 등 DX 계정은 **없음**.
 
-- `database/schema.sql`
-- `database/seed.sql`
-- **`010_v2_multischool.sql`까지**
-
-**011~019** 등 나머지 SQL은 별도 적용이 필요하다. 백엔드 이미지에 `database/`가 없으므로 **호스트 `database`를 `/database`에 마운트**한 뒤 migrate한다.
+dev/test EC2에서 DX 로그인이 필요하면:
 
 ```bash
-docker compose run --rm \
-  -v "$(pwd)/database:/database:ro" \
-  backend npm run migrate
-```
-
-(대안: EC2에 Node가 있으면 `backend`에서 `DB_HOST=127.0.0.1` + `.env`의 DB 비밀번호로 `npm run migrate`.)
-
-완전 초기화(데이터 삭제) — **이 v2 EC2의 Compose 볼륨만** 삭제. v1과 무관:
-
-```bash
-docker compose down -v
-docker compose up -d --build
-docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
-```
-
----
-
-## 8. 테스트 계정 참고
-
-- Compose 기본 시드: `database/seed.sql` (데모 졸업생 등).
-- DX용 페르소나 계정 목록·비밀번호: **[`TEST-ACCOUNTS.md`](../TEST-ACCOUNTS.md)** (개발 DB 전용).
-- Compose init에는 **`seed.sql`만** (`student@jjob.com` 등 DX 계정 **없음**). dev/test EC2에서 DX 로그인이 필요하면:
-
-```bash
+cd ~/graduate-network-v2
 chmod +x scripts/load-test-accounts.sh
 ./scripts/load-test-accounts.sh
 ```
 
 (동일: `docker compose exec -T postgres psql -U postgres -d graduate_network < database/test-accounts.sql`)
 
-- init 시드만 쓸 때는 `choi.seungmin@example.com` / `password123` (student) 등 **`seed.sql` 계정**으로 로그인 가능.
+- 로그인 예: `student@jjob.com` / `password123` (`TEST-ACCOUNTS.md`)
+- init 시드만 쓸 때: `choi.seungmin@example.com` / `password123` 등 **`seed.sql` 계정**
+- **프로덕션·공개 EC2에 테스트 계정/약한 비밀번호 시드를 남기지 말 것**
 
-**프로덕션·공개 EC2에 테스트 계정/약한 비밀번호 시드를 남기지 말 것** (`docs/08-test-strategy.md`).
-
-공개 가입 기업은 기본 `pending` → 공고 CRUD는 승인 후 (`REQ-JOB-007`). 시드 DX 기업(`company@jjob.com`)은 승인 상태로 맞춰 둔다.
+공개 가입 기업은 기본 `pending` → 공고 CRUD는 승인 후 (`REQ-JOB-007`).
 
 ---
 
-## 9. 브라우저 접속
+## 10. 브라우저 접속 + 강력 새로고침
 
 ```
 http://<EC2공인IP>/
 http://<EC2공인IP>/login.html
 ```
 
-- UI: 포트 **80** (프론트 Nginx, `nginx.conf`가 `/api/` → backend:5000 프록시)
-- API: **`/api`** (공인 IP·도메인 동일, `js/api.js`)
+- UI: 포트 **80** (프론트 Nginx)
+- API: **`/api`** — 공인 IP·도메인에서 `js/api.js`가 **`/api`**(상대 경로)를 사용. 호스트 `:5000` 개방 불필요
+- 배포·프론트 갱신 후 **강력 새로고침**(캐시된 구 `api.js`가 `:5000`을 치면 실패할 수 있음)
+- 로컬 오버라이드만: `localStorage.jjobb_api_base` (예: AirPlay로 5050 쓸 때)
 
-도메인·Let's Encrypt는 선택. Compose 프론트가 이미 80을 쓰므로 **호스트에 별도 Nginx를 또 올리면 포트 충돌**에 주의한다. 1차 검증은 Elastic IP + HTTP로 충분하다.
+도메인·Let's Encrypt는 선택. Compose 프론트가 이미 80을 쓰므로 **호스트에 별도 Nginx를 또 올리면 포트 충돌**.
 
 ---
 
-## 10. 자주 막히는 지점
+## 11. 트러블슈팅
 
-1. **JWT_SECRET 없음** → compose 기동 실패. 루트 `.env` 확인.
-2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`·루트 `.env` 미반영.  
-   v2 서비스명은 **`postgres`**(컨테이너명만 `graduate-network-db`). `depends_on`/`DB_HOST`에 `db`를 쓰지 말 것.
-3. **마이그레이션 누락** → init은 010까지. 이력서·기업승인·정책 테이블이 없으면 §7 migrate.
-4. **`/api/health` 502** → 백엔드 미기동·DB 오류. §6 진단 + `docker compose logs backend`. (구버전 `js/api.js`는 공인 IP에서 `:5000`을 썼음 — `git pull` 후 프론트 재빌드.)
-4b. **`/health` 404** → 정식 경로는 **`/api/health`**. `/health` 별칭은 `nginx.conf` 재빌드 후에만 동작.
-5. **`student@jjob.com` 로그인 실패** → DX 계정 미적재. §8 `./scripts/load-test-accounts.sh` 또는 seed 계정 사용.
-6. **구버전 프론트 캐시** → 강력 새로고침. 로컬 API 포트 변경 시만 `localStorage.jjobb_api_base` 사용.
-7. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`. 학교관리자 승인 후 재시험.
-8. **보안 그룹 80 미개방** → 브라우저 타임아웃.
-9. **워크넷·알림톡** → 게이트 전까지 실연동 없음(`NOT_CONFIGURED`). 가짜 키로 완성하지 말 것.
-10. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
-11. **`dependency postgres failed to start` / `graduate-network-db` unhealthy** → 아래 [§10.1](#101-postgres-기동-실패-진단).
+### 11.1 Postgres failed / `dependency postgres failed to start`
 
-### 10.1 Postgres 기동 실패 진단
+백엔드가 `depends_on: postgres: condition: service_healthy`라서 DB가 healthy가 아니면 기동 실패로 보인다.
 
-백엔드가 `depends_on: postgres: condition: service_healthy`라서, DB가 healthy가 아니면  
-`dependency failed to start` / `container graduate-network-db …` 형태로 보인다.
-
-**전제:** v2 전용 신규 EC2이므로 **v1과의 DB/포트 충돌이 원인인 경우는 거의 없다.**  
-우선 **첫 부팅 init·healthcheck·디스크·메모리·`.env`**를 본다.
-
-**원인 가능성 (높은 순)**
+**전제:** v2 전용 신규 EC2 → **v1과의 DB/포트 충돌은 거의 없다.** 첫 부팅 init·healthcheck·디스크·메모리·`.env`를 본다.
 
 | 순위 | 원인 | 증상 |
 |------|------|------|
-| 1 | 첫 기동 init(schema+seed+010) 중 healthcheck 실패 / 손상된 `postgres_data` | `Exited` 또는 `unhealthy`, 로그에 init/SQL/`PANIC` |
-| 2 | EC2 디스크 부족 | `No space left on device`, `df -h` 루트 거의 100% |
-| 3 | 메모리 부족(t2.micro 등) | OOM / 컨테이너 즉시 종료, `dmesg`에 kill |
-| 4 | `.env`의 `DB_PASSWORD`와 **기존 볼륨** 불일치 | Postgres는 떠도 백엔드 auth 실패(기동 실패와는 별개). `POSTGRES_*`는 **최초 볼륨 생성 시에만** 적용 |
-| 5 | init SQL 파일 누락/깨진 마운트 | 로그에 init 스크립트 오류, `database/*.sql` 경로 확인 |
-| 6 | 호스트 **5432** 이미 사용(드묾·이 전용 인스턴스에 다른 서비스가 있을 때만) | `bind: address already in use` |
-
-**EC2에서 바로 실행**
-
-```bash
-cd ~/graduate-network-v2   # 클론 경로에 맞게
-
-docker compose ps -a
-docker compose logs postgres --tail=200
-docker inspect graduate-network-db --format '{{.State.Status}} {{.State.Health.Status}} {{.State.Error}}'
-
-df -h
-free -h
-sudo ss -lptn 'sport = :5432' || sudo lsof -i :5432
-
-# 볼륨·이미지 상태
-docker volume ls | grep postgres
-docker compose config | head -80
-```
-
-로그에서 `initdb`, `ERROR:`, `FATAL`, `No space`, `Permission denied`, `Address already in use`를 찾는다.
-
-**복구 (데이터 삭제 허용 시 — `down -v`는 DB 전부 삭제)**
-
-```bash
-# 1) 디스크 확보 후
-docker system df
-# 필요 시: docker builder prune -f   # 이미지만 정리, 볼륨은 유지
-
-# 2) 포트 충돌이면 호스트 Postgres 중지 또는 compose ports 변경
-
-# 3) 손상 볼륨/실패한 첫 init → 볼륨 삭제 후 재기동
-docker compose down
-# ⚠️ 아래는 postgres_data·업로드 볼륨 삭제. 백업 없으면 실행하지 말 것.
-docker compose down -v
-cp -n .env.example .env   # 없을 때만
-# .env: JWT_SECRET 필수, DB_PASSWORD는 앞으로 쓸 값으로 통일
-docker compose up -d --build
-docker compose ps
-docker compose logs postgres --tail=100
-
-# 4) 011+ 마이그레이션
-docker compose run --rm \
-  -v "$(pwd)/database:/database:ro" \
-  backend npm run migrate
-```
-
-**복구 (데이터 유지)** — 볼륨을 지우지 않고, 로그만으로 원인 제거(디스크 확보·5432 해제·`git pull` 후 compose 재기동).  
-비밀번호만 바꾼 경우 기존 볼륨의 슈퍼유저 비밀번호는 자동 변경되지 않는다.
-
----
-
-## 일상 운영
+| 1 | 첫 기동 init 중 healthcheck / 손상된 `postgres_data` | `Exited`·`unhealthy`, init/`PANIC` |
+| 2 | 디스크 부족 | `No space left on device` |
+| 3 | 메모리 부족(t2.micro 등) | OOM, `dmesg` kill |
+| 4 | `.env` `DB_PASSWORD`와 **기존 볼륨** 불일치 | 백엔드 auth 실패 (`POSTGRES_*`는 최초 볼륨만) |
+| 5 | init SQL 누락/깨진 마운트 | init 스크립트 오류 |
+| 6 | 호스트 5432 점유(드묾) | `bind: address already in use` |
 
 ```bash
 cd ~/graduate-network-v2
-docker compose logs -f backend
-docker compose restart
-docker compose down                    # 볼륨 유지 중지
+docker compose ps -a
+docker compose logs postgres --tail=200
+docker inspect graduate-network-db --format '{{.State.Status}} {{.State.Health.Status}} {{.State.Error}}'
+df -h
+free -h
+```
+
+데이터 삭제 허용 시:
+
+```bash
+docker compose down -v
+# .env: JWT_SECRET 필수, DB_PASSWORD 통일
+docker compose up -d --build
+docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
+```
+
+### 11.2 `/api/health` 502 · 백엔드
+
+```bash
+docker compose logs backend --tail=120
+docker compose logs postgres --tail=80
+docker compose exec frontend wget -qO- http://backend:5000/api/health
+```
+
+JWT_SECRET 미설정, DB 미기동, migrate 누락을 우선 확인.
+
+### 11.3 API URL (공인 IP에서 `:5000`)
+
+현재 `js/api.js`: localhost → `http://localhost:5000/api`, **공인 IP/도메인 → `/api`**.
+
+구 캐시/구 커밋이 `:5000`을 쓰면 SG에서 막혀 타임아웃. `git pull` + `docker compose up -d --build` + 브라우저 강력 새로고침.
+
+### 11.4 DX 계정 없음 (`student@jjob.com` 로그인 실패)
+
+§9 `./scripts/load-test-accounts.sh` 실행. 또는 `seed.sql` 계정 사용.
+
+### 11.5 기타
+
+1. **JWT_SECRET 없음** → compose 기동 실패. 루트 `.env` 확인.
+2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`. v2는 서비스명 **`postgres`**.
+3. **마이그레이션 누락** → init은 010까지. §7 migrate.
+4. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`.
+5. **보안 그룹 80 미개방** → 브라우저 타임아웃.
+6. **워크넷·알림톡** → 게이트 전 `NOT_CONFIGURED`. 가짜 키로 완성하지 말 것.
+7. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
+
+---
+
+## 12. 업데이트 / 재배포
+
+```bash
+cd ~/graduate-network-v2
 git pull origin main
 docker compose up -d --build
 docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
+curl -sS -i http://127.0.0.1/api/health
+```
 
-# 백업 예 (파일은 서버에만 보관, 시크릿과 함께 커밋 금지)
+참고:
+
+- `nginx.conf` 변경은 바인드 마운트만으로는 반영되지 않음 → **frontend 이미지 재빌드** 필요.
+- HTML/JS/CSS는 바인드 마운트로 `git pull` 후 반영되나, 브라우저는 **강력 새로고침**.
+- `docker compose down` — 볼륨 유지 중지. `down -v` — **DB·업로드 삭제**.
+
+일상 로그·백업:
+
+```bash
+docker compose logs -f backend
 docker compose exec -T postgres \
   pg_dump -U postgres graduate_network > ~/backup_$(date +%Y%m%d).sql
+# 백업 파일·시크릿은 커밋 금지
+```
+
+---
+
+## 빠른 복사 시퀀스 (신규 EC2 요약)
+
+```bash
+# 2) SSH
+ssh -i your-key.pem ubuntu@<EC2공인IP>
+
+# 3) Docker (한 번)
+# … §3 설치 명령 …
+
+# 4–10) 앱 기동
+cd ~
+git clone https://github.com/jsyang9455/graduate-network-v2.git
+cd graduate-network-v2
+cp .env.example .env
+# nano .env  → JWT_SECRET, DB_PASSWORD 설정
+docker compose up -d --build
+docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
+curl -sS -i http://127.0.0.1/api/health
+chmod +x scripts/load-test-accounts.sh && ./scripts/load-test-accounts.sh
+# 브라우저: http://<EC2공인IP>/login.html  (강력 새로고침)
 ```
 
 ---
@@ -334,4 +340,5 @@ docker compose exec -T postgres \
 
 - [`docs/STATUS.md`](STATUS.md) — Phase·게이트
 - [`docs/02-architecture.md`](02-architecture.md) — 스택·가드
-- [`DOCKER.md`](../DOCKER.md) — 로컬 Compose 참고(구식 `docker-compose` 표기 혼재 가능)
+- [`TEST-ACCOUNTS.md`](../TEST-ACCOUNTS.md) — DX 페르소나 (개발 DB 전용)
+- [`DOCKER.md`](../DOCKER.md) — 로컬 Compose 참고
