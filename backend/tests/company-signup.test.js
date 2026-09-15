@@ -135,6 +135,7 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
     assert.ok(data.token);
     assert.ok(data.company_profile);
     assert.equal(data.company_profile.company_name, 'QA협력기업A');
+    assert.equal(data.company_profile.approval_status, 'pending');
 
     const roles = await query(
       `SELECT r.code, ur.school_id
@@ -146,12 +147,31 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
     assert.ok(roles.rows.some((r) => Number(r.school_id) === Number(schoolA.id)));
   });
 
-  test('REQ-JOB-001 company can POST job scoped to own school', async () => {
+  test('REQ-JOB-007 pending company cannot POST job until approved', async () => {
     const login = await jsonRequest('POST', '/api/auth/login', {
       body: { email: EMAIL_A, password: PASSWORD },
     });
     assert.equal(login.status, 200);
     const token = login.data.token;
+
+    const blocked = await jsonRequest('POST', '/api/jobs', {
+      token,
+      body: {
+        title: 'QA 기업 공고 A (미승인)',
+        description: '학교 A 대상 채용',
+        location: '전주',
+        job_type: 'full-time',
+        deadline: '2026-12-31',
+      },
+    });
+    assert.equal(blocked.status, 403, JSON.stringify(blocked.data));
+    assert.equal(blocked.data.code, 'COMPANY_NOT_APPROVED');
+
+    await query(
+      `UPDATE company_profiles SET approval_status = 'approved', approved_at = CURRENT_TIMESTAMP
+       WHERE user_id = (SELECT id FROM users WHERE email = $1)`,
+      [EMAIL_A]
+    );
 
     const { status, data } = await jsonRequest('POST', '/api/jobs', {
       token,
@@ -181,6 +201,13 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
       },
     });
     assert.equal(regB.status, 201, JSON.stringify(regB.data));
+    assert.equal(regB.data.company_profile.approval_status, 'pending');
+
+    await query(
+      `UPDATE company_profiles SET approval_status = 'approved', approved_at = CURRENT_TIMESTAMP
+       WHERE user_id = $1`,
+      [regB.data.user.id]
+    );
 
     const loginB = await jsonRequest('POST', '/api/auth/login', {
       body: { email: EMAIL_B, password: PASSWORD },

@@ -49,15 +49,15 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 | 화면 | 파일 | v2 |
 |------|------|----|
-| 공고 등록/수정 | `job-create.html`, `job-edit.html` | 직종·스킬 필드. 기업 내비(프로필/공고 등록). 상태값 `active`/`closed`/`draft` |
+| 공고 등록/수정 | `job-create.html`, `job-edit.html` | 직종·스킬 필드. 기업 내비. 미승인 기업은 폼 비활성(REQ-JOB-007). 상태값 `active`/`closed`/`draft` |
 | 지원자 | `applicant-detail.html` | **Sprint 2:** 상태 머신 UI + `PATCH .../status` |
-| 기업 프로필 | `company-profile.html` + `js/company-profile.js` | API만 (`GET/PUT /api/users/company-profile`) |
+| 기업 프로필 | `company-profile.html` + `js/company-profile.js` | API만 (`GET/PUT /api/users/company-profile`). **승인 배너**: pending/rejected 시 안내, 공고 등록 CTA 비활성 |
 
 ### 관리
 
 | 화면 | 파일 | v2 |
 |------|------|----|
-| 회원 | `admin-users.html` | school_admin은 소속만, 전입/전출, 역할 지정 |
+| 회원 | `admin-users.html` | school_admin은 소속만, 전입/전출, 역할 지정. **기업 승인 탭**: pending 목록 → 승인/반려 (`PATCH .../company-approval`) |
 | 공고 | `admin-jobs.html` | **Sprint 1:** LocalStorage `jobPostings` 폴백 삭제. `/api/jobs`만 |
 | 게시판 | `admin-board.html` | API만. Sprint 5: 블라인드 버튼(`include_blinded`) |
 | 공지/행사 | `admin-announcements.html` | 견학 모듈과 정렬 |
@@ -95,14 +95,15 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 ### 기업: 공고 → 전형
 
-1. `register.html`에서 기업 가입(협력 학교 선택) → 로그인/자동 세션 → `company-profile.html`
-2. 공고 등록(`job-create.html`) → 지원자 목록 → 서류검토/면접/합격 변경 → 학생 알림
-3. 대시보드 사이드바에 공고 등록·기업 프로필만 강조, 상담/경력 메뉴 숨김
+1. `register.html`에서 기업 가입(협력 학교 선택) → 세션 → `company-profile.html` (**승인 대기** 배너)
+2. 학교관리자가 `admin-users` 기업 승인 탭에서 승인 → 공고 등록(`job-create.html`) 가능
+3. 지원자 목록 → 서류검토/면접/합격 변경 → 학생 알림
+4. 대시보드 사이드바에 공고 등록·기업 프로필만 강조, 상담/경력 메뉴 숨김. 미승인이면 공고 등록 안내
 
 ### 학교관리자: 멀티스쿨 운영
 
-1. 소속 회원 승인/역할 → 견학 공고·명단 → 커뮤니티 신고 처리
-2. 타교 URL 조작 시 빈 목록/403
+1. 소속 **기업 승인**/회원·역할 → 견학 공고·명단 → 커뮤니티 신고 처리
+2. 타교 기업 승인 시도·URL 조작 시 빈 목록/403
 
 ### 시스템관리자
 

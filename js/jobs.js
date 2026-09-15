@@ -21,6 +21,9 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = 'dashboard.html';
             return;
         }
+        if (document.getElementById('jobCreateForm') && user.user_type === 'company') {
+            gateCompanyJobCreate(user).catch((err) => console.warn('approval gate:', err));
+        }
     }
 
     // Hide student-only menus for company users
@@ -431,6 +434,11 @@ function setupJobCreateForm() {
             return;
         }
 
+        if (form.dataset.approvalBlocked === '1') {
+            alert('학교 승인 후 채용 공고를 등록할 수 있습니다.');
+            return;
+        }
+
         const payload = {
             title:            document.getElementById('title')?.value        || '',
             description:      document.getElementById('description')?.value  || '',
@@ -448,9 +456,50 @@ function setupJobCreateForm() {
             alert('채용 공고가 성공적으로 등록되었습니다!');
             window.location.href = 'dashboard.html';
         } catch (e) {
+            if (e.code === 'COMPANY_NOT_APPROVED' || /승인/.test(String(e.message || ''))) {
+                alert(e.message || '학교 승인 후 채용 공고를 등록할 수 있습니다.');
+                return;
+            }
             alert('등록 실패: ' + e.message);
         }
     });
+}
+
+async function gateCompanyJobCreate(user) {
+    const form = document.getElementById('jobCreateForm');
+    const gate = document.getElementById('companyApprovalGate');
+    if (!form || user.user_type !== 'company') return;
+
+    let status = 'pending';
+    let reason = '';
+    try {
+        const data = await api.users.getCompanyProfile();
+        status = data.profile?.approval_status || 'pending';
+        reason = data.profile?.rejection_reason || '';
+    } catch (err) {
+        status = 'pending';
+    }
+
+    if (status === 'approved') return;
+
+    form.dataset.approvalBlocked = '1';
+    form.querySelectorAll('input, textarea, select, button[type="submit"]').forEach((el) => {
+        el.disabled = true;
+    });
+    if (gate) {
+        const rejected = status === 'rejected';
+        gate.style.display = 'block';
+        gate.innerHTML = rejected
+            ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:1rem;border-radius:8px;margin-bottom:1.25rem;">
+                기업 승인이 반려되어 공고를 등록할 수 없습니다.
+                ${reason ? `<br>사유: ${String(reason).replace(/</g, '&lt;')}` : ''}
+                <br><a href="company-profile.html">기업 프로필</a>에서 내용을 보완한 뒤 학교 관리자에게 문의하세요.
+              </div>`
+            : `<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:1rem;border-radius:8px;margin-bottom:1.25rem;">
+                <strong>승인 대기 중</strong> — 학교 관리자 승인 후에 채용 공고를 등록할 수 있습니다.
+                <br><a href="company-profile.html">기업 프로필 관리</a>
+              </div>`;
+    }
 }
 
 async function setupJobEditForm() {

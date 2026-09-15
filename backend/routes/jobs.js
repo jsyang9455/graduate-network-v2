@@ -7,6 +7,7 @@ const { forbidCrossSchool } = require('../middleware/schoolScope');
 const { isSystemAdmin } = require('../lib/roles');
 const { canSeeJob, canManageJob, appendJobSchoolFilter } = require('../lib/jobAccess');
 const { STATUS_LABELS, isValidStatus, canTransition } = require('../lib/applicationStatus');
+const { assertCompanyCanManageJobs } = require('../lib/companyApproval');
 const notify = require('../modules/notify');
 
 async function loadJobById(id) {
@@ -333,6 +334,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
 router.post('/', auth, checkRole('company', 'admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
+    if (!(await assertCompanyCanManageJobs(res, req.user))) return;
+
     const {
       title,
       description,
@@ -398,6 +401,8 @@ router.post('/', auth, checkRole('company', 'admin', 'teacher', 'school_admin'),
 
 router.put('/:id', auth, checkRole('company', 'admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
+    if (!(await assertCompanyCanManageJobs(res, req.user))) return;
+
     const { id } = req.params;
     const {
       title,
@@ -456,6 +461,8 @@ router.put('/:id', auth, checkRole('company', 'admin', 'teacher', 'school_admin'
 
 router.delete('/:id', auth, checkRole('company', 'admin', 'teacher', 'school_admin'), async (req, res) => {
   try {
+    if (!(await assertCompanyCanManageJobs(res, req.user))) return;
+
     const { id } = req.params;
 
     const jobCheck = await query(

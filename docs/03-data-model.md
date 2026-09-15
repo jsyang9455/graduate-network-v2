@@ -9,7 +9,7 @@
 |--------|------|---------|
 | `users` | 회원 | `school_id` FK, `user_type`에 `school_admin` 추가 또는 `roles` 분리. 전화·이메일 암호문 |
 | `graduate_profiles` | 졸업생 프로필 | `school_id` |
-| `company_profiles` | 기업 | 협력 학교 M:N (`company_schools`) 검토 |
+| `company_profiles` | 기업 | `approval_status` (`pending`/`approved`/`rejected`), `approved_at`/`approved_by`/`rejection_reason`. 가입 기본 `pending`, 기존 행 백필 `approved`. 협력 학교 M:N (`company_schools`) 검토 |
 | `jobs` | 자체 공고 | `school_id` 또는 `visibility`, `source`, 직종/스킬 컬럼 |
 | `job_applications` | 지원 | `resume_id`, 상태 워크플로우 유지·확장 |
 | `connections`, `mentorships` | 네트워킹 | `school_id` 범위 |
@@ -102,7 +102,7 @@ users *──* roles          (user_roles, school scoped)
 users 1──* resumes 1──* resume_items
 resumes 1──* resume_documents → files
 users 1──* counseling_journals → counseling_documents → files
-users(company) 1──* jobs 1──* job_applications ← resumes
+users(company) 1──1 company_profiles(approval) 1──* jobs 1──* job_applications ← resumes
 jobs / worknet_jobs → job_recommendations ← users
 schools 1──* field_trips 1──* field_trip_applications
 roles *──* menus          (role_menu_permissions)
@@ -113,7 +113,7 @@ roles *──* menus          (role_menu_permissions)
 - **기본:** 업무 테이블 `school_id NOT NULL` + 인덱스 `(school_id, id)`.
 - **예외:** `system_admin` 전역 설정, 워크넷 원본(전역 수집 후 학교 필터), 기업 회원이 여러 학교에 공고를 여는 경우 `job_school_targets` M:N.
 - **상담:** `school_id` + `teacher_id` 이중 통제.
-- **기업:** `company` 역할은 `school_id`가 없을 수 있음 → 공고 대상 학교로 범위 결정.
+- **기업:** `company` 역할은 `users.school_id`(협력/게시 학교)로 범위. `company_profiles.approval_status≠approved`이면 공고 생성·수정 불가(REQ-JOB-007). 승인은 동일 `school_id`의 school_admin 또는 system_admin만.
 
 ## 5. 마이그레이션 전략
 
@@ -129,6 +129,7 @@ roles *──* menus          (role_menu_permissions)
    Sprint 4에서 적용: `database/migrations/014_v2_sprint4_recommendations_fieldtrips.sql` — job_recommendations·keywords·feedback, field_trips 이관(industry-visit).
    Sprint 5에서 적용: `database/migrations/015_v2_sprint5_community_extras.sql` — post_categories, post_scraps, post_reports, posts.is_anonymous/blinded_at.
    Sprint 6에서 적용: `database/migrations/016_v2_sprint6_associated_com_trip.sql` — job_scraps, field_trip_reports, posts tags GIN.
+   기업 승인: `database/migrations/017_v2_company_approval.sql` — `company_profiles.approval_*`, 기존 기업 `approved` 백필, 신규 DEFAULT `pending`.
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내. `company_profile_*`는 API `company_profiles`로 대체(B-LS).
 
 ## 6. 인덱스·무결성 (최소)

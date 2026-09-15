@@ -23,7 +23,7 @@
 
 | Method | Path | Auth | v2 |
 |--------|------|------|----|
-| POST | `/register` | 공개 | `school_id` 필수(학생/교사/**기업**). 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert + `user_roles(company)` |
+| POST | `/register` | 공개 | `school_id` 필수(학생/교사/**기업**). 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert(`approval_status=pending`) + `user_roles(company)` |
 | POST | `/login` | 공개 | JWT에 `school_id`, `role` |
 | GET | `/me` | 토큰 | 권한 목록 포함. `js/api.js` 로컬토큰 skip **삭제** |
 | POST | `/change-password` | 토큰 | v1 `auth` 미들웨어 누락 → **반드시 보호** |
@@ -45,7 +45,8 @@
 | Method | Path | v2 |
 |--------|------|----|
 | GET | `/` | `source=internal\|worknet\|all`, school 필터 |
-| GET/POST/PUT/DELETE | `/:id` | 가드 |
+| POST | `/` | 가드 | 기업(`user_type=company`)은 `company_profiles.approval_status=approved` 필수. 아니면 **403 `COMPANY_NOT_APPROVED`**. 교사/school_admin/system_admin 대행 등록은 승인 검사 생략 |
+| GET/PUT/DELETE | `/:id` | 가드 | 미승인 기업의 PUT/DELETE도 `COMPANY_NOT_APPROVED` |
 | POST | `/:id/apply` | `resume_id` 수용 (소유 이력서만). 없으면 대표 이력서 자동 첨부 |
 | GET | `/:id/applicants` | 기업/관리 |
 | GET | `/my/applications` | 워크플로우 상태 |
@@ -145,8 +146,10 @@
 | POST | `/api/posts/:id/report` | COM-005 |
 | GET | `/api/posts/reports` | COM-005 운영자 |
 | POST/DELETE | `/api/posts/:id/blind` | COM-005 운영자 |
-| GET/PUT | `/api/users/company-profile` | PLT-001 / B-LS |
-| POST | `/api/auth/register` (`user_type=company`) | IAM-006 — 기업 가입·프로필·학교 바인딩 |
+| GET/PUT | `/api/users/company-profile` | PLT-001 / B-LS — 응답에 `approval_status` 포함. PUT은 프로필 필드만(승인 상태 변경 불가) |
+| GET | `/api/users/companies` | JOB-007 — `?approval_status=pending\|approved\|rejected`. `authorize(users,read)` + school scope |
+| PATCH | `/api/users/:id/company-approval` | JOB-007 — body `{ status: approved\|rejected\|pending, rejection_reason? }`. `authorize(users,write)` + 동일교만(타교 403). 감사 로그 |
+| POST | `/api/auth/register` (`user_type=company`) | IAM-006 / JOB-007 — 기업 가입·프로필(`pending`)·학교 바인딩 |
 | POST | `/api/files` (multipart `file`) | COM-002/003 첨부 |
 | GET | `/api/jobs/scraps/me` | REC-002 |
 | POST/DELETE | `/api/jobs/:id/scrap` | REC-002 |
@@ -177,6 +180,7 @@
 - Sprint 4 구현: `GET /api/recommendations/me`, `POST /api/recommendations/recompute`, `POST /api/recommendations/feedback`; `GET/POST /api/field-trips`, `GET/PUT /api/field-trips/:id`, `POST /api/field-trips/:id/apply`, `PATCH /api/field-trips/applications/:id`, `GET /api/field-trips/:id/roster`, `PATCH /api/field-trips/:id/attendance`; networking mentors/connect schoolScope. 워크넷·알림톡 실연동 없음.
 - Sprint 5 구현: `GET /api/posts/categories`, `GET /api/posts?sort=popular`, scrap/report/blind, `GET/PUT /api/users/company-profile`. 워크넷·알림톡 실연동 없음.
 - Sprint 6 구현: `GET /api/recommendations/associated` (REC-002), `POST/DELETE /api/jobs/:id/scrap`, posts `tags`/`file_ids` + `?tag=`, `POST /api/files`, `GET/PUT /api/field-trips/:id/report`, `GET /api/worknet/status` 스텁. 워크넷·알림톡 실연동 없음.
+- 기업 승인(REQ-JOB-007): register → `company_profiles.approval_status=pending`; `GET /api/users/companies`, `PATCH /api/users/:id/company-approval`; `POST /api/jobs` 미승인 시 `COMPANY_NOT_APPROVED`. 기존 기업 행은 마이그레이션에서 `approved` 백필.
 
 ## 5. OpenAPI
 

@@ -1,4 +1,5 @@
 // Company profile (REQ-PLT-001 / B-LS — API only, JWT)
+// REQ-JOB-007: show approval banner; gate job-create CTA
 document.addEventListener('DOMContentLoaded', async function() {
     if (!auth.requireAuth()) return;
 
@@ -30,6 +31,25 @@ function hideNonCompanyMenus() {
     });
 }
 
+function approvalBannerHtml(status, rejectionReason) {
+    if (status === 'approved') {
+        return `<div class="alert" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1.25rem;">
+            기업이 <strong>승인</strong>되었습니다. 채용 공고를 등록할 수 있습니다.
+        </div>`;
+    }
+    if (status === 'rejected') {
+        const reason = rejectionReason
+            ? `<br><span style="font-size:0.9rem;">사유: ${esc(rejectionReason)}</span>`
+            : '';
+        return `<div class="alert" id="companyApprovalBanner" style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1.25rem;">
+            기업 승인이 <strong>반려</strong>되었습니다. 프로필을 보완한 뒤 학교 관리자에게 재심사를 요청하세요.${reason}
+        </div>`;
+    }
+    return `<div class="alert" id="companyApprovalBanner" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1.25rem;">
+        <strong>승인 대기 중</strong>입니다. 로그인과 기업 프로필 수정은 가능하지만, 학교 관리자 승인 전에는 채용 공고를 등록할 수 없습니다.
+    </div>`;
+}
+
 async function loadCompanyProfile() {
     const content = document.getElementById('companyProfileContent');
     if (!content) return;
@@ -41,14 +61,20 @@ async function loadCompanyProfile() {
         const data = await api.users.getCompanyProfile();
         profile = data.profile || null;
     } catch (err) {
-        // 404 = empty form
         if (!(err.message && /not found|404/i.test(err.message))) {
             console.warn('company profile load:', err.message);
         }
     }
 
     const user = auth.getCurrentUser() || {};
+    const status = profile?.approval_status || 'pending';
+    const canPostJobs = status === 'approved';
+    const jobCta = canPostJobs
+        ? '<a href="job-create.html" class="btn btn-secondary">채용 공고 등록</a>'
+        : '<button type="button" class="btn btn-secondary" disabled title="학교 승인 후 이용 가능">채용 공고 등록 (승인 대기)</button>';
+
     content.innerHTML = `
+        ${approvalBannerHtml(status, profile?.rejection_reason)}
         <form id="companyProfileForm" class="auth-form" style="max-width:640px;">
             <div class="form-group">
                 <label for="company_name">기업명 *</label>
@@ -87,7 +113,7 @@ async function loadCompanyProfile() {
             <div id="companyProfileMsg" class="success-message" style="display:none;"></div>
             <div class="form-actions" style="display:flex; gap:0.75rem; flex-wrap:wrap;">
                 <button type="submit" class="btn btn-primary">저장</button>
-                <a href="job-create.html" class="btn btn-secondary">채용 공고 등록</a>
+                ${jobCta}
                 <a href="dashboard.html" class="btn btn-secondary">대시보드</a>
             </div>
         </form>

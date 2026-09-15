@@ -505,10 +505,36 @@ function showCompanyDashboard() {
     if (companyDashboard) companyDashboard.style.display = 'block';
     
     // Load company dashboard data
+    loadCompanyApprovalBanner();
     loadCompanyStats();
     loadCompanyJobPostings();
     loadRecentApplicants();
     setupCompanyEventListeners();
+}
+
+async function loadCompanyApprovalBanner() {
+    const host = document.getElementById('companyDashboard');
+    if (!host) return;
+    let existing = document.getElementById('companyApprovalDashBanner');
+    if (existing) existing.remove();
+
+    try {
+        const data = await api.users.getCompanyProfile();
+        const status = data.profile?.approval_status || 'pending';
+        if (status === 'approved') return;
+
+        const banner = document.createElement('div');
+        banner.id = 'companyApprovalDashBanner';
+        banner.style.cssText = status === 'rejected'
+            ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1rem;'
+            : 'background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1rem;';
+        banner.innerHTML = status === 'rejected'
+            ? '기업 승인이 반려되었습니다. <a href="company-profile.html">프로필</a>을 확인한 뒤 학교 관리자에게 문의하세요.'
+            : '<strong>승인 대기 중</strong> — 학교 관리자 승인 전에는 채용 공고를 등록할 수 없습니다. <a href="company-profile.html">기업 프로필</a>';
+        host.insertBefore(banner, host.firstChild);
+    } catch (e) {
+        console.warn('approval banner:', e.message);
+    }
 }
 
 async function loadCompanyStats() {

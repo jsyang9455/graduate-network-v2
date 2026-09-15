@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-15  
-현재 단계: **Sprint 7+ (기업 회원가입·채용 흐름 보완)**  
-전체 P0 구현: **약 66%** (Wave 1–Sprint 6 + Sprint 7 QA/NFR + **기업 signup/job 경로**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
+현재 단계: **Sprint 7+ (기업 승인 플래그 REQ-JOB-007)**  
+전체 P0 구현: **약 67%** (Wave 1–Sprint 6 + Sprint 7 QA/NFR + 기업 signup + **기업 승인**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
 
 ## Gates (학교 제공물)
 
@@ -30,34 +30,34 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 |-------|------|-------|---|------|
 | 0 | 비전/요구/아키텍처/역할, v2 저장소 | architect | 100 | done |
 | 1 | 착수 보고·게이트 확인·현행 이슈 목록 | architect | 0 | todo |
-| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 94 | in-progress (COM/REC paths; 기업 signup 문서화) |
-| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 94 | in-progress (메시지/워크넷 잔여; **기업 가입 경로 done**) |
+| 2 | ERD 확정, OpenAPI, 화면 확정 | architect + api | 95 | in-progress (COM/REC + 기업 signup/승인 문서화) |
+| 3 | 멀티스쿨·RBAC·스토리지·가드 | backend + api + frontend | 95 | in-progress (메시지/워크넷 잔여; **기업 가입·승인 done**) |
 | Sprint 1 | 이력서·상담 문서 | backend + frontend | 95 | done |
-| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 78 | in-progress (**기업 가입→공고** 보완; 워크넷 스텁만) |
+| Sprint 2 | 채용 워크플로우·워크넷 | api + backend + frontend | 82 | in-progress (**기업 승인 게이트**; 워크넷 스텁만) |
 | Sprint 3 | 커뮤니티·공지 테넌시·B-LS | backend + api + frontend | 70 | done-ish |
 | Sprint 4 | 추천·견학·networking | backend + api + frontend | 85 | done-ish |
 | Sprint 5 | COM P0·B-LS·persona smoke | backend + api + frontend + qa | 85 | done-ish |
 | Sprint 6 | REC-002·COM-002·스크랩 UI·사후보고 | backend + api + frontend + qa | 85 | done-ish (브라우저 DoD → Sprint7) |
-| Sprint 7 | QA hardening · NFR-010 · UAT | qa (+ nfr) | 90 | done-ish (API **68/68** + Puppeteer UAT) |
-| 4 | 테스트·UAT·보안 | qa | 90 | in-progress (API **68/68** + company signup browser) |
+| Sprint 7 | QA hardening · NFR-010 · UAT | qa (+ nfr) | 90 | done-ish |
+| 4 | 테스트·UAT·보안 | qa | 92 | in-progress (API **73/73** + company approval API UAT) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 94 | job scrap / trip report school 범위; 기업 school_id 바인딩 |
-| IAM API·OpenAPI | api | 94 | company register 계약 (admin 공개가입 차단) |
-| 권한 메뉴·schools UI | frontend | 86 | **기업 회원가입 UI** + company-profile/job-create 내비 |
+| 멀티스쿨 스키마/가드 | backend | 95 | 기업 승인 school 범위 |
+| IAM API·OpenAPI | api | 95 | company register + approval 계약 |
+| 권한 메뉴·schools UI | frontend | 88 | 기업 승인 배너·job-create 게이트·admin 기업 승인 탭 |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
-| 채용 워크플로우 알림 | api/frontend | 78 | 기업 가입→공고 등록 경로 |
+| 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |
 | 워크넷 | backend | 10 | status/sync stub `NOT_CONFIGURED` only |
 | 추천 엔진 | backend | 85 | REC-002 associated P0 |
 | 견학 모듈 | backend/frontend | 80 | 사후 보고 API+industry-visit UI |
 | 커뮤니티 고도화 | api/frontend | 75 | COM-002 태그·첨부·스크랩 UI |
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
-| QA 스위트 | qa | 94 | company-signup.test + 회귀 **68/68** |
+| QA 스위트 | qa | 96 | company-approval + signup → **73/73** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
 
 ## Blockers
@@ -70,7 +70,8 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 해소: **B-LS career/admin-jobs** — API만.  
 해소: **B-LS company_profile_*** — `GET/PUT /api/users/company-profile` + `setup-test-profile.html` API 전환.  
 해소: **REQ-NFR-010** — compose JWT 평문 제거 (Sprint 7).  
-해소: **기업 공개 가입 공백** — `register.html` 기업 유형 + `/api/auth/register` school/role/profile (2026-09-15).
+해소: **기업 공개 가입 공백** — `register.html` 기업 유형 + `/api/auth/register` school/role/profile (2026-09-15).  
+해소: **기업 승인 플래그(P1)** — REQ-JOB-007 (2026-09-15).
 
 로컬 백엔드: 기본 `PORT=5000`. macOS AirPlay가 5000을 쓰면 `PORT=5050 npm start` 후  
 `localStorage.setItem('jjobb_api_base','http://localhost:5050/api')`.
@@ -81,24 +82,35 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 - 범위 변경은 Architect만 `00`/`01`과 함께 수정한다.
 - Progress Monitor는 매주 %의 합이 git 실제 진척과 맞는지 검사한다.
 
+## Company approval 완료 기록 (2026-09-15)
+
+- REQ-JOB-007 / REQ-IAM-009 / REQ-PLT-002: `company_profiles.approval_status` (`pending`/`approved`/`rejected`)
+- 가입 기본 `pending`; 기존 행 마이그레이션 `017`에서 `approved` 백필
+- 승인자: `school_admin` / `system_admin` (`authorize(users, write)`). 타교 403
+- 제품 규칙: pending/rejected 로그인·프로필 OK, **공고 CRUD 403 `COMPANY_NOT_APPROVED`**
+- API: `GET /users/companies`, `PATCH /users/:id/company-approval`, jobs 가드
+- UI: company-profile/dashboard 배너, job-create 폼 비활성, `admin-users` 기업 승인 탭
+- QA: `company-approval.test.js` + signup 갱신 → 전체 **73/73**
+- 브라우저: register 화면 로드·기업 유형 UI 확인; 로그인 폼 자동 입력은 자격증명 정책으로 차단 → **API UAT로 동일 흐름 검증** (pending 403 → 승인 200 → POST job 201 @5050)
+
+```
+Handoff: backend+api+frontend+qa → architect
+REQ: REQ-JOB-007, REQ-IAM-009, REQ-PLT-002
+Need: optional Playwright persona for approval UI; OpenAPI yaml sync
+Done: schema 017, approval APIs, UI gates/admin tab, 73/73 tests, API browser-path UAT
+```
+
 ## Company signup 완료 기록 (2026-09-15)
 
 - REQ-IAM-006 / REQ-JOB-001 / REQ-PLT-002: 기업 공개 가입 → `user_roles(company)` + `company_profiles` + `school_id` 바인딩
 - 공개 register에서 `admin`/`school_admin`/`system_admin` 거절
 - 프론트: `register.html` 기업 필드, `js/company-profile.js`, job-create/edit/applicant 내비
-- QA: `backend/tests/company-signup.test.js` → 전체 **68/68**
-- 브라우저: 기업 가입 → company-profile → job-create → POST job (`school_id` 바인딩) 확인 (@5050)
-
-```
-Handoff: frontend+api+backend → qa/architect
-REQ: REQ-IAM-006, REQ-JOB-001, REQ-PLT-002
-Need: optional Playwright persona for company; 기업 승인 플래그(P1) 여부 Architect 판정
-Done: signup UI/API, company profile page, school-scoped job create, 68/68 tests, browser UAT
-```
+- QA: `backend/tests/company-signup.test.js` (승인 게이트와 정렬)
+- 브라우저: 기업 가입 → company-profile → (승인 후) job-create
 
 ## Sprint 7 완료 기록 (QA · NFR-010 · browser UAT)
 
-- Persona smoke 확장: associated / job scrap / COM tags+scrap / trip report → (당시) **63/63**
+- Persona smoke 확장: associated / job scrap / COM tags+scrap / trip report
 - Puppeteer: login → jobs「관심」·community scrap·industry-visit report UI ([docs/qa/sprint7-browser-uat.md](qa/sprint7-browser-uat.md))
 - REQ-NFR-010: `docker-compose.yml` `JWT_SECRET=${JWT_SECRET:?…}` + 루트 `.env.example`
 - 워크넷·알림톡 **실연동 안 함**

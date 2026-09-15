@@ -7,6 +7,7 @@ const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middlew
 const { isSystemAdmin, isStaffAdmin } = require('../lib/roles');
 const { sendError } = require('../lib/httpErrors');
 const { writeAudit, requestIp } = require('../modules/audit');
+const { APPROVAL_STATUSES } = require('../lib/companyApproval');
 
 function canReadUser(req, target) {
   if (Number(target.id) === Number(req.user.id)) return true;
@@ -128,6 +129,59 @@ router.get('/company-profile', auth, async (req, res) => {
   } catch (error) {
     console.error('Get company profile error:', error);
     res.status(500).json({ error: 'Failed to get company profile' });
+  }
+});
+
+// List companies for school admins (REQ-JOB-007) — before /:id
+router.get('/companies', auth, authorize('users', 'read'), schoolScope, async (req, res) => {
+  try {
+    const statusFilter = req.query.approval_status
+      ? String(req.query.approval_status).trim()
+      : null;
+    if (statusFilter && !APPROVAL_STATUSES.includes(statusFilter)) {
+      return sendError(res, 400, 'VALIDATION', 'approval_status must be pending, approved, or rejected');
+    }
+
+    const params = [];
+    const where = [`u.user_type = 'company'`, `u.is_active = true`];
+
+    if (!isSystemAdmin(req.user)) {
+      if (req.scopedSchoolId == null) {
+        return sendError(res, 403, 'FORBIDDEN', '소속 학교 권한이 없습니다');
+      }
+      params.push(req.scopedSchoolId);
+      where.push(`u.school_id = $${params.length}`);
+    } else if (req.query.school_id) {
+      params.push(Number(req.query.school_id));
+      where.push(`u.school_id = $${params.length}`);
+    }
+
+    if (statusFilter) {
+      params.push(statusFilter);
+      where.push(`COALESCE(cp.approval_status, 'pending') = $${params.length}`);
+    }
+
+    const result = await query(
+      `SELECT u.id AS user_id, u.email, u.name, u.phone, u.school_id, u.school_name, u.created_at,
+              cp.id AS profile_id, cp.company_name, cp.industry, cp.company_size, cp.address,
+              cp.approval_status, cp.approved_at, cp.approved_by, cp.rejection_reason, cp.updated_at
+       FROM users u
+       LEFT JOIN company_profiles cp ON cp.user_id = u.id
+       WHERE ${where.join(' AND ')}
+       ORDER BY
+         CASE COALESCE(cp.approval_status, 'pending')
+           WHEN 'pending' THEN 0
+           WHEN 'rejected' THEN 1
+           ELSE 2
+         END,
+         u.created_at DESC`,
+      params
+    );
+
+    res.json({ companies: result.rows });
+  } catch (error) {
+    console.error('List companies error:', error);
+    res.status(500).json({ error: 'Failed to list companies' });
   }
 });
 
@@ -357,8 +411,8 @@ router.put('/company-profile', auth, checkRole('company', 'admin'), async (req, 
     if (existing.rows.length === 0) {
       result = await query(
         `INSERT INTO company_profiles
-         (user_id, company_name, industry, company_size, website, address, description, logo_url, founded_year)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (user_id, company_name, industry, company_size, website, address, description, logo_url, founded_year, approval_status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
          RETURNING *`,
         [
           userId,
@@ -585,6 +639,79 @@ router.get('/', auth, schoolScope, async (req, res) => {
   } catch (error) {
     console.error('Search users error:', error);
     res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
+// Company approval (REQ-JOB-007) — school_admin / system_admin with users write
+router.patch('/:id/company-approval', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.id, 10);
+    const status = String(req.body.status || '').trim();
+    const rejectionReason = req.body.rejection_reason != null
+      ? String(req.body.rejection_reason).trim()
+      : null;
+
+    if (!APPROVAL_STATUSES.includes(status)) {
+      return sendError(res, 400, 'VALIDATION', 'status must be pending, approved, or rejected');
+    }
+    if (status === 'rejected' && !rejectionReason) {
+      return sendError(res, 400, 'VALIDATION', 'rejection_reason is required when rejecting');
+    }
+
+    const targetRes = await query(
+      `SELECT u.id, u.user_type, u.school_id, u.email, u.name,
+              cp.id AS profile_id, cp.company_name, cp.approval_status
+       FROM users u
+       LEFT JOIN company_profiles cp ON cp.user_id = u.id
+       WHERE u.id = $1 AND u.is_active = true`,
+      [targetId]
+    );
+    if (targetRes.rows.length === 0) {
+      return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    }
+    const target = targetRes.rows[0];
+    if (target.user_type !== 'company') {
+      return sendError(res, 400, 'VALIDATION', '대상 사용자가 기업 회원이 아닙니다');
+    }
+    if (!canManageTarget(req, target)) {
+      return forbidCrossSchool(res);
+    }
+    if (!target.profile_id) {
+      return sendError(res, 404, 'NOT_FOUND', '기업 프로필이 없습니다');
+    }
+
+    const approvedAt = status === 'approved' ? new Date() : null;
+    const approvedBy = status === 'approved' ? req.user.id : null;
+    const reason = status === 'rejected' ? rejectionReason : null;
+
+    const updated = await query(
+      `UPDATE company_profiles
+       SET approval_status = $1,
+           approved_at = $2,
+           approved_by = $3,
+           rejection_reason = $4,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $5
+       RETURNING *`,
+      [status, approvedAt, approvedBy, reason, targetId]
+    );
+
+    await writeAudit({
+      actorId: req.user.id,
+      schoolId: target.school_id || req.user.school_id,
+      action: 'company.approval',
+      resource: `users:${targetId}`,
+      payload: { status, company_name: target.company_name, rejection_reason: reason },
+      ip: requestIp(req),
+    });
+
+    res.json({
+      message: status === 'approved' ? '기업이 승인되었습니다' : (status === 'rejected' ? '기업이 반려되었습니다' : '승인 상태가 변경되었습니다'),
+      profile: updated.rows[0],
+    });
+  } catch (error) {
+    console.error('Company approval error:', error);
+    res.status(500).json({ error: 'Failed to update company approval' });
   }
 });
 

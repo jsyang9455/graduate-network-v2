@@ -80,14 +80,15 @@ async function upsertCompanyProfile(userId, body = {}) {
   if (existing.rows.length === 0) {
     const created = await query(
       `INSERT INTO company_profiles
-         (user_id, company_name, industry, company_size, website, address, description, founded_year)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         (user_id, company_name, industry, company_size, website, address, description, founded_year, approval_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
        RETURNING *`,
       [userId, companyName, industry, companySize, website, address, description, foundedYear]
     );
     return created.rows[0];
   }
 
+  // Re-registration / reactivation: keep profile fields; reset to pending for re-review
   const updated = await query(
     `UPDATE company_profiles
      SET company_name = COALESCE($1, company_name),
@@ -97,6 +98,10 @@ async function upsertCompanyProfile(userId, body = {}) {
          address = COALESCE($5, address),
          description = COALESCE($6, description),
          founded_year = COALESCE($7, founded_year),
+         approval_status = 'pending',
+         approved_at = NULL,
+         approved_by = NULL,
+         rejection_reason = NULL,
          updated_at = CURRENT_TIMESTAMP
      WHERE user_id = $8
      RETURNING *`,

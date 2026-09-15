@@ -271,6 +271,15 @@ const api = {
     async updateCompanyProfile(data) {
       return api.put('/users/company-profile', data);
     },
+
+    async listCompanies(params = {}) {
+      const queryString = new URLSearchParams(params).toString();
+      return api.get(`/users/companies${queryString ? `?${queryString}` : ''}`);
+    },
+
+    async setCompanyApproval(userId, data) {
+      return api.patch(`/users/${userId}/company-approval`, data);
+    },
   },
 
   // Job APIs

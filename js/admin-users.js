@@ -25,9 +25,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // 회원 로드
     loadUsers();
     loadWithdrawnCount();
+    loadCompanyPendingCount();
 
-    // 검색 입력 이벤트
-    document.getElementById('searchUser').addEventListener('keypress', function(e) {
+    document.getElementById('companyApprovalFilter')?.addEventListener('change', () => {
+        if (currentView === 'companies') loadCompanyApprovals();
+    });
+
+    document.getElementById('searchUser')?.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             searchUsers();
         }
@@ -390,20 +394,153 @@ async function loadWithdrawnCount() {
 }
 window.loadWithdrawnCount = loadWithdrawnCount;
 
-// 탭 전환 (활성/탈퇴)
+async function loadCompanyPendingCount() {
+    try {
+        const data = await api.users.listCompanies({ approval_status: 'pending' });
+        const el = document.getElementById('companyPendingCount');
+        if (el) el.textContent = (data.companies || []).length;
+    } catch (error) {
+        console.warn('기업 승인 대기 수 조회 실패:', error.message);
+        const el = document.getElementById('companyPendingCount');
+        if (el) el.textContent = '-';
+    }
+}
+window.loadCompanyPendingCount = loadCompanyPendingCount;
+
+async function loadCompanyApprovals() {
+    const tbody = document.getElementById('companiesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:#6b7280;">불러오는 중...</td></tr>';
+
+    const status = document.getElementById('companyApprovalFilter')?.value;
+    const params = {};
+    if (status) params.approval_status = status;
+
+    try {
+        const data = await api.users.listCompanies(params);
+        const rows = data.companies || [];
+        if (status === 'pending' || !status) {
+            const pendingEl = document.getElementById('companyPendingCount');
+            if (pendingEl && (status === 'pending' || !status)) {
+                const pendingCount = status === 'pending'
+                    ? rows.length
+                    : rows.filter((c) => c.approval_status === 'pending').length;
+                pendingEl.textContent = pendingCount;
+            }
+        }
+
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:2rem;color:#9ca3af;">해당 기업이 없습니다.</td></tr>';
+            return;
+        }
+
+        const statusLabel = {
+            pending: '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:0.8rem;">대기</span>',
+            approved: '<span style="background:#dcfce7;color:#166534;padding:2px 8px;border-radius:10px;font-size:0.8rem;">승인</span>',
+            rejected: '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:10px;font-size:0.8rem;">반려</span>',
+        };
+
+        tbody.innerHTML = rows.map((c) => {
+            const st = c.approval_status || 'pending';
+            const joinDate = c.created_at ? new Date(c.created_at).toLocaleDateString('ko-KR') : '-';
+            const actions = st === 'pending' || st === 'rejected'
+                ? `<button class="btn-small" style="background:#16a34a;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;margin-right:4px;" onclick="approveCompany(${c.user_id})">승인</button>
+                   <button class="btn-small" style="background:#dc2626;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;" onclick="rejectCompany(${c.user_id})">반려</button>`
+                : `<button class="btn-small" style="background:#6b7280;color:#fff;border:none;padding:4px 10px;border-radius:4px;cursor:pointer;" onclick="rejectCompany(${c.user_id})">반려로 변경</button>`;
+            return `<tr>
+                <td style="padding:0.85rem;">${escHtml(c.company_name || '-')}</td>
+                <td style="padding:0.85rem;">${escHtml(c.name || '-')}</td>
+                <td style="padding:0.85rem;">${escHtml(c.email || '-')}</td>
+                <td style="padding:0.85rem;">${escHtml(c.industry || '-')}</td>
+                <td style="padding:0.85rem;">${escHtml(c.school_name || '-')}</td>
+                <td style="padding:0.85rem;">${statusLabel[st] || st}</td>
+                <td style="padding:0.85rem;">${joinDate}</td>
+                <td style="padding:0.85rem;text-align:center;">${actions}</td>
+            </tr>`;
+        }).join('');
+    } catch (error) {
+        console.error('기업 승인 목록 실패:', error);
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:2rem;color:#b91c1c;">목록을 불러오지 못했습니다: ${escHtml(error.message || '')}</td></tr>`;
+    }
+}
+window.loadCompanyApprovals = loadCompanyApprovals;
+
+async function approveCompany(userId) {
+    if (!confirm('이 기업을 승인하시겠습니까? 승인 후 채용 공고를 등록할 수 있습니다.')) return;
+    try {
+        await api.users.setCompanyApproval(userId, { status: 'approved' });
+        alert('기업이 승인되었습니다.');
+        loadCompanyApprovals();
+        loadCompanyPendingCount();
+    } catch (error) {
+        alert('승인 실패: ' + (error.message || ''));
+    }
+}
+window.approveCompany = approveCompany;
+
+async function rejectCompany(userId) {
+    const reason = prompt('반려 사유를 입력하세요.');
+    if (reason == null) return;
+    if (!String(reason).trim()) {
+        alert('반려 사유가 필요합니다.');
+        return;
+    }
+    try {
+        await api.users.setCompanyApproval(userId, {
+            status: 'rejected',
+            rejection_reason: String(reason).trim(),
+        });
+        alert('기업이 반려 처리되었습니다.');
+        loadCompanyApprovals();
+        loadCompanyPendingCount();
+    } catch (error) {
+        alert('반려 실패: ' + (error.message || ''));
+    }
+}
+window.rejectCompany = rejectCompany;
+
+function escHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// 탭 전환 (활성/기업승인/탈퇴)
 function switchUserTab(tab) {
     currentView = tab;
 
-    const tabActive = document.getElementById('tabActive');
-    const tabWithdrawn = document.getElementById('tabWithdrawn');
-    if (tabActive) {
-        tabActive.style.borderBottomColor = tab === 'active' ? '#3b82f6' : 'transparent';
-        tabActive.style.color = tab === 'active' ? '#3b82f6' : '#6b7280';
+    const tabs = {
+        active: document.getElementById('tabActive'),
+        companies: document.getElementById('tabCompanies'),
+        withdrawn: document.getElementById('tabWithdrawn'),
+    };
+    Object.entries(tabs).forEach(([key, el]) => {
+        if (!el) return;
+        const on = key === tab;
+        el.style.borderBottomColor = on ? '#3b82f6' : 'transparent';
+        el.style.color = on ? '#3b82f6' : '#6b7280';
+    });
+
+    const userFilter = document.getElementById('userFilterSection');
+    const companyFilter = document.getElementById('companyApprovalFilters');
+    const usersWrap = document.getElementById('usersTableWrap');
+    const companiesWrap = document.getElementById('companiesTableWrap');
+
+    if (tab === 'companies') {
+        if (userFilter) userFilter.style.display = 'none';
+        if (companyFilter) companyFilter.style.display = 'flex';
+        if (usersWrap) usersWrap.style.display = 'none';
+        if (companiesWrap) companiesWrap.style.display = 'block';
+        loadCompanyApprovals();
+        return;
     }
-    if (tabWithdrawn) {
-        tabWithdrawn.style.borderBottomColor = tab === 'withdrawn' ? '#3b82f6' : 'transparent';
-        tabWithdrawn.style.color = tab === 'withdrawn' ? '#3b82f6' : '#6b7280';
-    }
+
+    if (userFilter) userFilter.style.display = 'flex';
+    if (companyFilter) companyFilter.style.display = 'none';
+    if (usersWrap) usersWrap.style.display = 'block';
+    if (companiesWrap) companiesWrap.style.display = 'none';
 
     // 컬럼 헤더 가시성 토글
     const thJoinDate = document.getElementById('thJoinDate');

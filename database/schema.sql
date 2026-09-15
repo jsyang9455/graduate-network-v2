@@ -53,6 +53,11 @@ CREATE TABLE company_profiles (
     description TEXT,
     logo_url TEXT,
     founded_year INTEGER,
+    approval_status VARCHAR(20) NOT NULL DEFAULT 'pending'
+        CHECK (approval_status IN ('pending', 'approved', 'rejected')),
+    approved_at TIMESTAMP,
+    approved_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    rejection_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

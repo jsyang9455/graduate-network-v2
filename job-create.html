@@ -29,6 +29,7 @@
 
     <div class="job-form-container">
         <h1>채용 공고 등록</h1>
+        <div id="companyApprovalGate" style="display:none;"></div>
         <form id="jobCreateForm">
             <div class="form-group">
                 <label for="title">채용 제목 *</label>
@@ -65,7 +66,7 @@
                 <input type="number" id="headcount" min="1" placeholder="예: 3">
             </div>
             <div class="form-actions">
-                <button type="submit" class="btn-primary">등록</button>
+                <button type="submit" class="btn-primary" id="jobCreateSubmit">등록</button>
                 <button type="button" onclick="location.href='jobs.html'" class="btn-secondary">취소</button>
             </div>
         </form>
