@@ -33,19 +33,19 @@ function hideNonCompanyMenus() {
 
 function approvalBannerHtml(status, rejectionReason) {
     if (status === 'approved') {
-        return `<div class="alert" style="background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1.25rem;">
+        return `<div class="status-banner status-banner--approved" role="status">
             기업이 <strong>승인</strong>되었습니다. 채용 공고를 등록할 수 있습니다.
         </div>`;
     }
     if (status === 'rejected') {
         const reason = rejectionReason
-            ? `<br><span style="font-size:0.9rem;">사유: ${esc(rejectionReason)}</span>`
+            ? `<br><span class="status-banner__detail">사유: ${esc(rejectionReason)}</span>`
             : '';
-        return `<div class="alert" id="companyApprovalBanner" style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1.25rem;">
+        return `<div class="status-banner status-banner--rejected" id="companyApprovalBanner" role="status">
             기업 승인이 <strong>반려</strong>되었습니다. 프로필을 보완한 뒤 학교 관리자에게 재심사를 요청하세요.${reason}
         </div>`;
     }
-    return `<div class="alert" id="companyApprovalBanner" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:0.85rem 1rem;border-radius:8px;margin-bottom:1.25rem;">
+    return `<div class="status-banner status-banner--pending" id="companyApprovalBanner" role="status">
         <strong>승인 대기 중</strong>입니다. 로그인과 기업 프로필 수정은 가능하지만, 학교 관리자 승인 전에는 채용 공고를 등록할 수 없습니다.
     </div>`;
 }
@@ -54,7 +54,7 @@ async function loadCompanyProfile() {
     const content = document.getElementById('companyProfileContent');
     if (!content) return;
 
-    content.innerHTML = '<p style="color:#6b7280;">불러오는 중...</p>';
+    content.innerHTML = '<p class="page-note">불러오는 중...</p>';
 
     let profile = null;
     try {
@@ -75,7 +75,7 @@ async function loadCompanyProfile() {
 
     content.innerHTML = `
         ${approvalBannerHtml(status, profile?.rejection_reason)}
-        <form id="companyProfileForm" class="auth-form" style="max-width:640px;">
+        <form id="companyProfileForm" class="auth-form">
             <div class="form-group">
                 <label for="company_name">기업명 *</label>
                 <input type="text" id="company_name" required value="${esc(profile?.company_name || user.name || '')}">
@@ -111,7 +111,7 @@ async function loadCompanyProfile() {
                 <textarea id="description" rows="5">${esc(profile?.description || '')}</textarea>
             </div>
             <div id="companyProfileMsg" class="success-message" style="display:none;"></div>
-            <div class="form-actions" style="display:flex; gap:0.75rem; flex-wrap:wrap;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-primary">저장</button>
                 ${jobCta}
                 <a href="dashboard.html" class="btn btn-secondary">대시보드</a>

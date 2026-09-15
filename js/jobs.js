@@ -490,12 +490,12 @@ async function gateCompanyJobCreate(user) {
         const rejected = status === 'rejected';
         gate.style.display = 'block';
         gate.innerHTML = rejected
-            ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:1rem;border-radius:8px;margin-bottom:1.25rem;">
+            ? `<div class="status-banner status-banner--rejected" role="status">
                 기업 승인이 반려되어 공고를 등록할 수 없습니다.
                 ${reason ? `<br>사유: ${String(reason).replace(/</g, '&lt;')}` : ''}
                 <br><a href="company-profile.html">기업 프로필</a>에서 내용을 보완한 뒤 학교 관리자에게 문의하세요.
               </div>`
-            : `<div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:1rem;border-radius:8px;margin-bottom:1.25rem;">
+            : `<div class="status-banner status-banner--pending" role="status">
                 <strong>승인 대기 중</strong> — 학교 관리자 승인 후에 채용 공고를 등록할 수 있습니다.
                 <br><a href="company-profile.html">기업 프로필 관리</a>
               </div>`;

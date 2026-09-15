@@ -256,6 +256,7 @@
 
 .job-form-container input[type="text"],
 .job-form-container input[type="date"],
+.job-form-container input[type="number"],
 .job-form-container textarea,
 .job-form-container select {
     width: 100%;
@@ -263,8 +264,18 @@
     border: 2px solid var(--border-color);
     border-radius: 8px;
     font-size: 1rem;
-    transition: border-color 0.3s;
+    transition: border-color 0.3s, background 0.3s, opacity 0.3s;
     font-family: inherit;
+}
+
+.job-form-container input:disabled,
+.job-form-container textarea:disabled,
+.job-form-container select:disabled,
+.job-form-container button:disabled {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.85;
 }
 
 .job-form-container input:focus,

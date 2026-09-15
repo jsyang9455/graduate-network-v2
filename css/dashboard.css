@@ -65,6 +65,148 @@
     flex: 1;
     padding: 2rem;
     background: var(--bg-light);
+    min-width: 0;
+}
+
+.content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.content-header h1 {
+    margin: 0;
+    font-size: 1.75rem;
+    line-height: 1.3;
+    color: var(--text-dark);
+    overflow: visible;
+}
+
+.content-header .user-info {
+    color: var(--text-light);
+    font-weight: 600;
+}
+
+/* Admin / community tab strip */
+.admin-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.admin-tab {
+    padding: 0.75rem 1.25rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-light);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.admin-tab:hover {
+    color: var(--secondary-color);
+}
+
+.admin-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.admin-tab-badge {
+    display: inline-block;
+    border-radius: 12px;
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
+.admin-tab-badge--count {
+    background: var(--secondary-soft);
+    color: var(--secondary-color);
+}
+
+.admin-tab-badge--pending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.admin-tab-badge--danger {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.admin-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+
+.admin-filter-bar label {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.admin-filter-bar select,
+.admin-filter-bar input[type="text"] {
+    padding: 0.8rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 1rem;
+    background: white;
+}
+
+.admin-filter-bar select:focus,
+.admin-filter-bar input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
+.users-table {
+    background: white;
+    border-radius: 12px;
+    overflow: auto;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    -webkit-overflow-scrolling: touch;
+}
+
+.users-table table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.users-table thead {
+    background: #f9fafb;
+}
+
+.users-table th {
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 600;
+    color: var(--text-dark);
 }
 
 .welcome-section {
@@ -1803,12 +1945,32 @@
 .profile-container {
     max-width: 1200px;
     margin: 0 auto;
+    padding: 2rem;
+}
+
+.profile-container.company-profile-page {
+    max-width: 720px;
 }
 
 .profile-container > h1 {
     font-size: 2rem;
-    margin-bottom: 2rem;
+    margin-bottom: 0.75rem;
     color: var(--text-dark);
+}
+
+.company-profile-page .auth-form {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(22, 58, 95, 0.08);
+    max-width: none;
+}
+
+.company-profile-page .form-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
 }
 
 .profile-section {

@@ -240,6 +240,17 @@ nav {
     text-align: center;
 }
 
+.btn:disabled,
+.btn[disabled],
+button.btn:disabled,
+button[disabled].btn-secondary {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    pointer-events: none;
+}
+
 .btn-primary {
     background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-color) 100%);
     color: white;
@@ -247,7 +258,7 @@ nav {
     box-shadow: 0 4px 12px rgba(31, 107, 69, 0.28);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
     background: linear-gradient(135deg, #278a48 0%, #185536 100%);
     box-shadow: 0 6px 16px rgba(31, 107, 69, 0.36);
     transform: translateY(-2px);
@@ -260,10 +271,52 @@ nav {
     font-weight: 700;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
     background: #465564;
     border-color: #465564;
     transform: translateY(-2px);
+}
+
+/* Shared status / approval banners (REQ-JOB-007) */
+.status-banner {
+    padding: 0.85rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+    border: 1px solid transparent;
+}
+
+.status-banner a {
+    color: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.status-banner--pending {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+
+.status-banner--rejected {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+}
+
+.status-banner--approved {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+    color: #065f46;
+}
+
+.status-banner__detail {
+    font-size: 0.9rem;
+}
+
+.page-note {
+    color: var(--text-light);
+    margin-bottom: 1.25rem;
 }
 
 .hero .btn-secondary {

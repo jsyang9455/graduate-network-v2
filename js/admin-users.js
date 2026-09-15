@@ -518,9 +518,7 @@ function switchUserTab(tab) {
     };
     Object.entries(tabs).forEach(([key, el]) => {
         if (!el) return;
-        const on = key === tab;
-        el.style.borderBottomColor = on ? '#3b82f6' : 'transparent';
-        el.style.color = on ? '#3b82f6' : '#6b7280';
+        el.classList.toggle('active', key === tab);
     });
 
     const userFilter = document.getElementById('userFilterSection');

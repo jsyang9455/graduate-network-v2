@@ -51,15 +51,15 @@
 
             <div class="admin-content">
                 <!-- 탭 네비게이션 -->
-                <div id="userTabs" style="display:flex;gap:0;margin-bottom:1.5rem;border-bottom:2px solid #e5e7eb;">
-                    <button id="tabActive" onclick="switchUserTab('active')" style="padding:0.75rem 1.5rem;background:none;border:none;border-bottom:3px solid #3b82f6;font-size:1rem;font-weight:600;color:#3b82f6;cursor:pointer;">활성 회원 <span id="activeCount" style="background:#dbeafe;color:#1d4ed8;border-radius:12px;padding:2px 8px;font-size:0.8rem;">-</span></button>
-                    <button id="tabCompanies" onclick="switchUserTab('companies')" style="padding:0.75rem 1.5rem;background:none;border:none;border-bottom:3px solid transparent;font-size:1rem;font-weight:600;color:#6b7280;cursor:pointer;">기업 승인 <span id="companyPendingCount" style="background:#fef3c7;color:#92400e;border-radius:12px;padding:2px 8px;font-size:0.8rem;">-</span></button>
-                    <button id="tabWithdrawn" onclick="switchUserTab('withdrawn')" style="padding:0.75rem 1.5rem;background:none;border:none;border-bottom:3px solid transparent;font-size:1rem;font-weight:600;color:#6b7280;cursor:pointer;">탈퇴 회원 <span id="withdrawnCount" style="background:#fee2e2;color:#b91c1c;border-radius:12px;padding:2px 8px;font-size:0.8rem;">-</span></button>
+                <div id="userTabs" class="admin-tabs" role="tablist">
+                    <button type="button" id="tabActive" class="admin-tab active" onclick="switchUserTab('active')">활성 회원 <span id="activeCount" class="admin-tab-badge admin-tab-badge--count">-</span></button>
+                    <button type="button" id="tabCompanies" class="admin-tab" onclick="switchUserTab('companies')">기업 승인 <span id="companyPendingCount" class="admin-tab-badge admin-tab-badge--pending">-</span></button>
+                    <button type="button" id="tabWithdrawn" class="admin-tab" onclick="switchUserTab('withdrawn')">탈퇴 회원 <span id="withdrawnCount" class="admin-tab-badge admin-tab-badge--danger">-</span></button>
                 </div>
 
-                <div id="companyApprovalFilters" style="display:none; gap:1rem; margin-bottom:1.5rem; align-items:center;">
-                    <label for="companyApprovalFilter" style="font-weight:600;color:#374151;">승인 상태</label>
-                    <select id="companyApprovalFilter" style="padding:0.8rem; border:2px solid #e5e7eb; border-radius:8px; min-width:160px;">
+                <div id="companyApprovalFilters" class="admin-filter-bar" style="display:none;">
+                    <label for="companyApprovalFilter">승인 상태</label>
+                    <select id="companyApprovalFilter">
                         <option value="pending">대기</option>
                         <option value="approved">승인</option>
                         <option value="rejected">반려</option>
@@ -68,9 +68,9 @@
                     <button type="button" class="btn btn-primary" onclick="loadCompanyApprovals()">조회</button>
                 </div>
 
-                <div class="filter-section" id="userFilterSection" style="display: flex; gap: 1rem; margin-bottom: 2rem;">
-                    <input type="text" id="searchUser" placeholder="이름, 이메일로 검색..." style="flex: 1; padding: 0.8rem; border: 2px solid #e5e7eb; border-radius: 8px;">
-                    <select id="userTypeFilter" style="padding: 0.8rem; border: 2px solid #e5e7eb; border-radius: 8px; min-width: 150px;">
+                <div class="admin-filter-bar filter-section" id="userFilterSection">
+                    <input type="text" id="searchUser" placeholder="이름, 이메일로 검색..." style="flex:1; min-width:160px;">
+                    <select id="userTypeFilter" style="min-width:150px;">
                         <option value="">전체 유형</option>
                         <option value="student">학생</option>
                         <option value="graduate">졸업생</option>
@@ -81,22 +81,22 @@
                     <button onclick="filterUsers()" class="btn btn-primary">검색</button>
                 </div>
 
-                <div class="users-table" id="usersTableWrap" style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead style="background: #f9fafb;">
+                <div class="users-table" id="usersTableWrap">
+                    <table>
+                        <thead>
                             <tr>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">ID</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">이름</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">이메일</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">유형</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">전화번호</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">학교/회사</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">학과명</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">전공</th>
-                                <th id="thJoinDate" style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">등록일</th>
-                                <th id="thWithdrawnDate" style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb; display:none;">탈퇴일</th>
-                                <th id="thWithdrawReason" style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb; display:none;">탈퇴 사유</th>
-                                <th id="thActions" style="padding: 1rem; text-align: center; border-bottom: 2px solid #e5e7eb;">관리</th>
+                                <th>ID</th>
+                                <th>이름</th>
+                                <th>이메일</th>
+                                <th>유형</th>
+                                <th>전화번호</th>
+                                <th>학교/회사</th>
+                                <th>학과명</th>
+                                <th>전공</th>
+                                <th id="thJoinDate">등록일</th>
+                                <th id="thWithdrawnDate" style="display:none;">탈퇴일</th>
+                                <th id="thWithdrawReason" style="display:none;">탈퇴 사유</th>
+                                <th id="thActions" style="text-align:center;">관리</th>
                             </tr>
                         </thead>
                         <tbody id="usersTableBody">
@@ -106,18 +106,18 @@
                     <div id="paginationContainer"></div>
                 </div>
 
-                <div class="users-table" id="companiesTableWrap" style="display:none; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <table style="width: 100%; border-collapse: collapse;">
-                        <thead style="background: #f9fafb;">
+                <div class="users-table" id="companiesTableWrap" style="display:none;">
+                    <table>
+                        <thead>
                             <tr>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">기업명</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">담당자</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">이메일</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">업종</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">학교</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">상태</th>
-                                <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">가입일</th>
-                                <th style="padding: 1rem; text-align: center; border-bottom: 2px solid #e5e7eb;">처리</th>
+                                <th>기업명</th>
+                                <th>담당자</th>
+                                <th>이메일</th>
+                                <th>업종</th>
+                                <th>학교</th>
+                                <th>상태</th>
+                                <th>가입일</th>
+                                <th style="text-align:center;">처리</th>
                             </tr>
                         </thead>
                         <tbody id="companiesTableBody"></tbody>

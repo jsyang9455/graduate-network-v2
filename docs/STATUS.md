@@ -48,7 +48,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 |--------|-------|---|------|
 | 멀티스쿨 스키마/가드 | backend | 95 | 기업 승인 school 범위 |
 | IAM API·OpenAPI | api | 95 | company register + approval 계약 |
-| 권한 메뉴·schools UI | frontend | 88 | 기업 승인 배너·job-create 게이트·admin 기업 승인 탭 |
+| 권한 메뉴·schools UI | frontend | 90 | 기업 승인 UI + UI/CSS QA fix (company-profile 폼·admin tabs) |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |
@@ -143,6 +143,13 @@ posts/announcements/certificates/education-programs school 가드, files 동일�
 - Nav label: `JOB밴드` → `JJOBB 밴드` (헤더/사이드바/도움말 등)
 - Surfaces: `index.html` 풀블리드 메인 배너, `dashboard.html` welcome 배너 톤, 주요 페이지 헤더 로고 SVG 교체
 - REQ: PLT/UI 공통 크롬 (IA §3). RBAC·API·JWT-only 미변경
+
+## UI/CSS QA fix (2026-09-15)
+
+- 기업 프로필: 누락 CSS(`auth.css`/`dashboard.css`) 연결 — 미스타일 폼 수정
+- 공유 `.status-banner*`, `.content-header`, `.admin-tabs`, `.btn:disabled`, job-form disabled 톤
+- `admin-users` 탭 블루 인라인 → 네이비/리프그린 토큰 클래스
+- 상세: [docs/qa/ui-css-review.md](qa/ui-css-review.md)
 
 ## Phase 0 / Wave 1 / Sprint 1–2 verification
 
