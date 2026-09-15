@@ -48,7 +48,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 |--------|-------|---|------|
 | 멀티스쿨 스키마/가드 | backend | 95 | 기업 승인 school 범위 |
 | IAM API·OpenAPI | api | 95 | company register + approval 계약 |
-| 권한 메뉴·schools UI | frontend | 90 | 기업 승인 UI + UI/CSS QA fix (company-profile 폼·admin tabs) |
+| 권한 메뉴·schools UI | frontend | 92 | 기업 승인 UI + UI/CSS QA + **모바일 햄버거/드로어** (`docs/qa/mobile-nav.md`) |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |
@@ -150,6 +150,19 @@ posts/announcements/certificates/education-programs school 가드, files 동일�
 - 공유 `.status-banner*`, `.content-header`, `.admin-tabs`, `.btn:disabled`, job-form disabled 톤
 - `admin-users` 탭 블루 인라인 → 네이비/리프그린 토큰 클래스
 - 상세: [docs/qa/ui-css-review.md](qa/ui-css-review.md)
+
+## Mobile nav (2026-09-15)
+
+- ≤768px 햄버거 + 드로어 (`js/nav.js`); 헤더/사이드바 공유 크롬 페이지
+- 브라우저 375px: index / dashboard / community / login 열기·닫기·Esc 확인
+- 상세: [docs/qa/mobile-nav.md](qa/mobile-nav.md)
+
+```
+Handoff: frontend → qa
+REQ: PLT/UI chrome (mobile nav)
+Need: optional staff-session check on admin sidebar-only pages
+Done: hamburger drawer, sidebar embed, a11y Esc/backdrop, docs
+```
 
 ## Phase 0 / Wave 1 / Sprint 1–2 verification
 

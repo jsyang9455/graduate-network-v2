@@ -385,12 +385,56 @@
         flex-direction: column;
     }
 
-    .sidebar {
-        width: 100%;
+    /* Dual header+sidebar pages: hide in-flow sidebar (moved into drawer by nav.js) */
+    body:not(.has-mobile-sidebar-bar) .dashboard-container > .sidebar {
+        display: none;
+    }
+
+    /* Off-canvas only for sidebar-only layouts (admin / community without top header nav) */
+    body.has-mobile-sidebar-bar .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: min(300px, 88vw);
         min-width: unset;
-        position: static;
-        height: auto;
-        overflow-y: visible;
+        height: 100vh;
+        height: 100dvh;
+        z-index: 1003;
+        padding: 3.25rem 0 1.5rem;
+        transform: translateX(-105%);
+        transition: transform 0.28s ease;
+        box-shadow: 8px 0 28px rgba(22, 58, 95, 0.2);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        background: #fff;
+        display: block;
+    }
+
+    body.has-mobile-sidebar-bar.nav-open .sidebar {
+        transform: translateX(0);
+    }
+
+    body.has-mobile-sidebar-bar .sidebar .sidebar-drawer-close {
+        display: inline-flex;
+        position: absolute;
+        top: 0.65rem;
+        right: 0.65rem;
+        width: 40px;
+        height: 40px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 8px;
+        background: var(--secondary-soft, #e8eef5);
+        color: var(--secondary-color, #163a5f);
+        font-size: 1.75rem;
+        line-height: 1;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+    body.has-mobile-sidebar-bar .main-content {
+        padding-top: 1rem;
     }
 }
 

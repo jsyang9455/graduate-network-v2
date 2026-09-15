@@ -36,7 +36,7 @@ Frontend QA + fix pass. Static serve `http://127.0.0.1:8080`. Browser MCP screen
 
 ## Remaining known issues
 
-- Mobile header: top nav links hidden at ≤768px (no hamburger yet) — pre-existing.
+- ~~Mobile header: top nav links hidden at ≤768px (no hamburger yet)~~ — fixed 2026-09-15; see `docs/qa/mobile-nav.md`.
 - Many admin/community filter controls still use one-off inline styles (tables load OK with new overflow).
 - Logged-in session as company user cannot open `admin-users` in browser (expected RBAC redirect); admin tab CSS verified via markup + class rules.
 - Dev-only pages (`setup-test-profile.html`, `check-storage.html`) keep standalone styles — out of product chrome.
