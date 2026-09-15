@@ -263,6 +263,14 @@ const api = {
     async updateGraduateProfile(data) {
       return api.put('/users/graduate-profile', data);
     },
+
+    async getCompanyProfile() {
+      return api.get('/users/company-profile');
+    },
+
+    async updateCompanyProfile(data) {
+      return api.put('/users/company-profile', data);
+    },
   },
 
   // Job APIs

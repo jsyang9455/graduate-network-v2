@@ -1,102 +1,65 @@
-// Register functionality
+// Register functionality (REQ-IAM-006 / company signup)
 document.addEventListener('DOMContentLoaded', function() {
     const registerForm = document.getElementById('registerForm');
     const registerError = document.getElementById('registerError');
     const registerSuccess = document.getElementById('registerSuccess');
     const studentFields = document.getElementById('studentFields');
+    const companyFields = document.getElementById('companyFields');
     const userTypeRadios = document.querySelectorAll('input[name="userType"]');
 
-    // Load schools and majors
     loadSchools();
     loadMajors();
-
-    // Populate graduation years
     populateGraduationYears();
+    applyUserTypeUI(document.querySelector('input[name="userType"]:checked')?.value || 'student');
 
-    // Handle user type change
     userTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
-            const userType = this.value;
-            const studentFields = document.getElementById('studentFields');
-            
-            if (userType === 'teacher') {
-                // 선생님: 이름, 이메일, 비밀번호, 학교만 표시
-                studentFields.style.display = 'none';
-                
-                // Remove required from student fields
-                const phoneInput = document.getElementById('phone');
-                const graduationYearInput = document.getElementById('graduationYear');
-                const majorInput = document.getElementById('major');
-                const departmentNameInput = document.getElementById('departmentName');
-                
-                if (phoneInput) phoneInput.removeAttribute('required');
-                if (graduationYearInput) graduationYearInput.removeAttribute('required');
-                if (majorInput) majorInput.removeAttribute('required');
-                if (departmentNameInput) departmentNameInput.removeAttribute('required');
-            } else {
-                // 학생/졸업생: 모든 필드 표시
-                studentFields.style.display = 'block';
-                
-                // Add required to student fields
-                const phoneInput = document.getElementById('phone');
-                const graduationYearInput = document.getElementById('graduationYear');
-                const majorInput = document.getElementById('major');
-                const departmentNameInput = document.getElementById('departmentName');
-                
-                if (phoneInput) phoneInput.setAttribute('required', 'required');
-                if (graduationYearInput) graduationYearInput.setAttribute('required', 'required');
-                if (majorInput) majorInput.setAttribute('required', 'required');
-                if (departmentNameInput) departmentNameInput.setAttribute('required', 'required');
-            }
+            applyUserTypeUI(this.value);
         });
     });
 
     registerForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        // Get selected user type
         const userType = document.querySelector('input[name="userType"]:checked').value;
-
-        // Get form values
         const formData = {
-            userType: userType,
-            name: document.getElementById('name').value,
-            email: document.getElementById('email').value,
+            userType,
+            name: document.getElementById('name').value.trim(),
+            email: document.getElementById('email').value.trim(),
             password: document.getElementById('password').value,
             confirmPassword: document.getElementById('confirmPassword').value,
-            schoolName: document.getElementById('schoolName').selectedOptions[0]?.text || document.getElementById('schoolName').value,
+            schoolName: document.getElementById('schoolName').selectedOptions[0]?.text || '',
             schoolId: document.getElementById('schoolName').value,
             agreeTerms: document.getElementById('agreeTerms').checked
         };
 
-        // Add student-specific fields only if student type
         if (userType === 'student' || userType === 'graduate') {
-            const phoneInput = document.getElementById('phone');
-            const graduationYearInput = document.getElementById('graduationYear');
-            const majorInput = document.getElementById('major');
-            const departmentNameInput = document.getElementById('departmentName');
-            const desiredJobInput = document.getElementById('desiredJob');
-            
-            formData.phone = phoneInput ? phoneInput.value : '';
-            formData.graduationYear = graduationYearInput ? graduationYearInput.value : '';
-            formData.major = majorInput ? majorInput.value : '';
-            formData.departmentName = departmentNameInput ? departmentNameInput.value : '';
-            formData.desiredJob = desiredJobInput ? desiredJobInput.value : '';
+            formData.phone = document.getElementById('phone')?.value || '';
+            formData.graduationYear = document.getElementById('graduationYear')?.value || '';
+            formData.major = document.getElementById('major')?.value || '';
+            formData.departmentName = document.getElementById('departmentName')?.value || '';
+            formData.desiredJob = document.getElementById('desiredJob')?.value || '';
+        } else if (userType === 'company') {
+            formData.companyName = document.getElementById('companyName')?.value.trim() || '';
+            formData.phone = document.getElementById('companyPhone')?.value || '';
+            formData.industry = document.getElementById('industry')?.value.trim() || '';
+            formData.companySize = document.getElementById('companySize')?.value || '';
+            formData.website = document.getElementById('companyWebsite')?.value.trim() || '';
+            formData.address = document.getElementById('companyAddress')?.value.trim() || '';
+        } else if (userType === 'teacher') {
+            formData.phone = document.getElementById('phone')?.value || '';
         }
 
-        // Validation
         if (!validateForm(formData)) {
             return;
         }
 
-        // Show loading state
         const submitBtn = registerForm.querySelector('button[type="submit"]');
         const originalText = submitBtn.textContent;
         submitBtn.textContent = '등록 중...';
         submitBtn.disabled = true;
 
         try {
-            // 백엔드 API로 회원가입 시도
             const registerData = {
                 email: formData.email,
                 password: formData.password,
@@ -107,37 +70,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 school_id: formData.schoolId ? parseInt(formData.schoolId, 10) : null,
                 major: formData.major || '',
                 department_name: formData.departmentName || '',
-                graduation_year: formData.graduationYear ? parseInt(formData.graduationYear) : null,
-                desired_job: formData.desiredJob || ''
+                graduation_year: formData.graduationYear ? parseInt(formData.graduationYear, 10) : null,
+                desired_job: formData.desiredJob || '',
             };
+
+            if (formData.userType === 'company') {
+                registerData.company_name = formData.companyName;
+                registerData.industry = formData.industry || null;
+                registerData.company_size = formData.companySize || null;
+                registerData.website = formData.website || null;
+                registerData.address = formData.address || null;
+            }
 
             try {
                 const response = await api.auth.register(registerData);
-                // 백엔드 성공 - 토큰 저장 후 이동
                 if (response && response.token) {
                     auth.login(response.user, response.token);
                 }
-                showSuccess('🎉 회원가입이 완료되었습니다! 로그인 페이지로 이동합니다...');
+                showSuccess('🎉 회원가입이 완료되었습니다!');
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
+                const next =
+                    formData.userType === 'company' ? 'company-profile.html' : 'dashboard.html';
                 setTimeout(() => {
-                    window.location.href = 'login.html';
-                }, 2000);
+                    window.location.href = response && response.token ? next : 'login.html';
+                }, 1200);
                 return;
             } catch (apiError) {
-                // 이메일 중복
                 if (apiError.message && (apiError.message.includes('already') || apiError.message.includes('registered') || apiError.message.includes('중복'))) {
                     showError('이미 등록된 이메일입니다.');
                 } else {
-                    // 서버 연결 실패 또는 기타 오류
-                    showError('회원가입에 실패했습니다. 네트워크 연결을 확인하고 다시 시도해주세요.');
+                    showError(apiError.message || '회원가입에 실패했습니다. 네트워크 연결을 확인하고 다시 시도해주세요.');
                     console.error('회원가입 API 오류:', apiError.message);
                 }
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
                 return;
             }
-
         } catch (error) {
             showError(error.message || '회원가입에 실패했습니다. 다시 시도해주세요.');
             submitBtn.textContent = originalText;
@@ -145,15 +114,61 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    function applyUserTypeUI(userType) {
+        const nameLabel = document.getElementById('nameLabel');
+        const nameInput = document.getElementById('name');
+        const schoolLabel = document.getElementById('schoolLabel');
+        const schoolHint = document.getElementById('schoolHint');
+
+        const phoneInput = document.getElementById('phone');
+        const graduationYearInput = document.getElementById('graduationYear');
+        const majorInput = document.getElementById('major');
+        const departmentNameInput = document.getElementById('departmentName');
+        const companyNameInput = document.getElementById('companyName');
+        const companyPhoneInput = document.getElementById('companyPhone');
+
+        if (userType === 'company') {
+            if (studentFields) studentFields.style.display = 'none';
+            if (companyFields) companyFields.style.display = 'block';
+            if (nameLabel) nameLabel.textContent = '담당자 이름 *';
+            if (nameInput) nameInput.placeholder = '채용 담당자 실명';
+            if (schoolLabel) schoolLabel.textContent = '협력(게시 대상) 학교 *';
+            if (schoolHint) schoolHint.style.display = 'block';
+
+            [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
+                if (el) el.removeAttribute('required');
+            });
+            if (companyNameInput) companyNameInput.setAttribute('required', 'required');
+            if (companyPhoneInput) companyPhoneInput.setAttribute('required', 'required');
+            return;
+        }
+
+        if (companyFields) companyFields.style.display = 'none';
+        if (nameLabel) nameLabel.textContent = '이름 *';
+        if (nameInput) nameInput.placeholder = '실명을 입력하세요';
+        if (schoolLabel) schoolLabel.textContent = '소속 학교 *';
+        if (schoolHint) schoolHint.style.display = 'none';
+        if (companyNameInput) companyNameInput.removeAttribute('required');
+        if (companyPhoneInput) companyPhoneInput.removeAttribute('required');
+
+        if (userType === 'teacher') {
+            if (studentFields) studentFields.style.display = 'none';
+            [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
+                if (el) el.removeAttribute('required');
+            });
+        } else {
+            if (studentFields) studentFields.style.display = 'block';
+            [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
+                if (el) el.setAttribute('required', 'required');
+            });
+        }
+    }
+
     function populateGraduationYears() {
         const graduationYearInput = document.getElementById('graduationYear');
-        
-        // graduationYear is now an input type="number", not a select
-        // So we don't need to populate options
         if (graduationYearInput && graduationYearInput.tagName === 'SELECT') {
             const currentYear = 2026;
-            const startYear = 1980;
-            for (let year = currentYear; year >= startYear; year--) {
+            for (let year = currentYear; year >= 1980; year--) {
                 const option = document.createElement('option');
                 option.value = year;
                 option.textContent = year + '년';
@@ -163,13 +178,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function validateForm(data) {
-        // Check required fields (common for all users)
         if (!data.name || !data.email || !data.password || !data.schoolId) {
             showError('필수 항목을 모두 입력해주세요.');
             return false;
         }
 
-        // Check student/graduate-specific required fields
         if (data.userType === 'student' || data.userType === 'graduate') {
             if (!data.phone || !data.graduationYear) {
                 showError('필수 항목을 모두 입력해주세요. (전화번호, 졸업년도)');
@@ -183,8 +196,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 showError('학과명을 입력해주세요.');
                 return false;
             }
-            
-            // Check phone format for students and graduates
             const phoneRegex = /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/;
             if (!phoneRegex.test(data.phone.replace(/-/g, ''))) {
                 showError('올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)');
@@ -192,26 +203,39 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        // Check email format
+        if (data.userType === 'company') {
+            if (!data.companyName) {
+                showError('기업명을 입력해주세요.');
+                return false;
+            }
+            if (!data.phone) {
+                showError('담당자 연락처를 입력해주세요.');
+                return false;
+            }
+            const phoneRegex = /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/;
+            const digits = data.phone.replace(/-/g, '');
+            if (!phoneRegex.test(digits) && !/^0\d{1,2}\d{7,8}$/.test(digits)) {
+                showError('올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)');
+                return false;
+            }
+        }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(data.email)) {
             showError('올바른 이메일 형식이 아닙니다.');
             return false;
         }
 
-        // Check password length
         if (data.password.length < 8) {
             showError('비밀번호는 8자 이상이어야 합니다.');
             return false;
         }
 
-        // Check password confirmation
         if (data.password !== data.confirmPassword) {
             showError('비밀번호가 일치하지 않습니다.');
             return false;
         }
 
-        // Check agreement
         if (!data.agreeTerms) {
             showError('필수 약관에 동의해주세요.');
             return false;
@@ -256,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('학교 목록 로드 실패:', error);
         }
     }
-    
+
     async function loadMajors() {
         const majorSelect = document.getElementById('major');
         if (!majorSelect) return;
@@ -265,12 +289,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await api.get('/majors');
             const majors = response.majors || [];
 
-            // 기존 옵션 제거 (첫 번째 "전공 선택" 옵션 제외)
             while (majorSelect.options.length > 1) {
                 majorSelect.remove(1);
             }
 
-            // 학과 목록을 드롭다운에 추가
             majors.forEach(major => {
                 const option = document.createElement('option');
                 option.value = major.name;
@@ -279,7 +301,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         } catch (error) {
             console.error('학과 목록 로드 실패:', error);
-            // API 실패 시 기본 학과 목록 사용
             const defaultMajors = ['기계과', '전기과', '전자과', '컴퓨터과', '건축과', '토목과'];
             defaultMajors.forEach(major => {
                 const option = document.createElement('option');
@@ -290,4 +311,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-

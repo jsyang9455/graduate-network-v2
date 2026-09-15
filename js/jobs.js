@@ -3,8 +3,27 @@ let allJobs = [];
 let filteredJobs = [];
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Hide student-only menus for company users
     const user = auth.getCurrentUser();
+    const onJobForm = !!(document.getElementById('jobCreateForm') || document.getElementById('jobEditForm'));
+
+    if (onJobForm) {
+        if (!auth.requireAuth()) return;
+        const canPost = user && (
+            user.user_type === 'company'
+            || user.user_type === 'admin'
+            || user.user_type === 'teacher'
+            || user.user_type === 'school_admin'
+            || user.role === 'school_admin'
+            || user.role === 'system_admin'
+        );
+        if (!canPost) {
+            alert('채용 공고 등록 권한이 없습니다.');
+            window.location.href = 'dashboard.html';
+            return;
+        }
+    }
+
+    // Hide student-only menus for company users
     if (user && user.user_type === 'company') {
         hideStudentMenuItems();
     }

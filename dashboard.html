@@ -43,23 +43,31 @@
                     <span class="icon">👤</span>
                     <span>내 프로필</span>
                 </a>
-                <a href="jobs.html" class="menu-item">
+                <a href="jobs.html" class="menu-item" data-menu="jobs">
                     <span class="icon">💼</span>
                     <span>채용 정보</span>
                 </a>
-                <a href="networking.html" class="menu-item">
+                <a href="job-create.html" class="menu-item" id="companyJobCreateMenu" data-menu="jobs" style="display: none;">
+                    <span class="icon">📝</span>
+                    <span>공고 등록</span>
+                </a>
+                <a href="company-profile.html" class="menu-item" id="companyProfileMenu" style="display: none;">
+                    <span class="icon">🏢</span>
+                    <span>기업 프로필</span>
+                </a>
+                <a href="networking.html" class="menu-item" data-menu="community">
                     <span class="icon">🤝</span>
                     <span>JJOBB 밴드</span>
                 </a>
-                <a href="counseling.html" class="menu-item" id="counselingMenu">
+                <a href="counseling.html" class="menu-item" id="counselingMenu" data-menu="counseling">
                     <span class="icon">💬</span>
                     <span>진로 상담</span>
                 </a>
-                <a href="counseling-journal.html" class="menu-item" id="journalMenu">
+                <a href="counseling-journal.html" class="menu-item" id="journalMenu" data-menu="counseling">
                     <span class="icon">📓</span>
                     <span>상담일지</span>
                 </a>
-                <a href="career.html" class="menu-item" id="careerMenu">
+                <a href="career.html" class="menu-item" id="careerMenu" data-menu="resumes">
                     <span class="icon">📈</span>
                     <span>경력 관리</span>
                 </a>
@@ -237,14 +245,14 @@
                     <section class="dashboard-section">
                         <div class="section-header">
                             <h2>👥 최근 지원자</h2>
-                            <a href="jobs.html" class="section-link">전체보기 →</a>
+                            <a href="jobs.html" class="section-link">채용 목록 →</a>
                         </div>
                         <div id="recentApplicantsList" class="applicants-list">
                             <p style="text-align: center; color: #6b7280; padding: 2rem;">지원자 정보를 불러오는 중...</p>
                         </div>
                     </section>
 
-                    <section class="dashboard-section">
+                    <section class="dashboard-section" id="companyCounselingSection">
                         <div class="section-header">
                             <h2>💬 상담 신청 내역</h2>
                             <a href="counseling.html" class="section-link">전체보기 →</a>

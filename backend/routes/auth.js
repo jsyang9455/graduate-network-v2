@@ -62,12 +62,55 @@ function tokenUser(row) {
   };
 }
 
-// Register
+async function upsertCompanyProfile(userId, body = {}) {
+  const companyName = (body.company_name || body.name || '').trim();
+  if (!companyName) return null;
+
+  const existing = await query(
+    'SELECT id FROM company_profiles WHERE user_id = $1',
+    [userId]
+  );
+  const industry = body.industry || null;
+  const companySize = body.company_size || null;
+  const website = body.website || null;
+  const address = body.address || null;
+  const description = body.description || null;
+  const foundedYear = body.founded_year || null;
+
+  if (existing.rows.length === 0) {
+    const created = await query(
+      `INSERT INTO company_profiles
+         (user_id, company_name, industry, company_size, website, address, description, founded_year)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [userId, companyName, industry, companySize, website, address, description, foundedYear]
+    );
+    return created.rows[0];
+  }
+
+  const updated = await query(
+    `UPDATE company_profiles
+     SET company_name = COALESCE($1, company_name),
+         industry = COALESCE($2, industry),
+         company_size = COALESCE($3, company_size),
+         website = COALESCE($4, website),
+         address = COALESCE($5, address),
+         description = COALESCE($6, description),
+         founded_year = COALESCE($7, founded_year),
+         updated_at = CURRENT_TIMESTAMP
+     WHERE user_id = $8
+     RETURNING *`,
+    [companyName, industry, companySize, website, address, description, foundedYear, userId]
+  );
+  return updated.rows[0];
+}
+
+// Register — public types only (REQ-IAM-006/007; no open admin)
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 6 }),
   body('name').trim().isLength({ min: 2 }),
-  body('user_type').isIn(['student', 'graduate', 'teacher', 'company', 'admin'])
+  body('user_type').isIn(['student', 'graduate', 'teacher', 'company'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -77,16 +120,29 @@ router.post('/register', [
 
     const {
       email, password, name, user_type, phone, school_name, school_id,
-      major, desired_job, graduation_year, department_name
+      major, desired_job, graduation_year, department_name,
+      company_name, industry, company_size, website, address, description, founded_year,
     } = req.body;
 
-    const needsSchool = ['student', 'graduate', 'teacher'].includes(user_type);
+    // Reject privileged types even if validator is bypassed
+    if (['admin', 'system_admin', 'school_admin'].includes(String(user_type))) {
+      return sendError(res, 403, 'FORBIDDEN', '해당 역할로 공개 가입할 수 없습니다');
+    }
+
+    const needsSchool = ['student', 'graduate', 'teacher', 'company'].includes(user_type);
     let school = null;
     if (needsSchool || school_id || school_name) {
       school = await resolveSchool({ school_id, school_name });
       if (needsSchool && !school) {
-        return sendError(res, 400, 'VALIDATION', '소속 학교를 선택해주세요');
+        return sendError(res, 400, 'VALIDATION',
+          user_type === 'company'
+            ? '게시 대상(협력) 학교를 선택해주세요'
+            : '소속 학교를 선택해주세요');
       }
+    }
+
+    if (user_type === 'company' && !(company_name || name)) {
+      return sendError(res, 400, 'VALIDATION', '기업명을 입력해주세요');
     }
 
     const existingUser = await query(
@@ -112,10 +168,10 @@ router.post('/register', [
         phone,
         school_name: school?.name || school_name,
         school_id: school?.id || null,
-        major: major || null,
-        desired_job: desired_job || null,
-        graduation_year: graduation_year || null,
-        department_name: department_name || null
+        major: user_type === 'company' ? null : (major || null),
+        desired_job: user_type === 'company' ? null : (desired_job || null),
+        graduation_year: user_type === 'company' ? null : (graduation_year || null),
+        department_name: user_type === 'company' ? null : (department_name || null)
       };
       let setClauses = ['password_hash = $1', 'name = $2', 'user_type = $3', 'is_active = true', 'updated_at = CURRENT_TIMESTAMP'];
       let updateVals = [password_hash, name, user_type];
@@ -140,11 +196,23 @@ router.post('/register', [
       );
       const user = reResult.rows[0];
       await attachPrimaryRole(user.id, user.user_type, user.school_id);
+      let companyProfile = null;
+      if (user.user_type === 'company') {
+        try {
+          companyProfile = await upsertCompanyProfile(user.id, {
+            company_name: company_name || name,
+            industry, company_size, website, address, description, founded_year, name,
+          });
+        } catch (err) {
+          console.warn('company profile upsert skipped:', err.message);
+        }
+      }
       const token = signUserToken(tokenUser(user));
       return res.status(201).json({
         message: 'User registered successfully',
         user: publicUser(user),
-        token
+        token,
+        ...(companyProfile ? { company_profile: companyProfile } : {}),
       });
     }
 
@@ -161,10 +229,10 @@ router.post('/register', [
       phone,
       school_name: school?.name || school_name,
       school_id: school?.id || null,
-      major: major || null,
-      desired_job: desired_job || null,
-      graduation_year: graduation_year || null,
-      department_name: department_name || null
+      major: user_type === 'company' ? null : (major || null),
+      desired_job: user_type === 'company' ? null : (desired_job || null),
+      graduation_year: user_type === 'company' ? null : (graduation_year || null),
+      department_name: user_type === 'company' ? null : (department_name || null)
     };
     const insertCols = ['email', 'password_hash', 'name', 'user_type'];
     const insertVals = [email, password_hash, name, user_type];
@@ -184,12 +252,24 @@ router.post('/register', [
 
     const user = result.rows[0];
     await attachPrimaryRole(user.id, user.user_type, user.school_id);
+    let companyProfile = null;
+    if (user.user_type === 'company') {
+      try {
+        companyProfile = await upsertCompanyProfile(user.id, {
+          company_name: company_name || name,
+          industry, company_size, website, address, description, founded_year, name,
+        });
+      } catch (err) {
+        console.warn('company profile upsert skipped:', err.message);
+      }
+    }
     const token = signUserToken(tokenUser(user));
 
     res.status(201).json({
       message: 'User registered successfully',
       user: publicUser(user),
-      token
+      token,
+      ...(companyProfile ? { company_profile: companyProfile } : {}),
     });
   } catch (error) {
     console.error('Register error:', error);

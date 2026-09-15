@@ -19,7 +19,7 @@
             <form id="registerForm" class="auth-form">
                 <div class="form-group">
                     <label>회원 유형 *</label>
-                    <div style="display: flex; gap: 20px; margin-top: 0.5rem;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 16px 20px; margin-top: 0.5rem;">
                         <label class="radio-label">
                             <input type="radio" name="userType" value="student" checked>
                             <span>학생</span>
@@ -32,11 +32,15 @@
                             <input type="radio" name="userType" value="teacher">
                             <span>선생님</span>
                         </label>
+                        <label class="radio-label">
+                            <input type="radio" name="userType" value="company">
+                            <span>기업</span>
+                        </label>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label for="name">이름 *</label>
+                    <label for="name" id="nameLabel">이름 *</label>
                     <input type="text" id="name" name="name" required placeholder="실명을 입력하세요">
                 </div>
                 
@@ -57,10 +61,11 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="schoolName">소속 학교 *</label>
+                    <label for="schoolName" id="schoolLabel">소속 학교 *</label>
                     <select id="schoolName" name="schoolName" required>
                         <option value="">학교를 선택하세요</option>
                     </select>
+                    <small id="schoolHint" style="display:none; color:#6b7280;">채용 공고를 게시할 협력 학교를 선택하세요.</small>
                 </div>
 
                 <div id="studentFields" style="display: block;">
@@ -89,6 +94,39 @@
                     <div class="form-group">
                         <label for="desiredJob">희망 직종</label>
                         <input type="text" id="desiredJob" name="desiredJob" placeholder="예: 전기기사, 용접사, IT개발자 등">
+                    </div>
+                </div>
+
+                <div id="companyFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="companyName">기업명 *</label>
+                        <input type="text" id="companyName" name="companyName" placeholder="예: (주)전북테크">
+                    </div>
+                    <div class="form-group">
+                        <label for="companyPhone">담당자 연락처 *</label>
+                        <input type="tel" id="companyPhone" name="companyPhone" placeholder="010-1234-5678">
+                    </div>
+                    <div class="form-group">
+                        <label for="industry">업종</label>
+                        <input type="text" id="industry" name="industry" placeholder="예: 제조/기계, IT/소프트웨어">
+                    </div>
+                    <div class="form-group">
+                        <label for="companySize">기업 규모</label>
+                        <select id="companySize" name="companySize">
+                            <option value="">선택</option>
+                            <option value="startup">스타트업</option>
+                            <option value="sme">중소기업</option>
+                            <option value="mid">중견기업</option>
+                            <option value="large">대기업</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="companyWebsite">웹사이트</label>
+                        <input type="url" id="companyWebsite" name="companyWebsite" placeholder="https://">
+                    </div>
+                    <div class="form-group">
+                        <label for="companyAddress">소재지</label>
+                        <input type="text" id="companyAddress" name="companyAddress" placeholder="예: 전라북도 전주시">
                     </div>
                 </div>
                 
@@ -209,8 +247,8 @@
 
                     <h3 style="color:#1e3a5f; font-size:1rem; margin:18px 0 6px;">제3조 (처리하는 개인정보의 항목)</h3>
                     <p>① 서비스는 다음과 같은 개인정보 항목을 처리하고 있습니다.<br>
-                    <strong>[필수 항목]</strong> 이름, 이메일 주소, 비밀번호, 전화번호, 학교명, 졸업연도, 회원 유형(학생/졸업생/선생님)<br>
-                    <strong>[선택 항목]</strong> 전공, 학과명, 희망 직종, 프로필 사진, 자기소개<br>
+                    <strong>[필수 항목]</strong> 이름(또는 담당자명), 이메일 주소, 비밀번호, 전화번호, 학교명, 회원 유형(학생/졸업생/선생님/기업). 학생·졸업생은 졸업연도·전공·학과명. 기업은 기업명·협력 학교.<br>
+                    <strong>[선택 항목]</strong> 희망 직종, 업종·기업규모·웹사이트·소재지, 프로필 사진, 자기소개<br>
                     <strong>[자동 수집 항목]</strong> IP주소, 쿠키, 서비스 이용 기록, 접속 로그</p>
 
                     <h3 style="color:#1e3a5f; font-size:1rem; margin:18px 0 6px;">제4조 (개인정보의 제3자 제공)</h3>

@@ -23,7 +23,7 @@
 
 | Method | Path | Auth | v2 |
 |--------|------|------|----|
-| POST | `/register` | 공개 | `school_id` 필수(학생/교사). 기업은 별도 승인 플래그 검토 |
+| POST | `/register` | 공개 | `school_id` 필수(학생/교사/**기업**). 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert + `user_roles(company)` |
 | POST | `/login` | 공개 | JWT에 `school_id`, `role` |
 | GET | `/me` | 토큰 | 권한 목록 포함. `js/api.js` 로컬토큰 skip **삭제** |
 | POST | `/change-password` | 토큰 | v1 `auth` 미들웨어 누락 → **반드시 보호** |
@@ -146,6 +146,7 @@
 | GET | `/api/posts/reports` | COM-005 운영자 |
 | POST/DELETE | `/api/posts/:id/blind` | COM-005 운영자 |
 | GET/PUT | `/api/users/company-profile` | PLT-001 / B-LS |
+| POST | `/api/auth/register` (`user_type=company`) | IAM-006 — 기업 가입·프로필·학교 바인딩 |
 | POST | `/api/files` (multipart `file`) | COM-002/003 첨부 |
 | GET | `/api/jobs/scraps/me` | REC-002 |
 | POST/DELETE | `/api/jobs/:id/scrap` | REC-002 |

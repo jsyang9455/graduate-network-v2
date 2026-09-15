@@ -350,6 +350,12 @@ router.post('/', auth, checkRole('company', 'admin', 'teacher', 'school_admin'),
     if (isSystemAdmin(req.user) && school_id) {
       schoolId = school_id;
     }
+    if (!schoolId && !isSystemAdmin(req.user)) {
+      return res.status(400).json({
+        error: 'school_id is required for job posting',
+        code: 'VALIDATION',
+      });
+    }
 
     const colCheck = await query(
       `SELECT column_name FROM information_schema.columns

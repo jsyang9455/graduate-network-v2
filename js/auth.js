@@ -69,7 +69,9 @@ class AuthManager {
     menuCodeForHref(href) {
         if (!href) return null;
         const path = href.split('?')[0];
-        if (path.includes('admin-codes')) return 'schools';
+        if (path.includes('company-profile')) return 'jobs';
+    if (path.includes('applicant-detail')) return 'applications';
+    if (path.includes('admin-codes')) return 'schools';
         if (path.includes('admin-users')) return 'users';
         if (path.includes('admin-jobs') || path.includes('job-create') || path.includes('job-edit')) return 'jobs';
         if (path.includes('admin-board')) return 'community';

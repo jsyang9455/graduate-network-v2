@@ -16,6 +16,7 @@
             <ul class="nav-links">
                 <li><a href="dashboard.html">대시보드</a></li>
                 <li><a href="jobs.html">채용 정보</a></li>
+                <li><a href="job-create.html">공고 등록</a></li>
                 <li><a href="company-profile.html" class="active">기업 프로필</a></li>
             </ul>
             <div class="user-menu">
@@ -27,6 +28,7 @@
 
     <div class="profile-container">
         <h1>기업 프로필 관리</h1>
+        <p style="color:#6b7280; margin-bottom:1.25rem;">프로필은 서버 API에만 저장됩니다. (JWT 이외 LocalStorage 미사용)</p>
         <div id="companyProfileContent">
             <!-- Company profile content will be loaded dynamically -->
         </div>
@@ -34,5 +36,6 @@
 
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/company-profile.js"></script>
 </body>
 </html>

@@ -20,7 +20,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 |------|------|----|
 | 메인 | `index.html` | 학교 선택 불필요(로그인 후 소속). 현황은 `site_stats` |
 | 로그인 | `login.html` | 유지 |
-| 회원가입 | `register.html` | **Wave 1:** 학교 목록은 `GET /api/schools` select. LocalStorage `schools` 제거 |
+| 회원가입 | `register.html` | **Wave 1:** 학교 목록은 `GET /api/schools` select. LocalStorage `schools` 제거. **기업** 유형 선택 + 기업명·연락처·업종·협력학교. 가입 후 `company-profile.html` |
 | 도움말 | `help.html` | 역할별 섹션 보강 |
 
 ### 학생·졸업생
@@ -49,9 +49,9 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 | 화면 | 파일 | v2 |
 |------|------|----|
-| 공고 등록/수정 | `job-create.html`, `job-edit.html` | 직종·스킬 필드 |
+| 공고 등록/수정 | `job-create.html`, `job-edit.html` | 직종·스킬 필드. 기업 내비(프로필/공고 등록). 상태값 `active`/`closed`/`draft` |
 | 지원자 | `applicant-detail.html` | **Sprint 2:** 상태 머신 UI + `PATCH .../status` |
-| 기업 프로필 | `company-profile.html` | API만 |
+| 기업 프로필 | `company-profile.html` + `js/company-profile.js` | API만 (`GET/PUT /api/users/company-profile`) |
 
 ### 관리
 
@@ -95,7 +95,9 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 ### 기업: 공고 → 전형
 
-1. 공고 등록 → 지원자 목록 → 서류검토/면접/합격 변경 → 학생 알림
+1. `register.html`에서 기업 가입(협력 학교 선택) → 로그인/자동 세션 → `company-profile.html`
+2. 공고 등록(`job-create.html`) → 지원자 목록 → 서류검토/면접/합격 변경 → 학생 알림
+3. 대시보드 사이드바에 공고 등록·기업 프로필만 강조, 상담/경력 메뉴 숨김
 
 ### 학교관리자: 멀티스쿨 운영
 

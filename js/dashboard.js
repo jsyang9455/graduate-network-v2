@@ -69,12 +69,20 @@ function showDefaultDashboard() {
 }
 
 function hideStudentMenuItems() {
-    // Hide counseling and career menu items for company users
+    // Hide counseling / career / journal for company users; show company tools
     const counselingMenu = document.getElementById('counselingMenu');
     const careerMenu = document.getElementById('careerMenu');
-    
+    const journalMenu = document.getElementById('journalMenu');
+    const companyProfileMenu = document.getElementById('companyProfileMenu');
+    const companyJobCreateMenu = document.getElementById('companyJobCreateMenu');
+    const companyCounselingSection = document.getElementById('companyCounselingSection');
+
     if (counselingMenu) counselingMenu.style.display = 'none';
     if (careerMenu) careerMenu.style.display = 'none';
+    if (journalMenu) journalMenu.style.display = 'none';
+    if (companyProfileMenu) companyProfileMenu.style.display = '';
+    if (companyJobCreateMenu) companyJobCreateMenu.style.display = '';
+    if (companyCounselingSection) companyCounselingSection.style.display = 'none';
 }
 
 function hideCareerMenuForTeacher() {
