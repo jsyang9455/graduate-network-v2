@@ -199,6 +199,7 @@ describe('Persona E2E campaign (all roles)', { timeout: 180000 }, () => {
         school_id: schoolA.id,
         major: '기계과',
         phone: '010-1000-0001',
+        graduation_year: 2026,
       },
     });
     assert.equal(reg.status, 201, JSON.stringify(reg.data));
@@ -367,7 +368,7 @@ describe('Persona E2E campaign (all roles)', { timeout: 180000 }, () => {
     assert.equal(blocked.status, 403, JSON.stringify(blocked.data));
     assert.equal(blocked.data.code, 'COMPANY_NOT_APPROVED');
 
-    // Teacher cannot approve (policy: only school_admin/system_admin with users write)
+    // Teacher cannot approve by default (company_approval not granted until system_admin configures)
     tokens.teacher = tokens.teacher || await login(emails.teacher);
     const teacherTry = await jsonRequest('PATCH', `/api/users/${ids.company}/company-approval`, {
       token: tokens.teacher,

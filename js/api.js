@@ -241,6 +241,18 @@ const api = {
     },
   },
 
+  roles: {
+    async list() {
+      return api.get('/roles');
+    },
+    async getPermissions(code) {
+      return api.get(`/roles/${encodeURIComponent(code)}/permissions`);
+    },
+    async updatePermissions(code, permissions) {
+      return api.put(`/roles/${encodeURIComponent(code)}/permissions`, { permissions });
+    },
+  },
+
   // User APIs
   users: {
     async search(params) {

@@ -12,7 +12,7 @@
 | REQ-IAM-001 | P0 | 다수 학교를 등록·수정·비활성화할 수 있다 | 없음 (`school_name` 문자열, admin-codes는 LocalStorage `schools`) |
 | REQ-IAM-002 | P0 | 학교별 학과·반을 관리한다 | `majors` 테이블만 (전역, school_id 없음) |
 | REQ-IAM-003 | P0 | 학교별 관리자(부장교사=`school_admin`)를 지정한다 | `admin`만 존재 |
-| REQ-IAM-004 | P0 | 교사·학생은 소속 학교, 졸업생은 졸업학교에 귀속된다 | `users.school_name` 자유 입력 |
+| REQ-IAM-004 | P0 | 교사·학생은 소속 학교, **졸업생은 졸업(고등)학교 필수** 귀속. 재학생·졸업생 가입 시 **졸업년도(재학생=예정) 필수**. 비밀번호 최소 **8자**(UI·API 통일) | `users.school_name` 자유 입력 |
 | REQ-IAM-005 | P0 | 전입/전출 시 소속 `school_id`를 변경하고 이력을 남긴다 | 없음 |
 | REQ-IAM-006 | P0 | 역할: `system_admin` / `school_admin` / `teacher` / `student` / `graduate` / `company` | `user_type` 5종. system/school 미분리 |
 | REQ-IAM-007 | P0 | 사용자–역할 매핑(복수 역할 가능 여부는 설계에서 1인 1주역할 + 위임) | 1인 1 `user_type` |
@@ -36,6 +36,9 @@
 | 커뮤니티 | 관리 | 관리 | 쓰기 | 쓰기 | – |
 | 메시지 발송 | 관리 | 쓰기 | – | – | – |
 | 통계 | 관리 | 읽기 | 읽기 | – | – |
+| **기업 승인** (`company_approval`) | 관리 | 쓰기 | –(기본) | – | – |
+
+기업 승인 메뉴는 시스템 관리자가 `PUT /api/roles/:code/permissions`로 역할별 부여·회수 가능(기본: school_admin·system_admin). 학교 범위는 유지.
 
 상담기록은 담당교사·해당 학교 관리자만 열람 (민감정보). 매트릭스의 「상담 관리=system_admin 읽기」는 운영 정책으로 마스킹/제한 가능.
 
@@ -109,7 +112,7 @@ P2가 닫혀 있어도 **인앱 알림**(`notifications`)과 발송 추상 인�
 | REQ-JOB-004 | P0 | 상태 변경 시 알림 (인앱 필수, 알림톡은 P2) | 없음 |
 | REQ-JOB-005 | P0 | 이력서 PDF 첨부 연계 | `resume_url`만 |
 | REQ-JOB-006 | P0 | 학생별 지원 현황, 취업률·지원 통계 대시보드 | 일부 stats/applications |
-| REQ-JOB-007 | P1 | 기업 공개 가입 후 **학교 승인 전**에는 로그인·프로필 수정만 가능, 채용 공고 등록 불가. 승인은 소속 `school_admin`/`system_admin`(users write). 타교 승인 금지 | 없음 |
+| REQ-JOB-007 | P1 | 기업 공개 가입 후 **학교 승인 전**에는 로그인·프로필 수정만 가능, 채용 공고 등록 불가. 승인은 `company_approval` 메뉴 권한(기본 school_admin/system_admin; 시스템 관리자가 역할별 설정). 타교 승인 금지. **null `school_id` 기업·공고는 전역 노출하지 않음** | 없음 |
 
 ### 1.8 취업 추천
 

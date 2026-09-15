@@ -185,7 +185,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (data.userType === 'student' || data.userType === 'graduate') {
             if (!data.phone || !data.graduationYear) {
-                showError('필수 항목을 모두 입력해주세요. (전화번호, 졸업년도)');
+                showError(data.userType === 'student'
+                    ? '필수 항목을 모두 입력해주세요. (전화번호, 졸업년도(예정))'
+                    : '필수 항목을 모두 입력해주세요. (전화번호, 졸업년도)');
                 return false;
             }
             if (!data.major) {

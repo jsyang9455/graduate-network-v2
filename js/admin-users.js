@@ -120,13 +120,20 @@ function displayUsers(userList) {
     
     tbody.innerHTML = pageUsers.map((user, index) => {
         const index2 = start + index;
-        const userTypeLabel = {
-            'student': '학생',
-            'graduate': '졸업생',
-            'teacher': '교사',
-            'company': '기업',
-            'admin': '관리자'
-        }[user.user_type] || user.user_type;
+        const userTypeLabel = (window.RoleLabels
+            ? RoleLabels.displayRoleLabel(user.user_type)
+            : ({
+                'student': '학생',
+                'graduate': '졸업생',
+                'teacher': '교사',
+                'company': '기업',
+                'admin': '시스템 관리자',
+                'system_admin': '시스템 관리자',
+                'school_admin': '학교 관리자',
+            }[user.user_type] || user.user_type));
+        const badgeKey = (window.RoleLabels
+            ? RoleLabels.displayRoleBadgeKey(user.user_type)
+            : (user.user_type === 'admin' ? 'system_admin' : user.user_type));
         
         const joinDate = user.created_at ? new Date(user.created_at).toLocaleDateString('ko-KR') : '-';
         const withdrawnDate = user.withdrawn_at ? new Date(user.withdrawn_at).toLocaleDateString('ko-KR') : '-';
@@ -138,7 +145,7 @@ function displayUsers(userList) {
         const counselorBadge = (user.user_type === 'teacher' && user.is_counselor)
             ? ' <span style="background:#dcfce7;color:#166534;font-size:0.72rem;padding:1px 6px;border-radius:10px;font-weight:600;">상담교사</span>'
             : '';
-        const displayTypeLabel = `<span class="badge badge-${user.user_type}">${userTypeLabel}</span>${counselorBadge}`;
+        const displayTypeLabel = `<span class="badge badge-${badgeKey}">${userTypeLabel}</span>${counselorBadge}`;
 
         if (currentView === 'withdrawn') {
             return `

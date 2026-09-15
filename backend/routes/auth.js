@@ -113,7 +113,7 @@ async function upsertCompanyProfile(userId, body = {}) {
 // Register — public types only (REQ-IAM-006/007; no open admin)
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
+  body('password').isLength({ min: 8 }),
   body('name').trim().isLength({ min: 2 }),
   body('user_type').isIn(['student', 'graduate', 'teacher', 'company'])
 ], async (req, res) => {
@@ -134,6 +134,7 @@ router.post('/register', [
       return sendError(res, 403, 'FORBIDDEN', '해당 역할로 공개 가입할 수 없습니다');
     }
 
+    // Graduate/student/teacher/company: high school (학교) required
     const needsSchool = ['student', 'graduate', 'teacher', 'company'].includes(user_type);
     let school = null;
     if (needsSchool || school_id || school_name) {
@@ -142,7 +143,22 @@ router.post('/register', [
         return sendError(res, 400, 'VALIDATION',
           user_type === 'company'
             ? '게시 대상(협력) 학교를 선택해주세요'
-            : '소속 학교를 선택해주세요');
+            : user_type === 'graduate'
+              ? '졸업(고등학교) 학교를 선택해주세요'
+              : '소속 학교를 선택해주세요');
+      }
+    }
+
+    // Student + graduate: graduation year (expected for students) required
+    if (user_type === 'student' || user_type === 'graduate') {
+      const gy = graduation_year != null && graduation_year !== ''
+        ? Number(graduation_year)
+        : NaN;
+      if (!Number.isFinite(gy) || gy < 1980 || gy > 2040) {
+        return sendError(res, 400, 'VALIDATION',
+          user_type === 'student'
+            ? '졸업년도(예정)를 입력해주세요'
+            : '졸업년도를 입력해주세요');
       }
     }
 
@@ -369,8 +385,8 @@ router.post('/change-password', auth, async (req, res) => {
       return sendError(res, 400, 'VALIDATION', 'Both passwords required');
     }
 
-    if (newPassword.length < 6) {
-      return sendError(res, 400, 'VALIDATION', 'New password must be at least 6 characters');
+    if (newPassword.length < 8) {
+      return sendError(res, 400, 'VALIDATION', 'New password must be at least 8 characters');
     }
 
     const result = await query(

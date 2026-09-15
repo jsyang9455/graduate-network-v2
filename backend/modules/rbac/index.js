@@ -15,6 +15,7 @@ const LEGACY_MATRIX = {
   system_admin: {
     schools: ['manage', 'write', 'read', 'apply'],
     users: ['manage', 'write', 'read', 'apply'],
+    company_approval: ['manage', 'write', 'read', 'apply'],
     resumes: ['read'],
     counseling: ['read'],
     jobs: ['manage', 'write', 'read', 'apply'],
@@ -28,6 +29,7 @@ const LEGACY_MATRIX = {
   school_admin: {
     schools: ['write', 'read', 'apply'],
     users: ['write', 'read', 'apply'],
+    company_approval: ['write', 'read', 'apply'],
     resumes: ['read'],
     counseling: ['manage', 'write', 'read', 'apply'],
     jobs: ['write', 'read', 'apply'],

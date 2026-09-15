@@ -1606,7 +1606,8 @@
     color: white;
 }
 
-.badge-admin {
+.badge-admin,
+.badge-system_admin {
     background: #8b5cf6;
     color: white;
 }
@@ -2368,6 +2369,11 @@
 }
 
 .badge-admin {
+    background: #f3e8ff;
+    color: #6b21a8;
+}
+
+.badge-system_admin {
     background: #f3e8ff;
     color: #6b21a8;
 }

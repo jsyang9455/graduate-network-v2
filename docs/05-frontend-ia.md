@@ -57,13 +57,13 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 | 화면 | 파일 | v2 |
 |------|------|----|
-| 회원 | `admin-users.html` | school_admin은 소속만, 전입/전출, 역할 지정. **기업 승인 탭**: pending 목록 → 승인/반려 (`PATCH .../company-approval`) |
+| 회원 | `admin-users.html` | school_admin은 소속만, 전입/전출, 역할 지정. **기업 승인 탭**: pending 목록 → 승인/반려 (`PATCH .../company-approval`). v1 `admin` 표시명 → **시스템 관리자** |
 | 공고 | `admin-jobs.html` | **Sprint 1:** LocalStorage `jobPostings` 폴백 삭제. `/api/jobs`만 |
 | 게시판 | `admin-board.html` | API만. Sprint 5: 블라인드 버튼(`include_blinded`) |
 | 공지/행사 | `admin-announcements.html` | 견학 모듈과 정렬 |
 | 코드 | `admin-codes.html` | **Wave 1:** `GET/POST/PATCH /api/schools`. 비활성화만(하드 삭제 없음). LocalStorage 삭제 |
 | (신규) 학교 관리 | `admin-schools.html` | system_admin |
-| (신규) 권한 매트릭스 | `admin-permissions.html` | system_admin |
+| **권한 매트릭스** | `admin-permissions.html` | system_admin — 역할별 `company_approval` 부여/회수 |
 | (신규) 워크넷 | `admin-worknet.html` | 동기화·로그 |
 | (신규) 메시지 | `admin-messages.html` | P2 또는 인앱 브로드캐스트 |
 | (신규) 감사 로그 | `admin-audit.html` | |

@@ -38,9 +38,11 @@ const notificationRoutes = require('./routes/notifications');
 const recommendationRoutes = require('./routes/recommendations');
 const fieldTripRoutes = require('./routes/field-trips');
 const worknetRoutes = require('./routes/worknet');
+const roleRoutes = require('./routes/roles');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/networking', networkingRoutes);
 app.use('/api/counseling', counselingRoutes);
@@ -81,6 +83,7 @@ app.get('/', (req, res) => {
       jobs: '/api/jobs',
       schools: '/api/schools',
       me: '/api/me/permissions',
+      roles: '/api/roles',
       auditLogs: '/api/audit-logs',
       resumes: '/api/resumes',
       files: '/api/files',

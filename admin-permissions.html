@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>권한 매트릭스 - 시스템 관리자</title>
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-menu">
+                <a href="dashboard.html" class="menu-item">
+                    <span class="icon">🏠</span>
+                    <span>대시보드</span>
+                </a>
+                <div style="border-top: 1px solid #e5e7eb; margin: 1rem 0; padding-top: 1rem;">
+                    <p style="padding: 0 1rem; color: #6b7280; font-size: 0.875rem; font-weight: 600;">관리자 메뉴</p>
+                </div>
+                <a href="admin-users.html" class="menu-item" data-menu="users">
+                    <span class="icon">👥</span>
+                    <span>회원 관리</span>
+                </a>
+                <a href="admin-permissions.html" class="menu-item active" data-menu="schools">
+                    <span class="icon">🔐</span>
+                    <span>권한 매트릭스</span>
+                </a>
+                <a href="admin-jobs.html" class="menu-item" data-menu="jobs">
+                    <span class="icon">💼</span>
+                    <span>채용공고 관리</span>
+                </a>
+                <a href="admin-codes.html" class="menu-item" data-menu="schools">
+                    <span class="icon">⚙️</span>
+                    <span>코드 관리</span>
+                </a>
+            </div>
+            <div class="sidebar-footer">
+                <button onclick="auth.logout()" class="btn-logout">로그아웃</button>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <header class="content-header">
+                <h1>권한 매트릭스</h1>
+                <div class="user-info">
+                    <span id="userName"></span>
+                </div>
+            </header>
+
+            <div class="admin-content">
+                <p style="color:#4b5563; margin-bottom:1rem;">
+                    기업 승인(<code>company_approval</code>) 권한을 역할별로 부여·회수합니다.
+                    학교 범위는 그대로 적용됩니다 (타교 승인 불가). 시스템 관리자 역할은 변경할 수 없습니다.
+                </p>
+                <p id="permStatus" style="margin-bottom:1rem; font-size:0.9rem;"></p>
+
+                <div class="users-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>역할</th>
+                                <th style="text-align:center;">목록 읽기</th>
+                                <th style="text-align:center;">승인/반려</th>
+                                <th>저장</th>
+                            </tr>
+                        </thead>
+                        <tbody id="permTableBody">
+                            <tr><td colspan="4" style="text-align:center;padding:2rem;color:#6b7280;">불러오는 중…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/role-labels.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin-permissions.js"></script>
+</body>
+</html>

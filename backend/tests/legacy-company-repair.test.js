@@ -1,8 +1,7 @@
 'use strict';
 
 /**
- * Regression: legacy company seed without profile / school_id
- * (TEST-ACCOUNTS company@jjob.com gap found in persona E2E campaign)
+ * Regression: DX company@jjob.com profile repair (018 revised — no mass Jeonju bind)
  * REQ-JOB-007 / REQ-IAM-004
  */
 process.env.JWT_SECRET = process.env.JWT_SECRET || 'legacy-company-repair-secret';
@@ -41,16 +40,11 @@ async function jsonRequest(method, pathName, { token, body } = {}) {
   return { status: res.status, data };
 }
 
-describe('Legacy company seed repair (018)', { timeout: 120000 }, () => {
+describe('Legacy company seed repair (018 revised)', { timeout: 120000 }, () => {
   let userId;
 
   before(async () => {
     await applyPendingMigrations();
-    const school = await query(
-      `SELECT id, name FROM schools WHERE status = 'active'
-       ORDER BY CASE WHEN name = '전주공업고등학교' THEN 0 ELSE 1 END, id LIMIT 1`
-    );
-    assert.ok(school.rows.length, 'need an active school');
 
     const hash = await bcrypt.hash(PASSWORD, 10);
     const user = await query(
@@ -59,17 +53,12 @@ describe('Legacy company seed repair (018)', { timeout: 120000 }, () => {
       [EMAIL, hash]
     );
     userId = user.rows[0].id;
-
-    // Simulate broken TEST-ACCOUNTS state: company user, no profile, null school
     await query(`DELETE FROM company_profiles WHERE user_id = $1`, [userId]);
 
-    // Re-apply repair SQL body (idempotent fragment from 018)
     const repairSql = fs.readFileSync(
       path.join(__dirname, '../../database/migrations/018_v2_legacy_company_seed_repair.sql'),
       'utf8'
     );
-    // Strip is not needed — applyPendingMigrations already ran 018 once;
-    // re-run the statements for this orphan (same SQL is safe).
     await pool.query(repairSql);
 
     server = await new Promise((resolve) => {
@@ -86,9 +75,9 @@ describe('Legacy company seed repair (018)', { timeout: 120000 }, () => {
     await query(`DELETE FROM users WHERE id = $1`, [userId]);
   });
 
-  test('null school_id company is bound to default school after repair', async () => {
+  test('018 does not mass-bind arbitrary null-school company to Jeonju', async () => {
     const row = await query(`SELECT school_id FROM users WHERE id = $1`, [userId]);
-    assert.ok(row.rows[0].school_id, 'school_id should be set');
+    assert.equal(row.rows[0].school_id, null);
   });
 
   test('company@jjob.com DX: if present, has approved profile (018)', async () => {
@@ -98,16 +87,12 @@ describe('Legacy company seed repair (018)', { timeout: 120000 }, () => {
        LEFT JOIN company_profiles cp ON cp.user_id = u.id
        WHERE u.email = 'company@jjob.com'`
     );
-    if (!row.rows.length) {
-      // optional fixture — skip when not seeded
-      return;
-    }
-    assert.ok(row.rows[0].school_id);
+    if (!row.rows.length) return;
+    assert.ok(row.rows[0].school_id, 'DX account may have explicit school');
     assert.equal(row.rows[0].approval_status, 'approved');
   });
 
   test('GET /company-profile returns NOT_FOUND code when still missing', async () => {
-    // Our repaired orphan may still lack profile (018 only inserts for company@jjob.com)
     const login = await jsonRequest('POST', '/api/auth/login', {
       body: { email: EMAIL, password: PASSWORD },
     });
@@ -115,7 +100,6 @@ describe('Legacy company seed repair (018)', { timeout: 120000 }, () => {
     const get = await jsonRequest('GET', '/api/users/company-profile', {
       token: login.data.token,
     });
-    // After school bind only — profile still missing unless we upsert
     if (get.status === 404) {
       assert.equal(get.data.code, 'NOT_FOUND');
     } else {
@@ -123,7 +107,13 @@ describe('Legacy company seed repair (018)', { timeout: 120000 }, () => {
     }
   });
 
-  test('PUT profile then school-bound approved path: pending cannot post until approved', async () => {
+  test('null-school company can PUT profile (pending) but cannot post job', async () => {
+    // Assign school explicitly then test approval gate
+    const school = await query(
+      `SELECT id FROM schools WHERE status = 'active' ORDER BY id LIMIT 1`
+    );
+    await query(`UPDATE users SET school_id = $1 WHERE id = $2`, [school.rows[0].id, userId]);
+
     const login = await jsonRequest('POST', '/api/auth/login', {
       body: { email: EMAIL, password: PASSWORD },
     });

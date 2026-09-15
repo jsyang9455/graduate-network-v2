@@ -132,8 +132,8 @@ router.get('/company-profile', auth, async (req, res) => {
   }
 });
 
-// List companies for school admins (REQ-JOB-007) — before /:id
-router.get('/companies', auth, authorize('users', 'read'), schoolScope, async (req, res) => {
+// List companies for approvers (REQ-JOB-007) — company_approval read (configurable)
+router.get('/companies', auth, authorize('company_approval', 'read'), schoolScope, async (req, res) => {
   try {
     const statusFilter = req.query.approval_status
       ? String(req.query.approval_status).trim()
@@ -642,8 +642,8 @@ router.get('/', auth, schoolScope, async (req, res) => {
   }
 });
 
-// Company approval (REQ-JOB-007) — school_admin / system_admin with users write
-router.patch('/:id/company-approval', auth, authorize('users', 'write'), schoolScope, async (req, res) => {
+// Company approval (REQ-JOB-007) — role with company_approval write (default school/system admin)
+router.patch('/:id/company-approval', auth, authorize('company_approval', 'write'), schoolScope, async (req, res) => {
   try {
     const targetId = parseInt(req.params.id, 10);
     const status = String(req.body.status || '').trim();

@@ -25,8 +25,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Show admin menu if user is admin
-    if (user && user.user_type === 'admin') {
+    // Show admin menu if user is system/school admin
+    if (user && auth.isStaffAdmin(user)) {
         const adminMenuSection = document.getElementById('adminMenuSection');
         if (adminMenuSection) {
             adminMenuSection.style.display = 'block';
@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Current user:', user);
     console.log('User type:', user ? user.user_type : 'none');
     
-    if (user && user.user_type === 'admin') {
+    if (user && auth.isSystemAdmin(user)) {
         showAdminDashboard();
     } else if (user && user.user_type === 'company') {
         showCompanyDashboard();
@@ -192,7 +192,7 @@ function showAdminDashboard() {
     const welcomeMessage = document.getElementById('welcomeMessage');
     if (welcomeMessage) {
         const user = auth.getCurrentUser();
-        welcomeMessage.textContent = `환영합니다, ${user.name} 관리자님!`;
+        welcomeMessage.textContent = `환영합니다, ${user.name} 시스템 관리자님!`;
     }
     
     // Load admin dashboard data

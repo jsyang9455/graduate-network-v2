@@ -1,35 +1,12 @@
--- Repair legacy / TEST-ACCOUNTS company rows after REQ-JOB-007.
--- Idempotent. Does not invent product policy for production companies:
--- only binds null school_id to the default active school and ensures
--- documented DX test account company@jjob.com has an approved profile.
+-- Repair DX TEST-ACCOUNTS company row after REQ-JOB-007.
+-- Idempotent.
+--
+-- Policy (2026-09-15): Do NOT mass-bind null-school companies to 전주공업고등학교.
+-- Leave school_id NULL until explicitly assigned (signup or admin).
+-- See migration 019 for undo of any prior mass-bind + company_approval menu.
+-- This migration only ensures documented DX account company@jjob.com has an approved profile.
 
--- 1) Bind company users with null school_id → first active school (전주공업고 preferred)
-UPDATE users u
-SET school_id = s.id,
-    school_name = COALESCE(u.school_name, s.name),
-    updated_at = CURRENT_TIMESTAMP
-FROM (
-  SELECT id, name FROM schools
-  WHERE status = 'active'
-  ORDER BY CASE WHEN name = '전주공업고등학교' THEN 0 ELSE 1 END, id
-  LIMIT 1
-) s
-WHERE u.user_type = 'company'
-  AND u.school_id IS NULL
-  AND u.is_active = true;
-
--- 2) Align user_roles.school_id for company role when still null
-UPDATE user_roles ur
-SET school_id = u.school_id
-FROM users u, roles r
-WHERE ur.user_id = u.id
-  AND r.id = ur.role_id
-  AND r.code = 'company'
-  AND u.user_type = 'company'
-  AND ur.school_id IS NULL
-  AND u.school_id IS NOT NULL;
-
--- 3) DX test account: ensure company_profiles exists and is approved (TEST-ACCOUNTS.md)
+-- DX test account: ensure company_profiles exists and is approved (TEST-ACCOUNTS.md)
 INSERT INTO company_profiles (
   user_id, company_name, industry, company_size, website, description, founded_year,
   approval_status, approved_at
@@ -50,3 +27,28 @@ FROM users u
 WHERE cp.user_id = u.id
   AND u.email = 'company@jjob.com'
   AND COALESCE(cp.approval_status, 'pending') <> 'approved';
+
+-- DX: explicit school assignment when still null (first active school — not Jeonju-forced)
+UPDATE users u
+SET school_id = s.id,
+    school_name = COALESCE(NULLIF(u.school_name, ''), s.name),
+    updated_at = CURRENT_TIMESTAMP
+FROM (
+  SELECT id, name FROM schools
+  WHERE status = 'active'
+  ORDER BY id
+  LIMIT 1
+) s
+WHERE u.email = 'company@jjob.com'
+  AND u.user_type = 'company'
+  AND u.school_id IS NULL;
+
+UPDATE user_roles ur
+SET school_id = u.school_id
+FROM users u, roles r
+WHERE ur.user_id = u.id
+  AND r.id = ur.role_id
+  AND r.code = 'company'
+  AND u.email = 'company@jjob.com'
+  AND ur.school_id IS NULL
+  AND u.school_id IS NOT NULL;

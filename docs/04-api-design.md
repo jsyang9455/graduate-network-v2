@@ -10,7 +10,7 @@
 | Prefix | `/api` (호환). 신규도 `/api/...` additive |
 | 페이지 | `page`, `limit` (v1 jobs와 동일) |
 | 테넌시 | 미들웨어가 `school_id` 주입. 클라이언트가 타교 id를 넣어도 무시/403 |
-| 권한 | `authorize(menu, action)` — 메뉴 코드는 `schools`, `users`, `resumes`, `counseling`, `jobs`, `applications`, `recommendations`, `field_trips`, `community`, `messages`, `stats` |
+| 권한 | `authorize(menu, action)` — 메뉴 코드는 `schools`, `users`, `company_approval`, `resumes`, `counseling`, `jobs`, `applications`, `recommendations`, `field_trips`, `community`, `messages`, `stats` |
 | 성공 | 기존 키 유지 (`jobs`, `user`, `token` 등) + 필요 시 `data` |
 
 표준 코드: `UNAUTHENTICATED` 401, `FORBIDDEN` 403, `NOT_FOUND` 404, `VALIDATION` 400, `CONFLICT` 409, `NOT_CONFIGURED` 503 (워크넷/알림톡 키 없음), `INTERNAL` 500.
@@ -23,10 +23,10 @@
 
 | Method | Path | Auth | v2 |
 |--------|------|------|----|
-| POST | `/register` | 공개 | `school_id` 필수(학생/교사/**기업**). 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert(`approval_status=pending`) + `user_roles(company)` |
+| POST | `/register` | 공개 | `school_id` 필수(학생/**졸업생**/교사/**기업**). 학생·졸업생은 `graduation_year` 필수(재학생=예정). 비밀번호 **최소 8자**. 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert(`approval_status=pending`) + `user_roles(company)` |
 | POST | `/login` | 공개 | JWT에 `school_id`, `role` |
 | GET | `/me` | 토큰 | 권한 목록 포함. `js/api.js` 로컬토큰 skip **삭제** |
-| POST | `/change-password` | 토큰 | v1 `auth` 미들웨어 누락 → **반드시 보호** |
+| POST | `/change-password` | 토큰 | 새 비밀번호 **최소 8자**. v1 `auth` 미들웨어 누락 → **반드시 보호** |
 
 ### Users `/api/users`
 
@@ -44,7 +44,7 @@
 
 | Method | Path | v2 |
 |--------|------|----|
-| GET | `/` | `source=internal\|worknet\|all`, school 필터 |
+| GET | `/` | `source=internal\|worknet\|all`, **동일 `school_id`만** (null-school 공고 전역 노출 금지). system_admin은 전체 |
 | POST | `/` | 가드 | 기업(`user_type=company`)은 `company_profiles.approval_status=approved` 필수. 아니면 **403 `COMPANY_NOT_APPROVED`**. 교사/school_admin/system_admin 대행 등록은 승인 검사 생략 |
 | GET/PUT/DELETE | `/:id` | 가드 | 미승인 기업의 PUT/DELETE도 `COMPANY_NOT_APPROVED` |
 | POST | `/:id/apply` | `resume_id` 수용 (소유 이력서만). 없으면 대표 이력서 자동 첨부 |
@@ -80,7 +80,8 @@
 | GET/PATCH | `/api/schools/:id` | system / 해당 school_admin | IAM-001 |
 | GET/POST | `/api/schools/:id/departments` | school 쓰기 | IAM-002 |
 | GET | `/api/me/permissions` | 로그인 | IAM-008 |
-| GET/PUT | `/api/roles/:code/permissions` | system 관리 | IAM-008 |
+| GET/PUT | `/api/roles/:code/permissions` | system 관리 (`schools` manage) | IAM-008 — 기업 승인(`company_approval`) 등 역할별 부여/회수 |
+| GET | `/api/roles` | system 관리 | IAM-008 — 역할+권한 요약 |
 | POST | `/api/users/:id/roles` | 회원 관리 | IAM-007 |
 | POST | `/api/users/:id/transfer` | 회원 관리 | IAM-005 |
 | GET | `/api/audit-logs` | system/school 관리 | IAM-010 |
@@ -147,8 +148,8 @@
 | GET | `/api/posts/reports` | COM-005 운영자 |
 | POST/DELETE | `/api/posts/:id/blind` | COM-005 운영자 |
 | GET/PUT | `/api/users/company-profile` | PLT-001 / B-LS — 응답에 `approval_status` 포함. PUT은 프로필 필드만(승인 상태 변경 불가) |
-| GET | `/api/users/companies` | JOB-007 — `?approval_status=pending\|approved\|rejected`. `authorize(users,read)` + school scope |
-| PATCH | `/api/users/:id/company-approval` | JOB-007 — body `{ status: approved\|rejected\|pending, rejection_reason? }`. `authorize(users,write)` + 동일교만(타교 403). 감사 로그 |
+| GET | `/api/users/companies` | JOB-007 — `?approval_status=pending\|approved\|rejected`. `authorize(company_approval,read)` + school scope |
+| PATCH | `/api/users/:id/company-approval` | JOB-007 — body `{ status: approved\|rejected\|pending, rejection_reason? }`. `authorize(company_approval,write)` + 동일교만(타교 403). 감사 로그. 기본 부여: school_admin/system_admin; 시스템 관리자가 역할별 설정 |
 | POST | `/api/auth/register` (`user_type=company`) | IAM-006 / JOB-007 — 기업 가입·프로필(`pending`)·학교 바인딩 |
 | POST | `/api/files` (multipart `file`) | COM-002/003 첨부 |
 | GET | `/api/jobs/scraps/me` | REC-002 |
@@ -180,7 +181,7 @@
 - Sprint 4 구현: `GET /api/recommendations/me`, `POST /api/recommendations/recompute`, `POST /api/recommendations/feedback`; `GET/POST /api/field-trips`, `GET/PUT /api/field-trips/:id`, `POST /api/field-trips/:id/apply`, `PATCH /api/field-trips/applications/:id`, `GET /api/field-trips/:id/roster`, `PATCH /api/field-trips/:id/attendance`; networking mentors/connect schoolScope. 워크넷·알림톡 실연동 없음.
 - Sprint 5 구현: `GET /api/posts/categories`, `GET /api/posts?sort=popular`, scrap/report/blind, `GET/PUT /api/users/company-profile`. 워크넷·알림톡 실연동 없음.
 - Sprint 6 구현: `GET /api/recommendations/associated` (REC-002), `POST/DELETE /api/jobs/:id/scrap`, posts `tags`/`file_ids` + `?tag=`, `POST /api/files`, `GET/PUT /api/field-trips/:id/report`, `GET /api/worknet/status` 스텁. 워크넷·알림톡 실연동 없음.
-- 기업 승인(REQ-JOB-007): register → `company_profiles.approval_status=pending`; `GET /api/users/companies`, `PATCH /api/users/:id/company-approval`; `POST /api/jobs` 미승인 시 `COMPANY_NOT_APPROVED`. 기존 기업 행은 마이그레이션에서 `approved` 백필.
+- 기업 승인(REQ-JOB-007): register → `company_profiles.approval_status=pending`; `GET /api/users/companies`, `PATCH /api/users/:id/company-approval` (`company_approval` 메뉴); `POST /api/jobs` 미승인 시 `COMPANY_NOT_APPROVED`. null `jobs.school_id`는 목록·상세에서 학교 사용자에게 비노출(system_admin·소유 기업만). 레거시 null-school 기업은 전주공고 자동 바인딩하지 않음(마이그레이션 018 개정 + 019).
 
 ## 5. OpenAPI
 

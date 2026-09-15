@@ -112,6 +112,7 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
     if (server) await new Promise((resolve) => server.close(resolve));
     await query(`DELETE FROM jobs WHERE company_id IN (SELECT id FROM users WHERE email = $1)`, [EMAIL_CO]);
     await query(`DELETE FROM company_profiles WHERE user_id IN (SELECT id FROM users WHERE email = $1)`, [EMAIL_CO]);
+    await query(`DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`, [[EMAIL_CO, EMAIL_SA, EMAIL_SB]]);
     await query(`DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`, [[EMAIL_CO, EMAIL_SA, EMAIL_SB]]);
     await query(`DELETE FROM users WHERE email = ANY($1::text[])`, [[EMAIL_CO, EMAIL_SA, EMAIL_SB]]);
   });

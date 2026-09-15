@@ -172,7 +172,7 @@ async function loadActiveJobsForSchool(schoolId) {
     `SELECT id, title, description, requirements, location, job_type, experience_level,
             deadline, school_id, created_at, status
      FROM jobs
-     WHERE status = 'active' AND (school_id = $1 OR school_id IS NULL)`,
+     WHERE status = 'active' AND school_id = $1`,
     [schoolId]
   );
   return result.rows;
@@ -324,7 +324,7 @@ async function associatedForUser(userId, { limit = 10 } = {}) {
      FROM agg a
      JOIN jobs j ON j.id = a.job_id AND j.status = 'active'
      LEFT JOIN users u ON u.id = j.company_id
-     WHERE ($3::int IS NULL OR j.school_id IS NULL OR j.school_id = $3)
+     WHERE ($3::int IS NULL OR j.school_id = $3)
      ORDER BY a.support DESC, a.job_id DESC
      LIMIT $4`,
     [seedIds, userId, schoolId, limit]

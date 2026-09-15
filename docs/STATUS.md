@@ -1,8 +1,8 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-15  
-현재 단계: **Sprint 7+ / 페르소나 E2E 캠페인**  
-전체 P0 구현: **약 68%** (Wave 1–Sprint 6 + Sprint 7 QA/NFR + 기업 signup/승인 + **전 페르소나 E2E**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
+현재 단계: **Sprint 7+ / 정책 결정 반영 (페르소나 E2E Q1–Q7)**  
+전체 P0 구현: **약 70%** (Wave 1–Sprint 6 + Sprint 7 + 기업 승인 + **정책 Q1–Q7**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
 
 ## Gates (학교 제공물)
 
@@ -39,16 +39,16 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | Sprint 5 | COM P0·B-LS·persona smoke | backend + api + frontend + qa | 85 | done-ish |
 | Sprint 6 | REC-002·COM-002·스크랩 UI·사후보고 | backend + api + frontend + qa | 85 | done-ish (브라우저 DoD → Sprint7) |
 | Sprint 7 | QA hardening · NFR-010 · UAT | qa (+ nfr) | 90 | done-ish |
-| 4 | 테스트·UAT·보안 | qa | 95 | in-progress (API **86/86** + persona E2E 캠페인 보고서) |
+| 4 | 테스트·UAT·보안 | qa | 97 | in-progress (정책 Q1–Q7 + persona E2E) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 95 | 기업 승인 school 범위 |
-| IAM API·OpenAPI | api | 95 | company register + approval 계약 |
-| 권한 메뉴·schools UI | frontend | 93 | 기업 승인 UI + UI/CSS QA + **모바일 햄버거/드로어** (+ `help.html` 공유 헤더, `docs/qa/mobile-nav.md`) |
+| 멀티스쿨 스키마/가드 | backend | 97 | null-school 공고 비노출; 018/019 정책 |
+| IAM API·OpenAPI | api | 97 | roles permissions + company_approval + PW8 |
+| 권한 메뉴·schools UI | frontend | 95 | admin-permissions + 시스템 관리자 표기 |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |
@@ -57,7 +57,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 견학 모듈 | backend/frontend | 80 | 사후 보고 API+industry-visit UI |
 | 커뮤니티 고도화 | api/frontend | 75 | COM-002 태그·첨부·스크랩 UI |
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
-| QA 스위트 | qa | 98 | persona-e2e-campaign + legacy-company-repair → **86/86** |
+| QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
 
 ## Blockers
@@ -84,24 +84,36 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 
 ## Persona E2E 캠페인 (2026-09-15)
 
-- 전 페르소나(student/graduate/teacher/company/school_admin/system_admin←admin) API 캠페인: `backend/tests/persona-e2e-campaign.test.js`
-- 보고서: [docs/qa/persona-e2e-report.md](qa/persona-e2e-report.md)
-- 버그 수정: DX `company@jjob.com` 프로필 누락·`school_id` null → 마이그레이션 **018** + test-accounts 정렬 + `company-profile` 404 `code`
-- 전체 테스트 **86/86**. Puppeteer UI는 Chrome 미설치로 스킵(API 스모크 OK). IDE register UI(기업 유형) 확인
-- **정책 확인 요청**(발명 금지 — Architect/사용자 회신 대기): 교사 기업승인 여부, 졸업생 무학교 가입, 재학생 졸업년도 필수, PW 8 vs 6, 레거시 null school 바인딩, null school 공고 전역 노출, admin 표기
+- 전 페르소나 API 캠페인: `backend/tests/persona-e2e-campaign.test.js`
+- 정책 회귀: `backend/tests/policy-decisions.test.js`
+- 보고서: [docs/qa/persona-e2e-report.md](qa/persona-e2e-report.md) — **§5 Q1–Q7 해결됨**
+- 마이그레이션 **019** (`company_approval` + 전주공고 일괄 바인딩 되돌림). **018**은 DX만
+- Puppeteer UI는 Chrome 미설치로 스킵
+
+## 정책 결정 구현 (2026-09-15)
+
+| 항목 | 결정 | 구현 |
+|------|------|------|
+| 기업 승인 권한 | system_admin 설정 가능 | 메뉴 `company_approval`, `GET/PUT /api/roles`, `admin-permissions.html` |
+| 졸업생 학교 | 고등학교 필수 | register API+UI |
+| 재학생 졸업년도 | 예정 필수 | register API+UI |
+| 비밀번호 | 최소 8자 | auth register/change-password |
+| 레거시 null school | 전주공고 자동 바인딩 **금지** | 018 개정 + 019 |
+| null-school 공고 | 전역 노출 **금지** | `jobAccess` |
+| v1 `admin` 표기 | 시스템 관리자 | `js/role-labels.js` + badges |
 
 ```
-Handoff: qa → architect
-REQ: REQ-IAM-006/009, REQ-JOB-007, REQ-PLT-002
-Need: 정책 Q1–Q7 회신 (보고서 §5); optional Chrome Puppeteer
-Done: persona E2E 86/86, 018 repair, report+STATUS
+Handoff: backend+api+frontend+qa → architect
+REQ: REQ-IAM-004/006/008, REQ-JOB-007, REQ-PLT-002
+Need: optional OpenAPI yaml sync; Chrome Puppeteer
+Done: Q1–Q7 code+docs+tests, push
 ```
 
 ## Company approval 완료 기록 (2026-09-15)
 
 - REQ-JOB-007 / REQ-IAM-009 / REQ-PLT-002: `company_profiles.approval_status` (`pending`/`approved`/`rejected`)
 - 가입 기본 `pending`; 기존 행 마이그레이션 `017`에서 `approved` 백필
-- 승인자: `school_admin` / `system_admin` (`authorize(users, write)`). 타교 403
+- 승인자: `company_approval` 권한(기본 `school_admin` / `system_admin`). 타교 403. 시스템 관리자가 역할별 설정 가능
 - 제품 규칙: pending/rejected 로그인·프로필 OK, **공고 CRUD 403 `COMPANY_NOT_APPROVED`**
 - API: `GET /users/companies`, `PATCH /users/:id/company-approval`, jobs 가드
 - UI: company-profile/dashboard 배너, job-create 폼 비활성, `admin-users` 기업 승인 탭

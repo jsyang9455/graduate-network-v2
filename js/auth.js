@@ -71,8 +71,9 @@ class AuthManager {
         const path = href.split('?')[0];
         if (path.includes('company-profile')) return 'jobs';
     if (path.includes('applicant-detail')) return 'applications';
-    if (path.includes('admin-codes')) return 'schools';
+        if (path.includes('admin-codes') || path.includes('admin-permissions') || path.includes('admin-schools')) return 'schools';
         if (path.includes('admin-users')) return 'users';
+        if (path.includes('company-approval')) return 'company_approval';
         if (path.includes('admin-jobs') || path.includes('job-create') || path.includes('job-edit')) return 'jobs';
         if (path.includes('admin-board')) return 'community';
         if (path.includes('admin-announcements') || path.includes('industry-visit') || path.includes('job-fair')) return 'field_trips';
@@ -127,11 +128,23 @@ class AuthManager {
                 || this.hasMenuAction('schools', 'manage')
                 || this.hasMenuAction('users', 'write')
                 || this.hasMenuAction('users', 'manage')
+                || this.hasMenuAction('company_approval', 'read')
+                || this.hasMenuAction('company_approval', 'write')
                 || this.hasMenuAction('jobs', 'manage')
                 || this.hasMenuAction('community', 'manage')
                 || this.hasMenuAction('stats', 'read');
             adminMenuSection.style.display = canAdmin ? 'block' : 'none';
         }
+    }
+
+    /** Display label for badges/menus (admin → 시스템 관리자) */
+    roleDisplayLabel(user = this.getCurrentUser()) {
+        if (window.RoleLabels) return RoleLabels.displayRoleLabel(user);
+        if (!user) return '';
+        if (user.user_type === 'admin' || user.user_type === 'system_admin' || user.role === 'system_admin') {
+            return '시스템 관리자';
+        }
+        return user.user_type || '';
     }
 
     updateAuthUI() {

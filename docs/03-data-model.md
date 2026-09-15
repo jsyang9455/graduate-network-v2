@@ -113,7 +113,7 @@ roles *──* menus          (role_menu_permissions)
 - **기본:** 업무 테이블 `school_id NOT NULL` + 인덱스 `(school_id, id)`.
 - **예외:** `system_admin` 전역 설정, 워크넷 원본(전역 수집 후 학교 필터), 기업 회원이 여러 학교에 공고를 여는 경우 `job_school_targets` M:N.
 - **상담:** `school_id` + `teacher_id` 이중 통제.
-- **기업:** `company` 역할은 `users.school_id`(협력/게시 학교)로 범위. `company_profiles.approval_status≠approved`이면 공고 생성·수정 불가(REQ-JOB-007). 승인은 동일 `school_id`의 school_admin 또는 system_admin만.
+- **기업:** `company` 역할은 `users.school_id`(협력/게시 학교)로 범위. `company_profiles.approval_status≠approved`이면 공고 생성·수정 불가(REQ-JOB-007). 승인은 `company_approval` 권한 + 동일 `school_id`(기본 school_admin/system_admin; 설정 가능). null-school 기업·공고는 전역 공개하지 않음.
 
 ## 5. 마이그레이션 전략
 
@@ -130,6 +130,7 @@ roles *──* menus          (role_menu_permissions)
    Sprint 5에서 적용: `database/migrations/015_v2_sprint5_community_extras.sql` — post_categories, post_scraps, post_reports, posts.is_anonymous/blinded_at.
    Sprint 6에서 적용: `database/migrations/016_v2_sprint6_associated_com_trip.sql` — job_scraps, field_trip_reports, posts tags GIN.
    기업 승인: `database/migrations/017_v2_company_approval.sql` — `company_profiles.approval_*`, 기존 기업 `approved` 백필, 신규 DEFAULT `pending`.
+   정책 반영: `018` DX 프로필만(전주공고 일괄 바인딩 제거), `019_v2_policy_company_approval_jobs.sql` — `company_approval` 메뉴 + 018 일괄 바인딩 되돌림(DX `company@jjob.com` 제외).
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내. `company_profile_*`는 API `company_profiles`로 대체(B-LS).
 
 ## 6. 인덱스·무결성 (최소)
