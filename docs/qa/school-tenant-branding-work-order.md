@@ -100,7 +100,7 @@ files.kind  CHECK 확장: 기존 + 'school_logo'
 - [x] admin 사이드바: permissions 로드 전 권한 매트릭스/코드 관리 **깜빡임 방지** (rbac-pending)
 - [x] school_admin은 코드 관리(write) 보임, 권한 매트릭스(manage) 숨김 (TC-06/07 + data-menu-min)
 - [x] 관련 자동화 테스트 통과; curl 검증 기록 ([verification](school-tenant-branding-verification.md))
-- [ ] 커밋 + push (force-push 금지) — 세션 말미
+- [x] 커밋 + push (force-push 금지) — `dc1ec06` → origin/main
 
 ## 8. 테스트 케이스
 
