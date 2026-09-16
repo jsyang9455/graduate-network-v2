@@ -1,34 +1,12 @@
--- 각 사용자 타입별 테스트 계정 추가
+-- DX persona test accounts (idempotent, FK-safe)
 -- 비밀번호: password123
 -- bcrypt ($2b$10$AknqEf4Z…): verified via bcrypt.compare('password123', hash) === true
 -- (구 해시 $2b$10$rZ0HwKnI… 는 password123 과 불일치 — 로그인 401 원인)
 -- REQ-JOB-007: 기업 DX 계정은 기본 학교 바인딩 + approval_status=approved
-
-DELETE FROM company_profiles WHERE user_id IN (
-  SELECT id FROM users WHERE email IN (
-    'student@jjob.com', 'graduate@jjob.com', 'teacher@jjob.com',
-    'company@jjob.com', 'admin@jjob.com'
-  )
-);
-DELETE FROM graduate_profiles WHERE user_id IN (
-  SELECT id FROM users WHERE email IN (
-    'student@jjob.com', 'graduate@jjob.com', 'teacher@jjob.com',
-    'company@jjob.com', 'admin@jjob.com'
-  )
-);
-DELETE FROM user_roles WHERE user_id IN (
-  SELECT id FROM users WHERE email IN (
-    'student@jjob.com', 'graduate@jjob.com', 'teacher@jjob.com',
-    'company@jjob.com', 'admin@jjob.com'
-  )
-);
-DELETE FROM users WHERE email IN (
-    'student@jjob.com',
-    'graduate@jjob.com',
-    'teacher@jjob.com',
-    'company@jjob.com',
-    'admin@jjob.com'
-);
+--
+-- Do NOT DELETE users: audit_logs.actor_id, school_transfers.*, user_roles.granted_by,
+-- counseling_journals.counselor_id, posts.blinded_by, trip_reports.author_id 등
+-- ON DELETE CASCADE 없는 FK가 남아 DELETE가 실패한다. email UPSERT로 재적재한다.
 
 INSERT INTO schools (code, name, region, status)
 VALUES ('JJTH', '전주공업고등학교', '전북', 'active')
@@ -48,15 +26,71 @@ CROSS JOIN LATERAL (
   SELECT id, name FROM schools
   WHERE code = 'JJTH' OR name = '전주공업고등학교'
   ORDER BY id LIMIT 1
-) s;
+) s
+ON CONFLICT (email) DO UPDATE SET
+  password_hash = EXCLUDED.password_hash,
+  name = EXCLUDED.name,
+  user_type = EXCLUDED.user_type,
+  phone = EXCLUDED.phone,
+  is_active = true,
+  school_id = EXCLUDED.school_id,
+  school_name = EXCLUDED.school_name,
+  withdraw_reason = NULL,
+  withdrawn_at = NULL,
+  updated_at = CURRENT_TIMESTAMP;
 
-INSERT INTO graduate_profiles (user_id, graduation_year, major, current_company, current_position, bio, skills, is_mentor, mentor_capacity)
-SELECT id, 2022, '전자과', 'LG전자', '사원', '열심히 일하고 있는 졸업생입니다.', ARRAY['C++', 'Python', '전자회로'], false, 0
-FROM users WHERE email = 'graduate@jjob.com';
+-- graduate_profiles: upsert by user_id (no UNIQUE on user_id → UPDATE then INSERT-if-missing)
+UPDATE graduate_profiles gp
+SET
+  graduation_year = 2022,
+  major = '전자과',
+  current_company = 'LG전자',
+  current_position = '사원',
+  bio = '열심히 일하고 있는 졸업생입니다.',
+  skills = ARRAY['C++', 'Python', '전자회로'],
+  is_mentor = false,
+  mentor_capacity = 0,
+  updated_at = CURRENT_TIMESTAMP
+FROM users u
+WHERE gp.user_id = u.id
+  AND u.email = 'graduate@jjob.com';
 
-INSERT INTO company_profiles (user_id, company_name, industry, company_size, website, description, founded_year, approval_status, approved_at)
-SELECT id, 'JJOB채용', 'IT/서비스', '스타트업', 'https://jjob.com', '전주공고 졸업생을 위한 채용 플랫폼', 2026, 'approved', CURRENT_TIMESTAMP
-FROM users WHERE email = 'company@jjob.com';
+INSERT INTO graduate_profiles (
+  user_id, graduation_year, major, current_company, current_position, bio, skills, is_mentor, mentor_capacity
+)
+SELECT u.id, 2022, '전자과', 'LG전자', '사원', '열심히 일하고 있는 졸업생입니다.',
+       ARRAY['C++', 'Python', '전자회로'], false, 0
+FROM users u
+WHERE u.email = 'graduate@jjob.com'
+  AND NOT EXISTS (SELECT 1 FROM graduate_profiles gp WHERE gp.user_id = u.id);
 
-SELECT '✅ 테스트 계정이 성공적으로 추가되었습니다!' as message;
+-- company_profiles: upsert + force approved (REQ-JOB-007 DX)
+UPDATE company_profiles cp
+SET
+  company_name = 'JJOB채용',
+  industry = 'IT/서비스',
+  company_size = '스타트업',
+  website = 'https://jjob.com',
+  description = '전주공고 졸업생을 위한 채용 플랫폼',
+  founded_year = 2026,
+  approval_status = 'approved',
+  approved_at = COALESCE(cp.approved_at, CURRENT_TIMESTAMP),
+  rejection_reason = NULL,
+  updated_at = CURRENT_TIMESTAMP
+FROM users u
+WHERE cp.user_id = u.id
+  AND u.email = 'company@jjob.com';
+
+INSERT INTO company_profiles (
+  user_id, company_name, industry, company_size, website, description, founded_year,
+  approval_status, approved_at
+)
+SELECT u.id, 'JJOB채용', 'IT/서비스', '스타트업', 'https://jjob.com',
+       '전주공고 졸업생을 위한 채용 플랫폼', 2026,
+       'approved', CURRENT_TIMESTAMP
+FROM users u
+WHERE u.email = 'company@jjob.com'
+  AND NOT EXISTS (SELECT 1 FROM company_profiles cp WHERE cp.user_id = u.id);
+
+SELECT '✅ 테스트 계정이 성공적으로 추가/갱신되었습니다!' as message;
 SELECT '🏢 company@jjob.com: school 바인딩 + approval_status=approved (REQ-JOB-007 DX)' as company_note;

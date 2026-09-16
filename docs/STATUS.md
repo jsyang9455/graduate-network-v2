@@ -104,6 +104,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 - **해소: health 200 + login 404** — `nginx.conf` 변수 `proxy_pass …/api/` 가 URI를 `/api/`로 잘라 Express `NOT_FOUND`. 수정: host-only `proxy_pass http://$api_upstream`. `nginx.conf`는 이미지 bake-in + **bind-mount** (restart만으로도 반영).
 - **해소: health 200 + login 401** — `seed.sql`/`test-accounts.sql` 구 bcrypt 해시(`rZ0HwKnI…`)가 `password123`과 불일치. 수정 해시 + `load-test-accounts.sh`가 backend bcrypt로 재해시 후 `./scripts/verify-login.sh`로 curl 검증.
 - **DX 계정:** `seed.sql` ≠ `@jjob.com`. `aws-up` 비-prod 기본으로 `load-test-accounts.sh`. prod: `--no-test-accounts` / `DEPLOY_ENV=production`.
+- **해소: load-test-accounts FK** — `test-accounts.sql`이 DX `users` DELETE 시 `audit_logs.actor_id` 등 non-CASCADE FK로 실패. email **UPSERT**로 전환(idempotent·FK-safe).
 - `js/api.js`: 공인 IP/:8090 → `/api` (localhost 오버라이드만). 로그인 UI: 네트워크 vs 401 vs 404 구분.
 - **`nginx=000` + `backend:5000=200`:** 호스트 frontend publish 실패(보통 :80 점유 → Created/PORTS empty). **기본 `FRONTEND_PORT=8090`**(SG 8090). §11.2b/§11.2c.
 - **aws-up 폴링:** curl 실패 시 `nginx=000000` 오표기 수정; 상태 변경/~30초만 출력; backend healthcheck의 `GET /api/health 200` 반복은 정상(deploy-aws §8).

@@ -3,8 +3,11 @@
 # Not applied by postgres initdb (seed.sql uses different emails). Safe to re-run.
 # Invoked by: ./scripts/aws-up.sh (default non-prod) or manually after migrate.
 #
+# test-accounts.sql UPSERTs by email (no DELETE users) so audit_logs.actor_id and
+# other non-CASCADE FKs do not block reload on EC2 DBs that already logged DX actors.
+#
 # Reliability:
-#  1) Apply SQL (users + school + company approval)
+#  1) Apply SQL (UPSERT users + school + company approval)
 #  2) Force-refresh password_hash via backend bcrypt (guards against stale SQL hashes)
 #  3) Count DX rows
 #  4) Curl login through nginx (scripts/verify-login.sh)

@@ -228,11 +228,13 @@ docker compose exec frontend wget -qO- http://backend:5000/api/health
 ## 9. DX 테스트 계정 (`student@jjob.com`)
 
 Compose init에는 **`seed.sql`만** 있다. `student@jjob.com` 등 DX 계정은 **없음** (`database/test-accounts.sql` 별도).
+`test-accounts.sql`은 email **UPSERT**(users DELETE 없음)라 `audit_logs.actor_id` 등이 있어도 재실행 안전하다.
 
 **전용 테스트 EC2:** `./scripts/aws-up.sh`가 **기본으로** DX 계정을 적재한다 (`DEPLOY_ENV`가 `production`/`prod`가 아니면).
 
 ```bash
 cd ~/graduate-network-v2
+git pull
 # 이미 기동 중이면 계정만:
 chmod +x scripts/load-test-accounts.sh
 ./scripts/load-test-accounts.sh
