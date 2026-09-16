@@ -210,19 +210,26 @@ CREATE TABLE IF NOT EXISTS majors (
     is_active BOOLEAN DEFAULT TRUE
 );
 
--- Partial unique index: name은 is_active=true인 경우에만 unique
+-- Partial unique index: name은 is_active=true인 경우에만 unique.
+-- ON CONFLICT (name) alone fails (no full UNIQUE on name) and aborts initdb
+-- mid-schema → announcements/education_programs never created.
 CREATE UNIQUE INDEX IF NOT EXISTS majors_name_active_unique 
 ON majors (name) WHERE is_active = true;
 
--- Insert default majors
-INSERT INTO majors (name) VALUES 
+-- Insert default majors (match partial unique; do not use ON CONFLICT (name))
+INSERT INTO majors (name)
+SELECT v.name
+FROM (VALUES
     ('전기과'),
     ('전자과'),
     ('기계과'),
     ('컴퓨터과'),
     ('건축과'),
     ('토목과')
-ON CONFLICT (name) DO NOTHING;
+) AS v(name)
+WHERE NOT EXISTS (
+    SELECT 1 FROM majors m WHERE m.name = v.name AND m.is_active = true
+);
 
 -- Announcements table (공지사항 - 취업박람회, 산업체견학, 기술자격증)
 CREATE TABLE IF NOT EXISTS announcements (

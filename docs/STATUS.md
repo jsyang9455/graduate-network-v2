@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`**(postgres→migrate→backend→frontend) + **`scripts/init-env.sh`**. backend health=`scripts/healthcheck.js`·`start_period` 180s·idempotent migrate (2026-09-16) |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** + **`scripts/init-env.sh`**. **2026-09-16:** `schema.sql` majors INSERT(partial unique) + migrate 013/014 IF EXISTS 가드 — incomplete init → `announcements` 없음 수정. 테스트 EC2: `down -v` + `aws-up` |
 
 ## Blockers
 
@@ -90,6 +90,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 - Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`.
 - `error .env incomplete: set JWT_SECRET` → §11.0 / `init-env.sh` (예제 플레이스홀더 교체).
 - `dependency backend failed to start` → [deploy-aws.md §11.2](deploy-aws.md).
+- **init abort / migrate 013:** `majors` partial unique vs `ON CONFLICT (name)` → schema mid-abort → no `announcements`. Fixed INSERT + 013/014 guards. Recovery: `docker compose down -v && ./scripts/aws-up.sh`.
 
 ## Persona E2E 캠페인 (2026-09-15)
 

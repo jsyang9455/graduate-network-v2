@@ -109,40 +109,49 @@ CREATE INDEX IF NOT EXISTS idx_field_trip_applications_user
     ON field_trip_applications(user_id, created_at DESC);
 
 -- Migrate industry-visit announcements → field_trips (once per source id)
-INSERT INTO field_trips (
-    school_id, company_name, title, description, place, event_date, event_time,
-    capacity, current_applicants, deadline, mode, fee, benefits, requirements,
-    contact_phone, contact_email, tags, image_url, is_active, source_announcement_id
-)
-SELECT
-    COALESCE(a.school_id, s.id),
-    COALESCE(NULLIF(TRIM(a.organizer), ''), a.title),
-    a.title,
-    a.description,
-    a.location,
-    a.event_date,
-    a.event_time,
-    COALESCE(a.capacity, 0),
-    COALESCE(a.current_applicants, 0),
-    a.deadline,
-    'fifo',
-    a.fee,
-    a.benefits,
-    a.requirements,
-    a.contact_phone,
-    a.contact_email,
-    a.tags,
-    a.image_url,
-    COALESCE(a.is_active, true),
-    a.id
-FROM announcements a
-CROSS JOIN LATERAL (
-    SELECT id FROM schools WHERE name = '전주공업고등학교' LIMIT 1
-) s
-WHERE a.type = 'industry-visit'
-  AND NOT EXISTS (
-      SELECT 1 FROM field_trips ft WHERE ft.source_announcement_id = a.id
-  );
+-- Guard: incomplete initdb may lack announcements (schema abort before CREATE)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'announcements'
+  ) THEN
+    INSERT INTO field_trips (
+        school_id, company_name, title, description, place, event_date, event_time,
+        capacity, current_applicants, deadline, mode, fee, benefits, requirements,
+        contact_phone, contact_email, tags, image_url, is_active, source_announcement_id
+    )
+    SELECT
+        COALESCE(a.school_id, s.id),
+        COALESCE(NULLIF(TRIM(a.organizer), ''), a.title),
+        a.title,
+        a.description,
+        a.location,
+        a.event_date,
+        a.event_time,
+        COALESCE(a.capacity, 0),
+        COALESCE(a.current_applicants, 0),
+        a.deadline,
+        'fifo',
+        a.fee,
+        a.benefits,
+        a.requirements,
+        a.contact_phone,
+        a.contact_email,
+        a.tags,
+        a.image_url,
+        COALESCE(a.is_active, true),
+        a.id
+    FROM announcements a
+    CROSS JOIN LATERAL (
+        SELECT id FROM schools WHERE name = '전주공업고등학교' LIMIT 1
+    ) s
+    WHERE a.type = 'industry-visit'
+      AND NOT EXISTS (
+          SELECT 1 FROM field_trips ft WHERE ft.source_announcement_id = a.id
+      );
+  END IF;
+END $$;
 
 -- Migrate applications when announcement_applications exists
 DO $$

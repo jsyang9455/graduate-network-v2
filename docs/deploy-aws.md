@@ -158,11 +158,13 @@ Backend는 `scripts/healthcheck.js`(node alpine에 wget 없음) + `start_period:
 
 첫 볼륨 생성 시 Postgres init에만 올라가는 것:
 
-- `database/schema.sql`
-- `database/seed.sql`
-- **`010_v2_multischool.sql`까지**
+- `database/schema.sql` → `/docker-entrypoint-initdb.d/1-schema.sql`
+- `database/seed.sql` → `2-seed.sql`
+- **`010_v2_multischool.sql`** → `3-v2-multischool.sql`
 
-**011~019** 등 나머지는 별도 적용. Compose `backend`는 `./database` → `/database:ro`를 마운트한다(기동 시 `applyPendingMigrations`·502 방지). one-shot 스크립트/`compose run`도 동일 경로를 쓴다.
+**011~019** 등 나머지는 백엔드 `applyPendingMigrations` / `npm run migrate`가 적용한다. Compose `backend`는 `./database` → `/database:ro`를 마운트한다(기동 시 migrate·502 방지).
+
+`schema.sql`이 mid-init에서 실패하면(예: 과거 `majors` `ON CONFLICT (name)` vs partial unique) 볼륨은 남고 `announcements` 등이 빠진 채 재기동된다 → migrate `013`이 `relation "announcements" does not exist`로 실패. **수정 커밋 pull 후 테스트 EC2는 볼륨 삭제 재초기화가 필요**하다.
 
 ```bash
 cd ~/graduate-network-v2
@@ -172,13 +174,15 @@ docker compose run --rm \
   backend npm run migrate
 ```
 
-완전 초기화(데이터 삭제) — **이 v2 EC2의 Compose 볼륨만**:
+완전 초기화(데이터 삭제) — **이 v2 EC2의 Compose 볼륨만** (init 손상·013 실패 복구):
 
 ```bash
+git pull origin main
 docker compose down -v
-docker compose up -d --build
-docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
+./scripts/aws-up.sh
 ```
+
+(또는 `docker compose up -d --build` 후 `backend npm run migrate` — `aws-up.sh`가 동일 순서를 자동화한다.)
 
 ---
 
@@ -301,11 +305,21 @@ chmod +x scripts/init-env.sh scripts/aws-up.sh
 | 순위 | 원인 | 증상 |
 |------|------|------|
 | 1 | 첫 기동 init 중 healthcheck / 손상된 `postgres_data` | `Exited`·`unhealthy`, init/`PANIC` |
-| 2 | 디스크 부족 | `No space left on device` |
-| 3 | 메모리 부족(t2.micro 등) | OOM, `dmesg` kill |
-| 4 | `.env` `DB_PASSWORD`와 **기존 볼륨** 불일치 | 백엔드 auth 실패 (`POSTGRES_*`는 최초 볼륨만) |
-| 5 | init SQL 누락/깨진 마운트 | init 스크립트 오류 |
-| 6 | 호스트 5432 점유(드묾) | `bind: address already in use` |
+| 2 | **init SQL abort** (`majors` ON CONFLICT / incomplete schema) | postgres 로그 `no unique or exclusion constraint matching the ON CONFLICT`; 이후 migrate `relation "announcements" does not exist` |
+| 3 | 디스크 부족 | `No space left on device` |
+| 4 | 메모리 부족(t2.micro 등) | OOM, `dmesg` kill |
+| 5 | `.env` `DB_PASSWORD`와 **기존 볼륨** 불일치 | 백엔드 auth 실패 (`POSTGRES_*`는 최초 볼륨만) |
+| 6 | init SQL 누락/깨진 마운트 | init 스크립트 오류 |
+| 7 | 호스트 5432 점유(드묾) | `bind: address already in use` |
+
+**init abort → incomplete DB 복구 (테스트 EC2, 데이터 삭제 OK):**
+
+```bash
+cd ~/graduate-network-v2
+git pull origin main   # majors INSERT + 013/014 IF EXISTS 가드 포함
+docker compose down -v
+./scripts/aws-up.sh
+```
 
 ```bash
 cd ~/graduate-network-v2
@@ -331,7 +345,7 @@ Frontend는 `depends_on: backend: condition: service_healthy`이다. **백엔드
 
 | 순위 | 원인 | 로그에서 볼 것 |
 |------|------|----------------|
-| 1 | migrate-on-boot 실패 → `exit 1` (컨테이너 Error/restart) | `Failed to apply migrations`, `Migrations directory not found` |
+| 1 | migrate-on-boot 실패 → `exit 1` (컨테이너 Error/restart) | `Failed to apply migrations`, `relation "announcements" does not exist`(불완전 init → §11.1), `Migrations directory not found` |
 | 2 | `.env` `DB_PASSWORD` ≠ 기존 `postgres_data` 볼륨 비번 | `password authentication failed` |
 | 3 | healthcheck가 listen 전에 소진 (느린 EC2 / 긴 migrate) | `unhealthy`, health 실패 반복 |
 | 4 | JWT_SECRET 미설정 | compose가 backend 자체를 안 올림 |
