@@ -12,7 +12,8 @@
     <header id="mainHeader">
         <nav>
             <div class="logo">
-                <img src="images/logo.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="118" height="40">
+                <img id="brandLogo" src="images/logo.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" data-school-brand="logo" data-default-src="images/logo.svg" width="118" height="40">
+                <span id="schoolContextLabel" class="school-context-label" data-school-brand="name" hidden></span>
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.html" class="active">대시보드</a></li>
@@ -91,31 +92,31 @@
                     <span>자격증 지원</span>
                 </a>
                 <!-- 관리자 메뉴 -->
-                <div id="adminMenuSection" style="display: none;">
+                <div id="adminMenuSection" class="rbac-pending" style="display: none;">
                     <div style="border-top: 1px solid #e5e7eb; margin: 1rem 0; padding-top: 1rem;">
                         <p style="padding: 0 1rem; color: #6b7280; font-size: 0.875rem; font-weight: 600;">관리자 메뉴</p>
                     </div>
-                    <a href="admin-users.html" class="menu-item">
+                    <a href="admin-users.html" class="menu-item" data-menu="users" data-menu-min="write">
                         <span class="icon">👥</span>
                         <span>회원 관리</span>
                     </a>
-                    <a href="admin-permissions.html" class="menu-item" data-menu="schools">
+                    <a href="admin-permissions.html" class="menu-item" data-menu="schools" data-menu-min="manage">
                         <span class="icon">🔐</span>
                         <span>권한 매트릭스</span>
                     </a>
-                    <a href="admin-jobs.html" class="menu-item">
+                    <a href="admin-jobs.html" class="menu-item" data-menu="jobs" data-menu-min="manage">
                         <span class="icon">💼</span>
                         <span>채용공고 관리</span>
                     </a>
-                    <a href="admin-board.html" class="menu-item">
+                    <a href="admin-board.html" class="menu-item" data-menu="community" data-menu-min="manage">
                         <span class="icon">📋</span>
                         <span>게시판 관리</span>
                     </a>
-                    <a href="admin-codes.html" class="menu-item">
+                    <a href="admin-codes.html" class="menu-item" data-menu="schools" data-menu-min="write">
                         <span class="icon">⚙️</span>
                         <span>코드 관리</span>
                     </a>
-                    <a href="admin-announcements.html" class="menu-item">
+                    <a href="admin-announcements.html" class="menu-item" data-menu="field_trips" data-menu-min="write">
                         <span class="icon">📢</span>
                         <span>공지사항 관리</span>
                     </a>
@@ -125,6 +126,10 @@
 
         <main class="main-content">
             <div class="welcome-section">
+                <div class="school-brand-row">
+                    <img id="welcomeSchoolLogo" class="school-brand-logo" src="images/logo.svg" alt="" hidden>
+                    <p id="welcomeSchoolName" class="welcome-school-name school-brand-name" hidden></p>
+                </div>
                 <h1 id="welcomeMessage">환영합니다!</h1>
                 <p id="welcomeSubtext">오늘도 좋은 하루 되세요</p>
             </div>
@@ -349,6 +354,7 @@
     <script src="js/api.js"></script>
     <script src="js/role-labels.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/school-brand.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/dashboard.js"></script>
 </body>

@@ -1,8 +1,23 @@
 # STATUS — jjobb_v2 (living)
 
 최종 갱신: 2026-09-16  
-현재 단계: **Sprint 7+ / 정책 결정 반영 (페르소나 E2E Q1–Q7)**  
-전체 P0 구현: **약 70%** (Wave 1–Sprint 6 + Sprint 7 + 기업 승인 + **정책 Q1–Q7**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
+현재 단계: **Sprint 7+ / 학교 테넌트 UX·브랜딩 (구현·검증)**  
+전체 P0 구현: **약 72%** (Wave 1–Sprint 6 + Sprint 7 + 기업 승인 + 정책 Q1–Q7 + **STB**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
+
+## Active work order (2026-09-16)
+
+- [docs/qa/school-tenant-branding-work-order.md](qa/school-tenant-branding-work-order.md) — REQ-IAM-001/003/008/009, REQ-PLT-002/004
+- 구현: 마이그레이션 `020`, `POST /schools` 주 담당자 필수, `…/logo`, `/auth/me.school`, RBAC 플리커 수정, `admin-codes`·`school-brand.js`
+- 검증: [docs/qa/school-tenant-branding-verification.md](qa/school-tenant-branding-verification.md) — **STB 5/5** + curl me.school
+- 게이트: 워크넷·알림톡 **미변경** (`NOT_CONFIGURED`)
+
+```
+Handoff: e2e → architect
+REQ: REQ-IAM-001/003/008/009, REQ-PLT-002/004
+Need: optional Chrome flicker visual; backfill primary_admin for legacy schools
+Done: 020, school create+logo APIs, auth me.school, rbac-pending, admin-codes, school-brand, 5/5 tests
+```
+
 
 ## Gates (학교 제공물)
 
@@ -46,9 +61,9 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 
 | 스트림 | Owner | % | 메모 |
 |--------|-------|---|------|
-| 멀티스쿨 스키마/가드 | backend | 97 | null-school 공고 비노출; 018/019 정책 |
+| 멀티스쿨 스키마/가드 | backend | 98 | 020 logo + primary_admin; null-school 공고 비노출 |
 | IAM API·OpenAPI | api | 97 | roles permissions + company_approval + PW8 |
-| 권한 메뉴·schools UI | frontend | 95 | admin-permissions + 시스템 관리자 표기 |
+| 권한 메뉴·schools UI | frontend | 98 | STB: rbac-pending·data-menu-min·school-brand·admin-codes 주담당/로고 |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |

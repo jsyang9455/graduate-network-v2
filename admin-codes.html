@@ -19,19 +19,23 @@
                 <div style="border-top: 1px solid #e5e7eb; margin: 1rem 0; padding-top: 1rem;">
                     <p style="padding: 0 1rem; color: #6b7280; font-size: 0.875rem; font-weight: 600;">관리자 메뉴</p>
                 </div>
-                <a href="admin-users.html" class="menu-item">
+                <a href="admin-users.html" class="menu-item" data-menu="users" data-menu-min="write">
                     <span class="icon">👥</span>
                     <span>회원 관리</span>
                 </a>
-                <a href="admin-jobs.html" class="menu-item">
+                <a href="admin-permissions.html" class="menu-item" data-menu="schools" data-menu-min="manage">
+                    <span class="icon">🔐</span>
+                    <span>권한 매트릭스</span>
+                </a>
+                <a href="admin-jobs.html" class="menu-item" data-menu="jobs" data-menu-min="manage">
                     <span class="icon">💼</span>
                     <span>채용공고 관리</span>
                 </a>
-                <a href="admin-board.html" class="menu-item">
+                <a href="admin-board.html" class="menu-item" data-menu="community" data-menu-min="manage">
                     <span class="icon">📋</span>
                     <span>게시판 관리</span>
                 </a>
-                <a href="admin-codes.html" class="menu-item active">
+                <a href="admin-codes.html" class="menu-item active" data-menu="schools" data-menu-min="write">
                     <span class="icon">⚙️</span>
                     <span>코드 관리</span>
                 </a>
@@ -62,7 +66,9 @@
                             <thead style="background: #f9fafb;">
                                 <tr>
                                     <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">ID</th>
+                                    <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">로고</th>
                                     <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">학교명</th>
+                                    <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">주 담당자</th>
                                     <th style="padding: 1rem; text-align: left; border-bottom: 2px solid #e5e7eb;">등록일</th>
                                     <th style="padding: 1rem; text-align: center; border-bottom: 2px solid #e5e7eb;">관리</th>
                                 </tr>
@@ -117,7 +123,7 @@
 
     <!-- 학교 등록/수정 모달 -->
     <div id="schoolModal" class="modal" style="display: none;">
-        <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 560px;">
             <div class="modal-header">
                 <h2 id="schoolModalTitle">학교 등록</h2>
                 <span class="close" onclick="closeSchoolModal()">&times;</span>
@@ -126,9 +132,37 @@
                 <form id="schoolForm">
                     <input type="hidden" id="schoolId">
                     <div class="form-group">
-                        <label>학교명 *</label>
+                        <label for="schoolName">학교명 *</label>
                         <input type="text" id="schoolName" required placeholder="예: 전주공업고등학교">
                     </div>
+                    <div class="form-group">
+                        <label for="schoolRegion">지역</label>
+                        <input type="text" id="schoolRegion" placeholder="예: 전북">
+                    </div>
+                    <div class="form-group">
+                        <label for="schoolLogoFile">학교 로고</label>
+                        <input type="file" id="schoolLogoFile" accept="image/*">
+                        <p style="font-size:0.85rem;color:#6b7280;margin-top:0.35rem;">PNG/JPG 권장. 등록 후 헤더·대시보드에 표시됩니다.</p>
+                        <div id="schoolLogoPreviewWrap" style="margin-top:0.5rem;display:none;">
+                            <img id="schoolLogoPreview" alt="현재 로고" style="max-height:48px;max-width:160px;object-fit:contain;">
+                        </div>
+                    </div>
+                    <fieldset id="primaryAdminFields" style="border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin:1rem 0;">
+                        <legend style="padding:0 0.5rem;font-weight:600;">주 담당자 (학교 관리자) *</legend>
+                        <p id="primaryAdminHint" style="font-size:0.85rem;color:#6b7280;margin-bottom:0.75rem;">신규 학교 등록 시 주 담당자 계정을 함께 만듭니다.</p>
+                        <div class="form-group">
+                            <label for="primaryAdminName">이름 *</label>
+                            <input type="text" id="primaryAdminName" placeholder="예: 김담당">
+                        </div>
+                        <div class="form-group">
+                            <label for="primaryAdminEmail">이메일 *</label>
+                            <input type="email" id="primaryAdminEmail" placeholder="admin@school.example">
+                        </div>
+                        <div class="form-group">
+                            <label for="primaryAdminPassword">비밀번호 * (최소 8자)</label>
+                            <input type="password" id="primaryAdminPassword" minlength="8" autocomplete="new-password">
+                        </div>
+                    </fieldset>
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">저장</button>
                         <button type="button" onclick="closeSchoolModal()" class="btn btn-secondary">취소</button>
@@ -163,6 +197,7 @@
 
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/school-brand.js"></script>
     <script src="js/nav.js"></script>
     <script>
         let allSchools = [];
@@ -213,37 +248,81 @@
             const tbody = document.getElementById('schoolTableBody');
             
             if (allSchools.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">등록된 학교가 없습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">등록된 학교가 없습니다.</td></tr>';
                 return;
             }
 
-            tbody.innerHTML = allSchools.map(school => `
+            tbody.innerHTML = allSchools.map(school => {
+                const logoSrc = school.logo_url
+                    ? (school.logo_url.startsWith('http')
+                        ? school.logo_url
+                        : `${(api.baseURL || '').replace(/\/api\/?$/, '')}${school.logo_url}`)
+                    : null;
+                const logo = logoSrc
+                    ? `<img src="${logoSrc}" alt="" style="height:32px;max-width:72px;object-fit:contain;">`
+                    : '<span style="color:#9ca3af;">—</span>';
+                const adminLabel = school.primary_admin_user_id
+                    ? `#${school.primary_admin_user_id}`
+                    : '<span style="color:#9ca3af;">미지정</span>';
+                return `
                 <tr style="border-bottom: 1px solid #e5e7eb;">
                     <td style="padding: 1rem;">${school.id}</td>
+                    <td style="padding: 1rem;">${logo}</td>
                     <td style="padding: 1rem;">${school.name}${school.status === 'inactive' ? ' <span style="color:#9ca3af;">(비활성)</span>' : ''}</td>
+                    <td style="padding: 1rem;">${adminLabel}</td>
                     <td style="padding: 1rem;">${new Date(school.created_at || school.createdAt).toLocaleDateString('ko-KR')}</td>
                     <td style="padding: 1rem; text-align: center;">
                         <button onclick="editSchool(${school.id})" class="btn btn-sm btn-primary" style="margin-right: 0.5rem;">수정</button>
                         ${school.status !== 'inactive' ? `<button onclick="deactivateSchool(${school.id})" class="btn btn-sm btn-danger">비활성화</button>` : ''}
                     </td>
-                </tr>
-            `).join('');
+                </tr>`;
+            }).join('');
         }
 
         function showSchoolModal() {
             document.getElementById('schoolModalTitle').textContent = '학교 등록';
             document.getElementById('schoolForm').reset();
             document.getElementById('schoolId').value = '';
+            document.getElementById('primaryAdminFields').style.display = '';
+            document.getElementById('primaryAdminHint').textContent = '신규 학교 등록 시 주 담당자 계정을 함께 만듭니다.';
+            document.getElementById('primaryAdminName').required = true;
+            document.getElementById('primaryAdminEmail').required = true;
+            document.getElementById('primaryAdminPassword').required = true;
+            document.getElementById('schoolLogoPreviewWrap').style.display = 'none';
             document.getElementById('schoolModal').style.display = 'flex';
         }
 
-        function editSchool(schoolId) {
+        async function editSchool(schoolId) {
             const school = allSchools.find(s => s.id === schoolId);
             if (!school) return;
 
             document.getElementById('schoolModalTitle').textContent = '학교 수정';
             document.getElementById('schoolId').value = school.id;
             document.getElementById('schoolName').value = school.name;
+            document.getElementById('schoolRegion').value = school.region || '';
+            document.getElementById('primaryAdminFields').style.display = 'none';
+            document.getElementById('primaryAdminName').required = false;
+            document.getElementById('primaryAdminEmail').required = false;
+            document.getElementById('primaryAdminPassword').required = false;
+            document.getElementById('schoolLogoFile').value = '';
+
+            const previewWrap = document.getElementById('schoolLogoPreviewWrap');
+            const preview = document.getElementById('schoolLogoPreview');
+            if (school.logo_url) {
+                const origin = (api.baseURL || '').replace(/\/api\/?$/, '');
+                preview.src = school.logo_url.startsWith('http') ? school.logo_url : origin + school.logo_url;
+                previewWrap.style.display = 'block';
+            } else {
+                previewWrap.style.display = 'none';
+            }
+
+            try {
+                const detail = await api.schools.get(schoolId);
+                if (detail.primary_admin) {
+                    document.getElementById('primaryAdminHint').textContent =
+                        `현재 주 담당자: ${detail.primary_admin.name} (${detail.primary_admin.email})`;
+                }
+            } catch (_) { /* ignore */ }
 
             document.getElementById('schoolModal').style.display = 'flex';
         }
@@ -255,22 +334,49 @@
 
         async function saveSchool() {
             const schoolId = document.getElementById('schoolId').value;
-            const schoolData = {
-                name: document.getElementById('schoolName').value.trim()
-            };
+            const name = document.getElementById('schoolName').value.trim();
+            const region = document.getElementById('schoolRegion').value.trim();
+            const logoFile = document.getElementById('schoolLogoFile').files[0];
 
-            if (!schoolData.name) {
+            if (!name) {
                 alert('학교명을 입력해주세요.');
                 return;
             }
 
             try {
                 if (schoolId) {
-                    await api.schools.update(schoolId, schoolData);
+                    await api.schools.update(schoolId, { name, region: region || undefined });
+                    if (logoFile) {
+                        await api.schools.uploadLogo(schoolId, logoFile);
+                    }
+                    alert('학교가 수정되었습니다.');
                 } else {
-                    await api.schools.create(schoolData);
+                    const adminName = document.getElementById('primaryAdminName').value.trim();
+                    const adminEmail = document.getElementById('primaryAdminEmail').value.trim();
+                    const adminPassword = document.getElementById('primaryAdminPassword').value;
+                    if (!adminName || !adminEmail || !adminPassword) {
+                        alert('주 담당자 이름·이메일·비밀번호를 입력해주세요.');
+                        return;
+                    }
+                    if (adminPassword.length < 8) {
+                        alert('주 담당자 비밀번호는 최소 8자입니다.');
+                        return;
+                    }
+                    const created = await api.schools.create({
+                        name,
+                        region: region || undefined,
+                        primary_admin: {
+                            name: adminName,
+                            email: adminEmail,
+                            password: adminPassword,
+                        },
+                    });
+                    const newId = created.school && created.school.id;
+                    if (newId && logoFile) {
+                        await api.schools.uploadLogo(newId, logoFile);
+                    }
+                    alert('학교가 등록되었습니다. 주 담당자로 로그인할 수 있습니다.');
                 }
-                alert(schoolId ? '학교가 수정되었습니다.' : '학교가 등록되었습니다.');
                 closeSchoolModal();
                 loadSchools();
             } catch (error) {

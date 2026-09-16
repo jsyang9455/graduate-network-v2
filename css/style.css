@@ -86,6 +86,56 @@ nav {
     object-fit: contain;
 }
 
+.logo-img.school-brand-logo {
+    max-width: min(160px, 48vw);
+    height: 44px;
+}
+
+.school-context-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+    white-space: nowrap;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hide permission-gated admin chrome until /me/permissions applied */
+html.rbac-pending #adminMenuSection,
+html.rbac-pending a.menu-item[data-menu] {
+    visibility: hidden !important;
+}
+
+/* RBAC: hide permission-gated admin links until /me/permissions resolves (no flicker) */
+.rbac-pending {
+    visibility: hidden !important;
+}
+#adminMenuSection.rbac-pending,
+#adminMenuSection[style*="display: none"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+
+.school-context-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
+    margin-left: 0.75rem;
+    max-width: 12rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.logo-img.school-branded {
+    max-width: min(140px, 48vw);
+    height: 44px;
+}
+
 .nav-links {
     display: flex;
     gap: 2rem;

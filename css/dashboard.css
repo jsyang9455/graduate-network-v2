@@ -232,6 +232,38 @@
     color: rgba(255, 255, 255, 0.92);
 }
 
+.welcome-school-name {
+    margin: 0 0 0.35rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.welcome-section .school-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.welcome-section .school-brand-logo {
+    height: 56px;
+    width: auto;
+    max-width: 160px;
+    object-fit: contain;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 0.35rem 0.5rem;
+}
+
+.welcome-section .school-brand-name {
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    opacity: 0.95;
+}
+
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);

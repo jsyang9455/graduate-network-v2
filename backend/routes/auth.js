@@ -335,10 +335,37 @@ router.post('/login', [
     const token = signUserToken(tokenUser(user));
     const safe = publicUser(user);
 
+    let school = null;
+    if (safe.school_id) {
+      try {
+        const s = await query(
+          `SELECT id, code, name, region, status, logo_file_id
+           FROM schools WHERE id = $1`,
+          [safe.school_id]
+        );
+        if (s.rows.length) {
+          const row = s.rows[0];
+          school = {
+            id: row.id,
+            code: row.code,
+            name: row.name,
+            region: row.region,
+            status: row.status,
+            logo_file_id: row.logo_file_id,
+            logo_url: row.logo_file_id ? `/api/schools/${row.id}/logo` : null,
+          };
+        }
+      } catch (err) {
+        console.warn('login school attach skipped:', err.message);
+      }
+    }
+
     res.json({
       message: 'Login successful',
       user: {
         ...safe,
+        school_name: school?.name || safe.school_name || null,
+        school,
         is_counselor: user.is_counselor || false
       },
       token
@@ -369,7 +396,39 @@ router.get('/me', auth, async (req, res) => {
       console.warn('permissions attach skipped:', err.message);
     }
 
-    res.json({ user: { ...user, permissions } });
+    let school = null;
+    if (user.school_id) {
+      try {
+        const s = await query(
+          `SELECT id, code, name, region, status, logo_file_id
+           FROM schools WHERE id = $1`,
+          [user.school_id]
+        );
+        if (s.rows.length) {
+          const row = s.rows[0];
+          school = {
+            id: row.id,
+            code: row.code,
+            name: row.name,
+            region: row.region,
+            status: row.status,
+            logo_file_id: row.logo_file_id,
+            logo_url: row.logo_file_id ? `/api/schools/${row.id}/logo` : null,
+          };
+        }
+      } catch (err) {
+        console.warn('school attach skipped:', err.message);
+      }
+    }
+
+    res.json({
+      user: {
+        ...user,
+        school_name: school?.name || user.school_name || null,
+        school,
+        permissions,
+      },
+    });
   } catch (error) {
     console.error('Get user error:', error);
     return sendError(res, 401, 'UNAUTHENTICATED', 'Invalid token');

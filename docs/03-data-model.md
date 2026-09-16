@@ -29,7 +29,7 @@
 ### 2.1 학교·권한
 
 ```
-schools (id, name, region, biz_no, status, ...)
+schools (id, name, region, biz_no, status, logo_file_id, primary_admin_user_id, ...)
 departments (id, school_id, name, ...)          -- 학과
 classes (id, department_id, name, grade, year) -- 반 (필요 시)
 roles (id, code, name)                         -- system_admin, school_admin, ...
@@ -38,9 +38,10 @@ role_menu_permissions (role_id, menu_id, actions[])
 user_roles (user_id, role_id, school_id, granted_by, granted_at)
 users.school_id → schools.id
 school_transfers (user_id, from_school_id, to_school_id, transferred_at, reason)
+files.kind ∈ {…, school_logo}                  -- 020
 ```
 
-v1 `users.user_type`은 과도기 동안 유지하고 `user_roles`와 동기화한다. 최종적으로 주 역할은 `user_roles`가 진실 공급원.
+`logo_url`은 API 파생 (`/api/schools/:id/logo`). 신규 학교 생성 시 `primary_admin_user_id` 필수(레거시 NULL 허용).
 
 ### 2.2 이력서·상담 문서
 

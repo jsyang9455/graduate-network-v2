@@ -25,7 +25,7 @@
 |--------|------|------|----|
 | POST | `/register` | 공개 | `school_id` 필수(학생/**졸업생**/교사/**기업**). 학생·졸업생은 `graduation_year` 필수(재학생=예정). 비밀번호 **최소 8자**. 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert(`approval_status=pending`) + `user_roles(company)` |
 | POST | `/login` | 공개 | JWT에 `school_id`, `role` |
-| GET | `/me` | 토큰 | 권한 목록 포함. `js/api.js` 로컬토큰 skip **삭제** |
+| GET | `/me` | 토큰 | 권한 목록 포함. `user.school` `{ id, name, logo_url, … }` additive. `js/api.js` 로컬토큰 skip **삭제** |
 | POST | `/change-password` | 토큰 | 새 비밀번호 **최소 8자**. v1 `auth` 미들웨어 누락 → **반드시 보호** |
 
 ### Users `/api/users`
@@ -76,8 +76,9 @@
 
 | Method | Path | 권한 | REQ |
 |--------|------|------|-----|
-| GET/POST | `/api/schools` | system 관리 / school 읽기 | IAM-001 |
-| GET/PATCH | `/api/schools/:id` | system / 해당 school_admin | IAM-001 |
+| GET/POST | `/api/schools` | system 관리 / school 읽기 | IAM-001. **POST 시 `primary_admin` 필수** (`{ user_id }` 또는 `{ email, name, password }`). 응답 `logo_url`, `primary_admin_user_id` |
+| GET/PATCH | `/api/schools/:id` | system / 해당 school_admin | IAM-001. 단건에 `primary_admin` 요약 |
+| POST/GET | `/api/schools/:id/logo` | write / **공개 GET** | PLT-004 학교 로고 업로드·`<img>` 스트림 |
 | GET/POST | `/api/schools/:id/departments` | school 쓰기 | IAM-002 |
 | GET | `/api/me/permissions` | 로그인 | IAM-008 |
 | GET/PUT | `/api/roles/:code/permissions` | system 관리 (`schools` manage) | IAM-008 — 기업 승인(`company_approval`) 등 역할별 부여/회수 |

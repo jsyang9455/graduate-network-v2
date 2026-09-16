@@ -15,9 +15,24 @@ const upload = multer({
   limits: { fileSize: 8 * 1024 * 1024 },
 });
 
+const ALLOWED_KINDS = new Set([
+  'attachment',
+  'school_logo',
+]);
+
 async function canReadFile(user, file) {
   if (Number(file.owner_user_id) === Number(user.id)) return true;
   if (isSystemAdmin(user)) return true;
+
+  if (file.kind === 'school_logo') {
+    if (file.school_id == null) {
+      return isSystemAdmin(user) || Number(file.owner_user_id) === Number(user.id);
+    }
+    if (user.school_id != null && Number(user.school_id) === Number(file.school_id)) {
+      return true;
+    }
+    return false;
+  }
 
   if (file.kind === 'attachment') {
     if (user.school_id != null && file.school_id != null
@@ -59,31 +74,53 @@ async function canReadFile(user, file) {
   return false;
 }
 
-// POST /api/files — community/trip attachment upload (REQ-COM-002/003)
+// POST /api/files — community/trip attachment or school_logo (REQ-COM-002/003, REQ-IAM-001)
 router.post('/', auth, schoolScope, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return sendError(res, 400, 'VALIDATION', 'file required (multipart field "file")');
     }
+    const kindRaw = (req.body?.kind || req.query?.kind || 'attachment').toString();
+    const kind = ALLOWED_KINDS.has(kindRaw) ? kindRaw : null;
+    if (!kind) {
+      return sendError(res, 400, 'VALIDATION', 'kind must be attachment or school_logo');
+    }
+
+    if (kind === 'school_logo') {
+      const canUploadLogo = isSystemAdmin(req.user) || isSchoolAdmin(req.user);
+      if (!canUploadLogo) {
+        return sendError(res, 403, 'FORBIDDEN', '학교 로고는 관리자만 업로드할 수 있습니다');
+      }
+      const mime = req.file.mimetype || '';
+      if (!mime.startsWith('image/')) {
+        return sendError(res, 400, 'VALIDATION', '학교 로고는 이미지 파일이어야 합니다');
+      }
+    }
+
     const originalName = req.file.originalname || 'attachment';
     const mime = req.file.mimetype || 'application/octet-stream';
+    const schoolIdForStore = kind === 'school_logo' && isSystemAdmin(req.user)
+      ? (req.user.school_id || null)
+      : (req.user.school_id || null);
+
     const stored = await getStorage().put({
       buffer: req.file.buffer,
       mime,
-      kind: 'attachment',
-      schoolId: req.user.school_id,
+      kind,
+      schoolId: schoolIdForStore,
       originalName,
     });
     const result = await query(
       `INSERT INTO files (school_id, owner_user_id, bucket_key, mime, size, kind, original_name)
-       VALUES ($1, $2, $3, $4, $5, 'attachment', $6)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING id, school_id, owner_user_id, mime, size, kind, original_name, created_at`,
       [
-        req.user.school_id || null,
+        schoolIdForStore,
         req.user.id,
         stored.bucketKey,
         mime,
         stored.size,
+        kind,
         originalName,
       ]
     );

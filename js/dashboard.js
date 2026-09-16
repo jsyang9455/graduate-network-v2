@@ -25,17 +25,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Show admin menu if user is system/school admin
-    if (user && auth.isStaffAdmin(user)) {
-        const adminMenuSection = document.getElementById('adminMenuSection');
-        if (adminMenuSection) {
-            adminMenuSection.style.display = 'block';
-        }
-    }
-
     // Show appropriate dashboard based on user type
     console.log('Current user:', user);
     console.log('User type:', user ? user.user_type : 'none');
+
+    if (window.SchoolBrand) {
+        SchoolBrand.apply(user);
+    }
     
     if (user && auth.isSystemAdmin(user)) {
         showAdminDashboard();

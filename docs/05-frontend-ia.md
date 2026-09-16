@@ -61,7 +61,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 | 공고 | `admin-jobs.html` | **Sprint 1:** LocalStorage `jobPostings` 폴백 삭제. `/api/jobs`만 |
 | 게시판 | `admin-board.html` | API만. Sprint 5: 블라인드 버튼(`include_blinded`) |
 | 공지/행사 | `admin-announcements.html` | 견학 모듈과 정렬 |
-| 코드 | `admin-codes.html` | **Wave 1:** `GET/POST/PATCH /api/schools`. 비활성화만(하드 삭제 없음). LocalStorage 삭제 |
+| 코드 | `admin-codes.html` | 학교 등록: **주 담당자 필수** + 로고 업로드(`POST …/logo`). `GET/POST/PATCH /api/schools`. LocalStorage 삭제 |
 | (신규) 학교 관리 | `admin-schools.html` | system_admin |
 | **권한 매트릭스** | `admin-permissions.html` | system_admin — 역할별 `company_approval` 부여/회수 |
 | (신규) 워크넷 | `admin-worknet.html` | 동기화·로그 |
@@ -74,7 +74,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 
 ## 3. 공통 UX
 
-- **권한 메뉴:** `GET /api/me/permissions` 후 사이드바 렌더. 매트릭스 「–」는 링크 숨김.
+- **권한 메뉴:** `GET /api/me/permissions` 로드 전 `#adminMenuSection`/`[data-menu]` 숨김(`.rbac-pending`) — 플리커 방지. 권한 매트릭스=`schools`+`manage`, 코드 관리=`write`. `js/school-brand.js`가 `user.school`로 헤더·대시보드 브랜딩.
 - **반응형:** 기존 `css/*.css` 계승, 이력서 마법사·테이블은 모바일 카드 레이아웃.
 - **접근성:** 폼 label, 버튼 이름, 포커스. 신규 화면은 키보드 제출 가능.
 - **에러:** 403이면 「소속 학교 권한이 없습니다」. 503 NOT_CONFIGURED이면 게이트 안내.

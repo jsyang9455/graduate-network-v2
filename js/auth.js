@@ -4,10 +4,14 @@ class AuthManager {
         this.storageKey = 'graduateNetwork_user';
         this.tokenKey = 'token';
         this.permissions = null;
+        this._permissionsPromise = null;
         this.init();
     }
 
     init() {
+        if (this.isLoggedIn()) {
+            document.documentElement.classList.add('rbac-pending');
+        }
         this.updateAuthUI();
         this.checkAuth();
     }
@@ -20,12 +24,16 @@ class AuthManager {
                 if (response.user) {
                     localStorage.setItem(this.storageKey, JSON.stringify(response.user));
                     this.updateAuthUI();
-                    this.applyPermissionMenus();
+                    await this.applyPermissionMenus();
+                    if (window.SchoolBrand) {
+                        window.SchoolBrand.applyFromUser(response.user);
+                    }
                 }
             } catch (error) {
                 if (error.message && (error.message.includes('Invalid token') || error.message.includes('Unauthorized') || error.message.includes('Authentication required') || error.message.includes('UNAUTHENTICATED'))) {
                     localStorage.removeItem(this.storageKey);
                     localStorage.removeItem(this.tokenKey);
+                    document.documentElement.classList.remove('rbac-pending');
                     this.updateAuthUI();
                 }
             }
@@ -56,8 +64,14 @@ class AuthManager {
         localStorage.setItem(this.storageKey, JSON.stringify(userData));
         localStorage.setItem(this.tokenKey, token);
         this.permissions = null;
+        this._permissionsPromise = null;
+        document.documentElement.classList.add('rbac-pending');
         this.updateAuthUI();
-        this.applyPermissionMenus();
+        this.applyPermissionMenus().then(() => {
+            if (window.SchoolBrand) {
+                window.SchoolBrand.applyFromUser(userData);
+            }
+        });
     }
 
     logout() {
@@ -70,8 +84,9 @@ class AuthManager {
         if (!href) return null;
         const path = href.split('?')[0];
         if (path.includes('company-profile')) return 'jobs';
-    if (path.includes('applicant-detail')) return 'applications';
-        if (path.includes('admin-codes') || path.includes('admin-permissions') || path.includes('admin-schools')) return 'schools';
+        if (path.includes('applicant-detail')) return 'applications';
+        if (path.includes('admin-permissions')) return 'schools';
+        if (path.includes('admin-codes') || path.includes('admin-schools')) return 'schools';
         if (path.includes('admin-users')) return 'users';
         if (path.includes('company-approval')) return 'company_approval';
         if (path.includes('admin-jobs') || path.includes('job-create') || path.includes('job-edit')) return 'jobs';
@@ -84,6 +99,16 @@ class AuthManager {
         return null;
     }
 
+    /** Minimum action for a menu link: data-menu-min="manage|write|read|apply" */
+    menuMinAction(link, href) {
+        const explicit = link.getAttribute('data-menu-min');
+        if (explicit) return explicit;
+        const path = (href || '').split('?')[0];
+        if (path.includes('admin-permissions')) return 'manage';
+        if (path.includes('admin-codes') || path.includes('admin-schools')) return 'write';
+        return null;
+    }
+
     hasMenuAction(menuCode, action) {
         if (!this.permissions || !this.permissions.menus) return null;
         const entry = this.permissions.menus.find((m) => m.code === menuCode);
@@ -91,20 +116,53 @@ class AuthManager {
         return (entry.actions || []).includes(action);
     }
 
+    linkAllowed(link) {
+        const href = link.getAttribute('href') || '';
+        const menu = link.getAttribute('data-menu') || this.menuCodeForHref(href);
+        if (!menu) return true;
+        const minAction = this.menuMinAction(link, href);
+        if (minAction) {
+            return this.hasMenuAction(menu, minAction) === true;
+        }
+        return this.hasMenuAction(menu, 'read')
+            || this.hasMenuAction(menu, 'write')
+            || this.hasMenuAction(menu, 'manage')
+            || this.hasMenuAction(menu, 'apply');
+    }
+
+    async ensurePermissions() {
+        if (this.permissions) return this.permissions;
+        if (this._permissionsPromise) return this._permissionsPromise;
+        this._permissionsPromise = api.auth.permissions()
+            .then((data) => {
+                this.permissions = data;
+                return data;
+            })
+            .catch((err) => {
+                this._permissionsPromise = null;
+                throw err;
+            });
+        return this._permissionsPromise;
+    }
+
     async applyPermissionMenus() {
         const user = this.getCurrentUser();
-        if (!user) return;
+        if (!user) {
+            document.documentElement.classList.remove('rbac-pending');
+            return;
+        }
 
         const adminMenuSection = document.getElementById('adminMenuSection');
-        if (adminMenuSection && this.isStaffAdmin(user)) {
-            adminMenuSection.style.display = 'block';
+        // Never show admin chrome until permissions are known (prevents flicker).
+        if (adminMenuSection) {
+            adminMenuSection.style.display = 'none';
         }
 
         try {
-            const data = await api.auth.permissions();
-            this.permissions = data;
+            await this.ensurePermissions();
         } catch (err) {
             console.warn('permissions load failed', err);
+            document.documentElement.classList.remove('rbac-pending');
             return;
         }
 
@@ -112,14 +170,13 @@ class AuthManager {
         links.forEach((link) => {
             const menu = link.getAttribute('data-menu') || this.menuCodeForHref(link.getAttribute('href') || '');
             if (!menu) return;
-            const allowed = this.hasMenuAction(menu, 'read')
-                || this.hasMenuAction(menu, 'write')
-                || this.hasMenuAction(menu, 'manage')
-                || this.hasMenuAction(menu, 'apply');
+            const allowed = this.linkAllowed(link);
             if (allowed === false) {
                 link.style.display = 'none';
+                link.setAttribute('aria-hidden', 'true');
             } else {
                 link.style.display = '';
+                link.removeAttribute('aria-hidden');
             }
         });
 
@@ -135,6 +192,9 @@ class AuthManager {
                 || this.hasMenuAction('stats', 'read');
             adminMenuSection.style.display = canAdmin ? 'block' : 'none';
         }
+
+        document.documentElement.classList.remove('rbac-pending');
+        document.documentElement.classList.add('rbac-ready');
     }
 
     /** Display label for badges/menus (admin → 시스템 관리자) */
@@ -159,13 +219,12 @@ class AuthManager {
                 userMenu.style.display = 'flex';
                 if (userName) userName.textContent = user.name;
             }
-            if (this.isStaffAdmin(user)) {
-                const adminMenuSection = document.getElementById('adminMenuSection');
-                if (adminMenuSection) adminMenuSection.style.display = 'block';
-            }
+            // Do NOT reveal adminMenuSection here — wait for applyPermissionMenus.
         } else {
             if (authButtons) authButtons.style.display = 'flex';
             if (userMenu) userMenu.style.display = 'none';
+            const adminMenuSection = document.getElementById('adminMenuSection');
+            if (adminMenuSection) adminMenuSection.style.display = 'none';
         }
     }
 
@@ -211,5 +270,7 @@ document.addEventListener('DOMContentLoaded', function() {
     auth.updateAuthUI();
     if (auth.isLoggedIn()) {
         auth.applyPermissionMenus();
+    } else {
+        document.documentElement.classList.remove('rbac-pending');
     }
 });

@@ -29,6 +29,8 @@ uploads/
 backend/uploads/
 tmp-test-uploads/
 tmp-test-uploads-s3/
+tmp-test-uploads-stb/
+tmp-test-uploads-*/
 
 
 # Docker volumes

@@ -18,6 +18,8 @@ const API_BASE_URL = (() => {
 
 // API Helper Functions
 const api = {
+  baseURL: API_BASE_URL,
+
   // Get token from localStorage
   getToken() {
     return localStorage.getItem('token');
@@ -248,6 +250,31 @@ const api = {
     },
     async departments(schoolId) {
       return api.get(`/schools/${schoolId}/departments`);
+    },
+    async uploadLogo(schoolId, file) {
+      const token = api.getToken();
+      const form = new FormData();
+      form.append('file', file);
+      const res = await fetch(`${API_BASE_URL}/schools/${schoolId}/logo`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      const text = await res.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { raw: text };
+      }
+      if (!res.ok) {
+        const msg = data.error || data.message || `Upload failed (${res.status})`;
+        const err = new Error(msg);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data;
     },
   },
 
