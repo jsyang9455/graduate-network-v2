@@ -10,7 +10,15 @@
 - 구현: 마이그레이션 `020`, `POST /schools` 주 담당자 필수, `…/logo`, `/auth/me.school`, RBAC 플리커 수정, `admin-codes`·`school-brand.js`
 - 검증: [docs/qa/school-tenant-branding-verification.md](qa/school-tenant-branding-verification.md) — **STB 5/5** + curl me.school
 - **DX 데모 시드:** `database/demo-seed.sql` + `./scripts/load-demo-data.sh` + `scripts/verify-demo-data.cjs` — [docs/qa/demo-data-report.md](qa/demo-data-report.md) **5/5 Pass**; 공지 9·상담 세션/일지 5·edu 3·teacher `is_counselor`; JJTH 로고 바이트 + CORP/`school-brand` relative URL
+- **메뉴 아이콘:** 사이드바·어드민·대시보드 통계 이모지 → 공유 `data-icon` 라인 SVG — [docs/qa/menu-icons-note.md](qa/menu-icons-note.md)
 - 게이트: 워크넷·알림톡 **미변경** (`NOT_CONFIGURED`)
+
+```
+Handoff: frontend → qa
+REQ: REQ-PLT-002 (UI tone / menu icons)
+Need: optional logged-in persona screenshot; mobile drawer inherits sidebar
+Done: data-icon masks; menu/stat chrome; RBAC attrs preserved
+```
 
 ```
 Handoff: frontend/backend → qa

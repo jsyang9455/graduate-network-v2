@@ -55,10 +55,29 @@
 }
 
 .menu-item .icon {
-    font-size: 1.15rem;
-    width: 1.5rem;
-    text-align: center;
-    opacity: 0.92;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    display: inline-grid;
+    place-items: center;
+    font-size: 0;
+    line-height: 0;
+    color: var(--secondary-color);
+    opacity: 0.95;
+}
+
+.menu-item .icon[data-icon]::before {
+    content: '';
+    width: 1.15rem;
+    height: 1.15rem;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-mask) center / contain no-repeat;
+    mask: var(--icon-mask) center / contain no-repeat;
+}
+
+.menu-item:hover .icon,
+.menu-item.active .icon {
+    color: #ffffff;
 }
 
 .main-content {
@@ -613,7 +632,21 @@
 }
 
 .quick-action-btn .icon {
-    font-size: 2rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: inline-grid;
+    place-items: center;
+    font-size: 0;
+    color: var(--secondary-color);
+}
+
+.quick-action-btn .icon[data-icon]::before {
+    content: '';
+    width: 1.5rem;
+    height: 1.5rem;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-mask) center / contain no-repeat;
+    mask: var(--icon-mask) center / contain no-repeat;
 }
 
 .hiring-status {
@@ -1687,7 +1720,42 @@
 }
 
 .stat-icon {
-    font-size: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 0.75rem;
+    background: var(--primary-soft);
+    color: var(--secondary-color);
+    font-size: 0;
+    line-height: 0;
+}
+
+.stat-icon[data-icon]::before {
+    content: '';
+    width: 1.4rem;
+    height: 1.4rem;
+    background-color: currentColor;
+    -webkit-mask: var(--icon-mask) center / contain no-repeat;
+    mask: var(--icon-mask) center / contain no-repeat;
+}
+
+.stat-icon[data-icon="jobs"],
+.stat-icon[data-icon="create"],
+.stat-icon[data-icon="counsel"],
+.stat-icon[data-icon="books"] {
+    color: var(--secondary-color);
+}
+
+.stat-icon[data-icon="inbox"],
+.stat-icon[data-icon="network"],
+.stat-icon[data-icon="users"],
+.stat-icon[data-icon="eye"],
+.stat-icon[data-icon="check"],
+.stat-icon[data-icon="education"],
+.stat-icon[data-icon="hand"] {
+    color: var(--primary-color);
 }
 
 .stat-info h3 {

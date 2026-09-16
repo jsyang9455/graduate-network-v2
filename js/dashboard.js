@@ -116,13 +116,19 @@ function showTeacherDashboard() {
         // 교사 전용 통계 카드 레이블·아이콘 변경
         const statCards = companyDashboard.querySelectorAll('.stat-card');
         if (statCards.length >= 4) {
-            statCards[0].querySelector('.stat-icon').textContent = '📚';
+            const setStatIcon = (el, name) => {
+                if (!el) return;
+                el.textContent = '';
+                el.setAttribute('data-icon', name);
+                el.setAttribute('aria-hidden', 'true');
+            };
+            setStatIcon(statCards[0].querySelector('.stat-icon'), 'books');
             statCards[0].querySelector('.stat-info p').textContent = '진행 중 프로그램';
-            statCards[1].querySelector('.stat-icon').textContent = '🙋';
+            setStatIcon(statCards[1].querySelector('.stat-icon'), 'hand');
             statCards[1].querySelector('.stat-info p').textContent = '참여 학생 수';
-            statCards[2].querySelector('.stat-icon').textContent = '💬';
+            setStatIcon(statCards[2].querySelector('.stat-icon'), 'counsel');
             statCards[2].querySelector('.stat-info p').textContent = '상담 진행 건수';
-            statCards[3].querySelector('.stat-icon').textContent = '🎓';
+            setStatIcon(statCards[3].querySelector('.stat-icon'), 'education');
             statCards[3].querySelector('.stat-info p').textContent = '수료 완료 학생';
         }
         
@@ -131,7 +137,7 @@ function showTeacherDashboard() {
         if (jobPostingsSection) {
             jobPostingsSection.style.display = 'block';
             const h2 = jobPostingsSection.querySelector('.section-header h2');
-            if (h2) h2.textContent = '📋 내 채용공고';
+            if (h2) h2.textContent = '내 채용공고';
             const createBtn = jobPostingsSection.querySelector('#createJobBtn');
             if (createBtn) {
                 createBtn.textContent = '채용공고 등록';
@@ -144,7 +150,7 @@ function showTeacherDashboard() {
         if (applicantsSection) {
             applicantsSection.style.display = 'block';
             const h2 = applicantsSection.querySelector('.section-header h2');
-            if (h2) h2.textContent = '💬 상담한 학생 내역';
+            if (h2) h2.textContent = '상담한 학생 내역';
             const link = applicantsSection.querySelector('.section-link');
             if (link) link.href = 'counseling.html';
         }
@@ -153,7 +159,7 @@ function showTeacherDashboard() {
         const eduSection = document.getElementById('educationProgramsCompany')?.closest('.dashboard-section');
         if (eduSection) {
             const h2 = eduSection.querySelector('.section-header h2');
-            if (h2) h2.textContent = '🎓 JJOBB 교육프로그램';
+            if (h2) h2.textContent = 'JJOBB 교육프로그램';
         }
 
         // 최근 소식 섹션은 교사에게 불필요 → 숨김
