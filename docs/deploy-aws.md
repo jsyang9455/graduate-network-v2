@@ -41,9 +41,11 @@ chmod +x scripts/aws-up.sh scripts/init-env.sh
 
 - AWS 계정, 키 페어(`.pem`)
 - **v1이 아닌 새 EC2** (Ubuntu 22.04/24.04 LTS 권장, 최소 t2.small / 권장 t2.medium, 디스크 ≥20GB gp3)
-- 보안 그룹 인바운드: **22**(SSH), **80**(HTTP), (선택) **443**(HTTPS)
+- 보안 그룹 인바운드: **22**(SSH, 본인 IP 권장), **80**(HTTP), (선택) **443**(HTTPS)
+  - **`FRONTEND_PORT=8080`을 쓰면 SG에 TCP 8080도 인바운드 허용** (브라우저 URL은 `http://<IP>:8080/`). §11.2b 참고.
   - 브라우저 API는 **같은 호스트의 `/api`** (Nginx → backend). **5000을 SG에 열 필요 없음**
-- Elastic IP 권장(재기동 후 IP 고정)
+  - 외부에서 진단할 때: **타임아웃** ≈ SG/NACL 차단, **Connection refused** ≈ SG는 통과했으나 호스트에 listen 없음(프론트 미기동·포트 미매핑)
+- Elastic IP 권장(재기동 후 IP 고정). IP가 바뀌면(새 인스턴스·EIP 미연결) 브라우저/SSH 대상 IP도 갱신한다.
 
 ---
 
@@ -441,10 +443,11 @@ docker compose exec frontend wget -qO- http://backend:5000/api/health
 2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`. v2는 서비스명 **`postgres`**.
 3. **마이그레이션 누락** → init은 010까지. §7 migrate.
 4. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`.
-5. **보안 그룹 80 미개방** → 브라우저 타임아웃. (`FRONTEND_PORT` 사용 시 해당 포트도 SG에 허용.)
-6. **호스트 :80 점유** → frontend Created + `address already in use` → §11.2b.
-7. **워크넷·알림톡** → 게이트 전 `NOT_CONFIGURED`. 가짜 키로 완성하지 말 것.
-8. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
+5. **보안 그룹 80 미개방** → 브라우저 **타임아웃**. (`FRONTEND_PORT=8080`이면 **8080도** SG 인바운드 허용 — §1·§11.2b.)
+6. **호스트 :80/:8080 Connection refused** → SG는 열린 경우가 많음. `docker compose ps`·`ss -lptn 'sport = :80 or :8080'`·`.env`의 `FRONTEND_PORT` 확인. frontend Up + publish 없으면 §6/`aws-up.sh`.
+7. **호스트 :80 점유** → frontend Created + `address already in use` → §11.2b.
+8. **워크넷·알림톡** → 게이트 전 `NOT_CONFIGURED`. 가짜 키로 완성하지 말 것.
+9. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
 
 ---
 
