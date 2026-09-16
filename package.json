@@ -6,7 +6,9 @@
   "scripts": {
     "test": "npm --prefix backend test",
     "migrate": "npm --prefix backend run migrate",
-    "test:e2e": "node scripts/e2e-persona-smoke.cjs"
+    "test:e2e": "node scripts/e2e-persona-smoke.cjs",
+    "demo:load": "./scripts/load-demo-data.sh",
+    "demo:verify": "node scripts/verify-demo-data.cjs"
   },
   "keywords": [],
   "author": "",

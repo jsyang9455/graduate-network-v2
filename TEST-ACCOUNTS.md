@@ -78,6 +78,10 @@
 - 비밀번호는 bcrypt로 암호화되어 저장됩니다
 - DX `@jjob.com` 계정은 Compose `seed.sql`에 **없음** — `database/test-accounts.sql` /
   `./scripts/load-test-accounts.sh` / `aws-up.sh`(비-prod 기본)로 적재
+- **풍부한 페르소나 데모 데이터** (이력서·밴드·채용·박람회·견학·학교 로고):  
+  `./scripts/load-demo-data.sh` → `database/demo-seed.sql`  
+  검증: `BASE_URL=http://127.0.0.1:8090 node scripts/verify-demo-data.cjs`  
+  보고서: [docs/qa/demo-data-report.md](docs/qa/demo-data-report.md)
 - 기업 `company@jjob.com`은 시드에서 `approval_status=approved` (공개 가입 기업은 기본 pending —
   **로그인은 가능**, 공고 등록만 승인 후)
 - 실제 운영 환경에서는 강력한 비밀번호로 변경하고 테스트 시드를 넣지 마세요
