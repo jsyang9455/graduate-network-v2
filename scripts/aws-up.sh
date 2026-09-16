@@ -14,8 +14,8 @@ cd "$ROOT"
 
 WITH_TEST_ACCOUNTS=0
 HEALTH_TIMEOUT=300
-HEALTH_URL="http://127.0.0.1/api/health"
 POLL_INTERVAL=5
+# HEALTH_URL set after .env load (respects FRONTEND_PORT)
 
 RED=$'\033[0;31m'
 GREEN=$'\033[0;32m'
@@ -40,6 +40,7 @@ Must run from the jjobb_v2 repo root (script enforces this).
 Requires: docker compose v2.
 If .env is missing or JWT_SECRET/DB_PASSWORD incomplete, runs scripts/init-env.sh
 (copies .env.example and generates secrets — see docs/deploy-aws.md).
+Host port 80 busy? FRONTEND_PORT=8080 ./scripts/aws-up.sh  (see docs/deploy-aws.md §11.2b)
 EOF
 }
 
@@ -73,6 +74,54 @@ container_state() {
   docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$name" 2>/dev/null || echo "missing"
 }
 
+# Host publish port for frontend nginx (compose: "${FRONTEND_PORT:-80}:80")
+frontend_host_port() {
+  echo "${FRONTEND_PORT:-80}"
+}
+
+port_in_use() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -lptn "sport = :${port}" 2>/dev/null | grep -q ":${port}" && return 0
+    return 1
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+    return 1
+  fi
+  return 1
+}
+
+is_address_in_use_error() {
+  local text="$1"
+  [[ "$text" == *"address already in use"* ]] || \
+    [[ "$text" == *"bind: address already in use"* ]] || \
+    [[ "$text" == *"failed to bind host port"* ]]
+}
+
+hint_port_conflict() {
+  local port
+  port="$(frontend_host_port)"
+  echo ""
+  log_err "=== host port ${port} is already in use (NOT a backend failure) ==="
+  echo "  Docker cannot publish 0.0.0.0:${port}/tcp for the frontend nginx container."
+  echo "  Backend/postgres may be healthy; frontend stays Created until the port is free."
+  echo ""
+  log_info "See who holds :${port}:"
+  echo "  ss -lptn 'sport = :${port}'"
+  echo "  # or: sudo lsof -iTCP:${port} -sTCP:LISTEN"
+  echo ""
+  log_info "Option A — free the host port (common: host nginx/apache):"
+  echo "  sudo systemctl stop nginx    # or: sudo systemctl stop apache2"
+  echo "  sudo systemctl disable nginx # optional, if you do not need host nginx"
+  echo "  ./scripts/aws-up.sh"
+  echo ""
+  log_info "Option B — map frontend to another host port (no SG change if you open that port):"
+  echo "  FRONTEND_PORT=8080 ./scripts/aws-up.sh"
+  echo "  # then browse http://<EC2공인IP>:8080/  (SG inbound must allow 8080)"
+  echo ""
+}
+
 hint_backend_failure() {
   echo ""
   log_info "=== hint: common causes of 'dependency backend failed to start' ==="
@@ -96,7 +145,27 @@ hint_backend_failure() {
 
 die_diagnostics() {
   local reason="$1"
+  local extra_err="${2:-}"
+  local combined="${reason}"$'\n'"${extra_err}"
+  local port_conflict=0
+  local backend_h
+  backend_h="$(container_health graduate-network-backend)"
+
+  if is_address_in_use_error "$combined"; then
+    port_conflict=1
+  elif port_in_use "$(frontend_host_port)"; then
+    # Frontend Created + healthy backend + host port busy → almost always bind conflict
+    local fe_status
+    fe_status="$(docker inspect -f '{{.State.Status}}' graduate-network-frontend 2>/dev/null || echo missing)"
+    if [[ "$backend_h" == "healthy" && ( "$fe_status" == "created" || "$fe_status" == "missing" || "$fe_status" == "exited" ) ]]; then
+      port_conflict=1
+    fi
+  fi
+
   log_err "$reason"
+  if [[ -n "$extra_err" ]]; then
+    echo "$extra_err" | sed 's/^/  /' >&2 || true
+  fi
   echo ""
   log_info "=== diagnostics: docker compose ps -a ==="
   compose ps -a || true
@@ -105,7 +174,22 @@ die_diagnostics() {
   echo "  $(container_state graduate-network-backend)"
   log_info "=== diagnostics: postgres state ==="
   echo "  $(container_state graduate-network-db)"
+  log_info "=== diagnostics: frontend state ==="
+  echo "  $(container_state graduate-network-frontend)"
   echo ""
+
+  if [[ "$port_conflict" -eq 1 ]]; then
+    hint_port_conflict
+    if command -v ss >/dev/null 2>&1; then
+      log_info "=== ss -lptn 'sport = :$(frontend_host_port)' ==="
+      ss -lptn "sport = :$(frontend_host_port)" 2>/dev/null || true
+      echo ""
+    fi
+    log_err "FAILED — frontend host port $(frontend_host_port) is in use (address already in use)."
+    log_err "Do not treat this as a backend dependency failure when backend is healthy."
+    exit 1
+  fi
+
   log_info "=== diagnostics: backend logs (tail 120) ==="
   compose logs backend --tail=120 || true
   echo ""
@@ -114,10 +198,17 @@ die_diagnostics() {
   echo ""
   log_info "=== diagnostics: frontend logs (tail 40) ==="
   compose logs frontend --tail=40 || true
-  hint_backend_failure
+  # Only blame backend when it is not healthy
+  if [[ "$backend_h" != "healthy" ]]; then
+    hint_backend_failure
+  else
+    echo ""
+    log_info "Backend is healthy — this is unlikely a 'dependency backend failed' root cause."
+    log_info "Check frontend bind/ports and: ss -lptn 'sport = :$(frontend_host_port)'"
+  fi
   echo ""
   log_err "FAILED — /api/health did not become healthy."
-  log_err "Send the diagnostics above (ps + backend/postgres logs) when asking for help."
+  log_err "Send the diagnostics above (ps + relevant logs) when asking for help."
   exit 1
 }
 
@@ -209,10 +300,20 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 log_ok ".env has JWT_SECRET and DB_PASSWORD"
 
+# Frontend host publish port (compose "${FRONTEND_PORT:-80}:80")
+FRONTEND_PORT="$(frontend_host_port)"
+export FRONTEND_PORT
+if [[ "$FRONTEND_PORT" == "80" ]]; then
+  HEALTH_URL="http://127.0.0.1/api/health"
+else
+  HEALTH_URL="http://127.0.0.1:${FRONTEND_PORT}/api/health"
+fi
+
 echo ""
 echo "========================================================================"
 echo "  jjobb_v2 aws-up — postgres → migrate → backend → frontend → /api/health"
 echo "========================================================================"
+echo "  FRONTEND_PORT=${FRONTEND_PORT}  (health: ${HEALTH_URL})"
 echo ""
 
 # Staged bring-up avoids: frontend depends_on backend healthy while backend is
@@ -245,10 +346,31 @@ fi
 wait_container_healthy graduate-network-backend "Backend"
 log_ok "Backend is healthy"
 
-log_info "Starting frontend (waits on backend healthy)..."
-if ! compose up -d frontend; then
-  die_diagnostics "Failed to start frontend — typically: dependency backend failed to start / backend unhealthy."
+# Preflight: warn if host port already taken (before compose bind fails)
+if port_in_use "$FRONTEND_PORT"; then
+  log_warn "Host port ${FRONTEND_PORT} appears already in use — frontend publish may fail."
+  if command -v ss >/dev/null 2>&1; then
+    ss -lptn "sport = :${FRONTEND_PORT}" 2>/dev/null || true
+  fi
+  log_info "Fix: stop host nginx/apache, or: FRONTEND_PORT=8080 ./scripts/aws-up.sh"
 fi
+
+log_info "Starting frontend (waits on backend healthy; host port ${FRONTEND_PORT})..."
+frontend_err="$(mktemp)"
+set +e
+compose up -d frontend >"$frontend_err" 2>&1
+frontend_rc=$?
+set -e
+if [[ "$frontend_rc" -ne 0 ]]; then
+  fe_out="$(cat "$frontend_err" 2>/dev/null || true)"
+  rm -f "$frontend_err"
+  if is_address_in_use_error "$fe_out" || port_in_use "$FRONTEND_PORT"; then
+    die_diagnostics "Failed to start frontend — host port ${FRONTEND_PORT} already in use." "$fe_out"
+  fi
+  die_diagnostics "Failed to start frontend." "$fe_out"
+fi
+rm -f "$frontend_err"
+log_ok "Frontend container started (host :${FRONTEND_PORT} → container :80)"
 
 # --- poll /api/health via nginx ---
 log_info "Polling ${HEALTH_URL} until HTTP 200 (timeout ${HEALTH_TIMEOUT}s)..."
@@ -294,16 +416,25 @@ if command -v curl >/dev/null 2>&1; then
   fi
 fi
 
+BASE_URL="http://${PUBLIC_HINT}"
+if [[ "$FRONTEND_PORT" != "80" ]]; then
+  BASE_URL="http://${PUBLIC_HINT}:${FRONTEND_PORT}"
+fi
+
 echo ""
 echo "========================================================================"
 echo -e "  ${GREEN}SUCCESS${NC} — jjobb_v2 is up and /api/health returned 200"
 echo "========================================================================"
 echo ""
 echo "Next (browser):"
-echo "  http://${PUBLIC_HINT}/"
-echo "  http://${PUBLIC_HINT}/login.html"
+echo "  ${BASE_URL}/"
+echo "  ${BASE_URL}/login.html"
 echo ""
-echo "Tips: hard-refresh after deploy; SG must allow inbound 80."
+if [[ "$FRONTEND_PORT" == "80" ]]; then
+  echo "Tips: hard-refresh after deploy; SG must allow inbound 80."
+else
+  echo "Tips: hard-refresh after deploy; SG must allow inbound ${FRONTEND_PORT} (FRONTEND_PORT)."
+fi
 echo "Logs:  docker compose logs -f backend"
 echo ""
 exit 0

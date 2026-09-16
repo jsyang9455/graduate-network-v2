@@ -143,7 +143,7 @@ docker compose logs --tail=80
 
 | 컨테이너명 | 역할 | 호스트 포트 |
 |------------|------|-------------|
-| `graduate-network-frontend` | Nginx + 정적 | **80** |
+| `graduate-network-frontend` | Nginx + 정적 | **80** (또는 `FRONTEND_PORT`) |
 | `graduate-network-backend` | Express API | **5000** (SG 외부 개방 불필요) |
 | `graduate-network-db` | Postgres 15 | **5432** |
 
@@ -252,7 +252,7 @@ http://<EC2공인IP>/login.html
 - 배포·프론트 갱신 후 **강력 새로고침**(캐시된 구 `api.js`가 `:5000`을 치면 실패할 수 있음)
 - 로컬 오버라이드만: `localStorage.jjobb_api_base` (예: AirPlay로 5050 쓸 때)
 
-도메인·Let's Encrypt는 선택. Compose 프론트가 이미 80을 쓰므로 **호스트에 별도 Nginx를 또 올리면 포트 충돌**.
+도메인·Let's Encrypt는 선택. Compose 프론트가 이미 80을 쓰므로 **호스트에 별도 Nginx를 또 올리면 포트 충돌** → §11.2b (`ss -lptn` / `FRONTEND_PORT=8080`).
 
 ---
 
@@ -369,6 +369,40 @@ docker compose down -v
 ./scripts/aws-up.sh
 ```
 
+### 11.2b Host port 80 in use (`failed to bind host port 0.0.0.0:80/tcp`)
+
+Frontend가 **Created**에 머물고, 로그/에러에 `address already in use` / `failed to bind host port …:80` 이 보이면 **백엔드 문제가 아니다.** Backend·Postgres가 healthy여도 호스트 **:80**이 이미 점유되어 있으면 Compose가 frontend publish에 실패한다. (호스트 nginx/apache, 다른 컨테이너 등.)
+
+**확인:**
+
+```bash
+ss -lptn 'sport = :80'
+# 또는: sudo lsof -iTCP:80 -sTCP:LISTEN
+docker compose ps -a   # frontend = Created, backend = healthy 이면 이 케이스
+```
+
+**옵션 A — :80 비우기 (권장, 브라우저가 기본 80 사용):**
+
+```bash
+sudo systemctl stop nginx     # 또는 apache2
+# 필요 시: sudo systemctl disable nginx
+cd ~/graduate-network-v2
+git pull origin main
+./scripts/aws-up.sh
+```
+
+**옵션 B — 다른 호스트 포트로 매핑 (`FRONTEND_PORT`):**
+
+```bash
+cd ~/graduate-network-v2
+git pull origin main
+FRONTEND_PORT=8080 ./scripts/aws-up.sh
+# 브라우저: http://<EC2공인IP>:8080/
+# 보안 그룹 인바운드에 8080 허용 필요
+```
+
+`.env`에 `FRONTEND_PORT=8080`을 넣어 두면 이후에도 동일하다. Compose는 `"${FRONTEND_PORT:-80}:80"`이다. `aws-up.sh`는 이 에러를 backend dependency로 오진하지 않고 위 힌트를 출력한다.
+
 ### 11.3 `/api/health` 502 · 백엔드
 
 Nginx는 살아 있으나 upstream(`backend:5000`)이 없거나 기동 직후 크래시하면 **502**.
@@ -405,9 +439,10 @@ docker compose exec frontend wget -qO- http://backend:5000/api/health
 2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`. v2는 서비스명 **`postgres`**.
 3. **마이그레이션 누락** → init은 010까지. §7 migrate.
 4. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`.
-5. **보안 그룹 80 미개방** → 브라우저 타임아웃.
-6. **워크넷·알림톡** → 게이트 전 `NOT_CONFIGURED`. 가짜 키로 완성하지 말 것.
-7. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
+5. **보안 그룹 80 미개방** → 브라우저 타임아웃. (`FRONTEND_PORT` 사용 시 해당 포트도 SG에 허용.)
+6. **호스트 :80 점유** → frontend Created + `address already in use` → §11.2b.
+7. **워크넷·알림톡** → 게이트 전 `NOT_CONFIGURED`. 가짜 키로 완성하지 말 것.
+8. **타교 데이터 403/빈 목록** → `school_id` 테넌시 정상 동작에 가깝다.
 
 ---
 
