@@ -15,7 +15,23 @@
 | **이 문서** (`docs/deploy-aws.md`) | **v2** — 저장소 `graduate-network-v2` · **신규 EC2 전용** |
 | [`AWS-DEPLOYMENT.md`](../AWS-DEPLOYMENT.md), [`deploy-aws.sh`](../deploy-aws.sh) | **v1 지향** — `graduate-network` + 태그 `v1.1`. v2 테스트·이 서버에 쓰지 말 것 |
 
-관련: 루트 [`.env.example`](../.env.example), [`docker-compose.yml`](../docker-compose.yml), [`nginx.conf`](../nginx.conf), [`scripts/load-test-accounts.sh`](../scripts/load-test-accounts.sh), REQ-NFR-010.
+관련: 루트 [`.env.example`](../.env.example), [`docker-compose.yml`](../docker-compose.yml), [`nginx.conf`](../nginx.conf), [`scripts/aws-up.sh`](../scripts/aws-up.sh), [`scripts/load-test-accounts.sh`](../scripts/load-test-accounts.sh), REQ-NFR-010.
+
+### 권장: one-shot `scripts/aws-up.sh` (clone · `.env` 이후)
+
+수동으로 `compose up` → migrate → curl을 나눠 치지 말고, **아래 스크립트를 1차 경로로 사용**한다.  
+repo root에서 `.env`만 준비한 뒤:
+
+```bash
+cd ~/graduate-network-v2
+chmod +x scripts/aws-up.sh
+./scripts/aws-up.sh
+# DX 테스트 계정까지:  ./scripts/aws-up.sh --with-test-accounts
+```
+
+스크립트가 하는 일: `.env`(JWT_SECRET·DB_PASSWORD) 검사 → `docker compose up -d --build` → Postgres healthy 대기 → migrate(`/database` 마운트) → `http://127.0.0.1/api/health` 200까지 폴링 → 실패 시 `ps`·backend/postgres 로그 덤프 → 성공 시 브라우저 URL 힌트.
+
+§6–§8 수동 단계는 스크립트 실패 디버깅·부분 재실행용이다.
 
 ---
 
@@ -101,6 +117,8 @@ JWT_EXPIRE=7d
 
 ## 6. Docker Compose 기동
 
+**권장:** §5 후 `./scripts/aws-up.sh` (기동+migrate+헬스까지). 아래는 수동/부분 재실행용.
+
 ```bash
 cd ~/graduate-network-v2
 docker compose up -d --build
@@ -130,10 +148,11 @@ Postgres는 `healthcheck` + `start_period: 90s`(첫 init: schema+seed+010) 후 �
 - `database/seed.sql`
 - **`010_v2_multischool.sql`까지**
 
-**011~019** 등 나머지는 별도 적용. 백엔드 이미지에 `database/`가 없으므로 **호스트 `database`를 `/database`에 마운트**한 뒤 migrate한다.
+**011~019** 등 나머지는 별도 적용. Compose `backend`는 `./database` → `/database:ro`를 마운트한다(기동 시 `applyPendingMigrations`·502 방지). one-shot 스크립트/`compose run`도 동일 경로를 쓴다.
 
 ```bash
 cd ~/graduate-network-v2
+# 권장: ./scripts/aws-up.sh  (migrate 포함)
 docker compose run --rm \
   -v "$(pwd)/database:/database:ro" \
   backend npm run migrate
@@ -151,7 +170,8 @@ docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrat
 
 ## 8. 헬스 체크 (`/api/health` — bare `/health` 아님)
 
-정식 경로는 **`GET /api/health`** (Express `backend/server.js` + Nginx `location /api/`).
+정식 경로는 **`GET /api/health`** (Express `backend/server.js` + Nginx `location /api/`).  
+`aws-up.sh`가 이미 200을 확인할 때까지 폴링한다. 수동 재확인:
 
 ```bash
 # EC2 호스트에서 (권장)
@@ -255,13 +275,23 @@ docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrat
 
 ### 11.2 `/api/health` 502 · 백엔드
 
+Nginx는 살아 있으나 upstream(`backend:5000`)이 없거나 기동 직후 크래시하면 **502**.
+
+흔한 원인:
+
+| 원인 | 증상 |
+|------|------|
+| `/database` 미마운트 → production start가 migrate 실패 후 `exit 1` | backend 재시작 루프, 로그에 Migrations directory / ENOENT |
+| Postgres unhealthy / DB 비번 불일치 | backend DB connection 오류 |
+| JWT_SECRET 없음 | compose 기동 실패 |
+| 구 frontend 이미지(프록시 없음) | 보통 404; 재빌드 필요 |
+
 ```bash
+./scripts/aws-up.sh   # 재시도 + 자동 diagnostics
 docker compose logs backend --tail=120
 docker compose logs postgres --tail=80
 docker compose exec frontend wget -qO- http://backend:5000/api/health
 ```
-
-JWT_SECRET 미설정, DB 미기동, migrate 누락을 우선 확인.
 
 ### 11.3 API URL (공인 IP에서 `:5000`)
 
@@ -290,9 +320,11 @@ JWT_SECRET 미설정, DB 미기동, migrate 누락을 우선 확인.
 ```bash
 cd ~/graduate-network-v2
 git pull origin main
-docker compose up -d --build
-docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
-curl -sS -i http://127.0.0.1/api/health
+./scripts/aws-up.sh
+# 또는 수동:
+# docker compose up -d --build
+# docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
+# curl -sS -i http://127.0.0.1/api/health
 ```
 
 참고:
@@ -321,16 +353,14 @@ ssh -i your-key.pem ubuntu@<EC2공인IP>
 # 3) Docker (한 번)
 # … §3 설치 명령 …
 
-# 4–10) 앱 기동
+# 4–10) 앱 기동 (one-shot)
 cd ~
 git clone https://github.com/jsyang9455/graduate-network-v2.git
 cd graduate-network-v2
 cp .env.example .env
 # nano .env  → JWT_SECRET, DB_PASSWORD 설정
-docker compose up -d --build
-docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
-curl -sS -i http://127.0.0.1/api/health
-chmod +x scripts/load-test-accounts.sh && ./scripts/load-test-accounts.sh
+chmod +x scripts/aws-up.sh
+./scripts/aws-up.sh --with-test-accounts   # prod면 --with-test-accounts 생략
 # 브라우저: http://<EC2공인IP>/login.html  (강력 새로고침)
 ```
 

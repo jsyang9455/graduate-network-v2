@@ -2,9 +2,32 @@ const fs = require('fs');
 const path = require('path');
 const { pool } = require('../config/database');
 
-const MIGRATIONS_DIR = path.join(__dirname, '..', '..', 'database', 'migrations');
+/**
+ * Resolve migrations directory for both host and Docker.
+ * Compose mounts host `./database` at `/database` (see docker-compose.yml).
+ * Local/dev: repo `database/migrations` relative to backend/.
+ */
+function resolveMigrationsDir() {
+  const candidates = [
+    process.env.MIGRATIONS_DIR,
+    '/database/migrations',
+    path.join(__dirname, '..', '..', 'database', 'migrations'),
+    path.join(__dirname, '..', 'database', 'migrations'),
+  ].filter(Boolean);
+
+  for (const dir of candidates) {
+    if (fs.existsSync(dir)) {
+      return dir;
+    }
+  }
+  throw new Error(
+    `Migrations directory not found. Tried: ${candidates.join(', ')}. ` +
+      'Mount ./database at /database (compose) or set MIGRATIONS_DIR.'
+  );
+}
 
 async function applyPendingMigrations({ endPool = false } = {}) {
+  const migrationsDir = resolveMigrationsDir();
   const client = await pool.connect();
   try {
     await client.query(`
@@ -14,7 +37,7 @@ async function applyPendingMigrations({ endPool = false } = {}) {
       )
     `);
 
-    const files = fs.readdirSync(MIGRATIONS_DIR)
+    const files = fs.readdirSync(migrationsDir)
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
@@ -28,7 +51,7 @@ async function applyPendingMigrations({ endPool = false } = {}) {
         continue;
       }
 
-      const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
       console.log(`🚀 Applying migration ${file}...`);
       await client.query('BEGIN');
       try {

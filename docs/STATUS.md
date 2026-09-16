@@ -1,6 +1,6 @@
 # STATUS — jjobb_v2 (living)
 
-최종 갱신: 2026-09-15  
+최종 갱신: 2026-09-16  
 현재 단계: **Sprint 7+ / 정책 결정 반영 (페르소나 E2E Q1–Q7)**  
 전체 P0 구현: **약 70%** (Wave 1–Sprint 6 + Sprint 7 + 기업 승인 + **정책 Q1–Q7**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
 
@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) end-to-end 런가이드(JWT·migrate mount·`/api/health`·load-test-accounts·재배포) (2026-09-15) |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** one-shot(compose·migrate·`/api/health` 폴링). compose: `./database`→`/database` 마운트·backend health(node)·frontend waits healthy (502 완화, 2026-09-16) |
 
 ## Blockers
 
@@ -83,10 +83,11 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 - 범위 변경은 Architect만 `00`/`01`과 함께 수정한다.
 - Progress Monitor는 매주 %의 합이 git 실제 진척과 맞는지 검사한다.
 
-## Ops note (2026-09-15)
+## Ops note (2026-09-16)
 
-- v2 AWS 실행·테스트: [docs/deploy-aws.md](deploy-aws.md) (`graduate-network-v2` + Compose + migrate 011+). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
-- Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`. EC2에서 `dependency postgres failed to start` → deploy-aws §10.1.
+- v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** (compose · migrate · `/api/health` 폴링). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
+- 502 완화: backend에 `./database:/database:ro` 마운트(기동 migrate), healthcheck를 Node로, frontend는 backend healthy 대기.
+- Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`.
 
 ## Persona E2E 캠페인 (2026-09-15)
 
