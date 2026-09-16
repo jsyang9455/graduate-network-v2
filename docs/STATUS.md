@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** + **`scripts/init-env.sh`**. **2026-09-16:** `nginx=000`+`:5000=200` → frontend PORTS/Created(§11.2c); aws-up verify publish + DNS resolver in nginx.conf |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + aws-up/init-env. **FRONTEND_PORT=8090** 기본(SG 8090). nginx=000 → §11.2c |
 
 ## Blockers
 
