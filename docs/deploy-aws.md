@@ -17,19 +17,19 @@
 
 관련: 루트 [`.env.example`](../.env.example), [`docker-compose.yml`](../docker-compose.yml), [`nginx.conf`](../nginx.conf), [`scripts/aws-up.sh`](../scripts/aws-up.sh), [`scripts/load-test-accounts.sh`](../scripts/load-test-accounts.sh), REQ-NFR-010.
 
-### 권장: one-shot `scripts/aws-up.sh` (clone · `.env` 이후)
+### 권장: one-shot `scripts/aws-up.sh` (clone 이후)
 
 수동으로 `compose up` → migrate → curl을 나눠 치지 말고, **아래 스크립트를 1차 경로로 사용**한다.  
-repo root에서 `.env`만 준비한 뒤:
+`.env`가 없거나 `JWT_SECRET`이 플레이스홀더면 `aws-up.sh`가 `scripts/init-env.sh`로 자동 채운다(수동 준비도 OK).
 
 ```bash
 cd ~/graduate-network-v2
-chmod +x scripts/aws-up.sh
+chmod +x scripts/aws-up.sh scripts/init-env.sh
 ./scripts/aws-up.sh
 # DX 테스트 계정까지:  ./scripts/aws-up.sh --with-test-accounts
 ```
 
-스크립트가 하는 일: `.env`(JWT_SECRET·DB_PASSWORD) 검사 → `docker compose up -d --build` → Postgres healthy 대기 → migrate(`/database` 마운트) → `http://127.0.0.1/api/health` 200까지 폴링 → 실패 시 `ps`·backend/postgres 로그 덤프 → 성공 시 브라우저 URL 힌트.
+스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD 생성) → `docker compose up -d --build` → Postgres healthy 대기 → migrate(`/database` 마운트) → `http://127.0.0.1/api/health` 200까지 폴링 → 실패 시 `ps`·backend/postgres 로그 덤프 → 성공 시 브라우저 URL 힌트.
 
 §6–§8 수동 단계는 스크립트 실패 디버깅·부분 재실행용이다.
 
@@ -92,10 +92,20 @@ cd graduate-network-v2
 
 Compose는 `${JWT_SECRET:?…}`를 사용한다. **미설정 시 `docker compose up` 실패** (REQ-NFR-010).
 
+**권장 (자동):**
+
+```bash
+cd ~/graduate-network-v2
+chmod +x scripts/init-env.sh
+./scripts/init-env.sh
+# → .env 없으면 .env.example 복사 + JWT_SECRET·DB_PASSWORD 랜덤 생성
+```
+
+**수동:**
+
 ```bash
 cp .env.example .env
-# JWT_SECRET·DB_PASSWORD를 강한 값으로 설정
-openssl rand -base64 48   # JWT_SECRET 후보
+openssl rand -base64 48   # 출력값을 JWT_SECRET= 뒤에 붙임
 nano .env
 ```
 
@@ -112,6 +122,7 @@ JWT_EXPIRE=7d
 - Compose `postgres`는 같은 값으로 `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB`를 설정한다(**최초 볼륨 생성 시에만** 적용).
 - Compose가 `DB_HOST=postgres`, 백엔드 `PORT=5000`, `STORAGE_DRIVER=local`을 넣는다.
 - **`.env`는 커밋하지 않는다.** 실비밀번호·실 JWT를 이 문서나 git에 넣지 말 것.
+- `init-env.sh`가 `DB_PASSWORD=postgres`(예제 기본값)를 랜덤으로 바꾸면, **이미 만든 `postgres_data` 볼륨**과 불일치할 수 있다 → 기존 비번을 유지하거나 `docker compose down -v`(데이터 삭제) 후 재기동.
 
 ---
 
@@ -240,6 +251,44 @@ http://<EC2공인IP>/login.html
 
 ## 11. 트러블슈팅
 
+### 11.0 `error .env incomplete: set JWT_SECRET` (aws-up.sh)
+
+`./scripts/aws-up.sh`가 바로 실패한 경우. `.env`가 없거나 `JWT_SECRET`이 비어 있거나 예제 값 `replace_with_long_random_string`인 상태다 (REQ-NFR-010).
+
+**지금 EC2에서 고치기 (수동 nano):**
+
+```bash
+cd ~/graduate-network-v2   # 클론 경로에 맞게
+cp -n .env.example .env    # 없으면 복사 (-n: 기존 .env 덮어쓰지 않음)
+openssl rand -base64 48    # 출력 복사
+nano .env
+```
+
+`nano`에서 아래처럼 맞춘다 (값은 본인 생성분으로):
+
+```env
+JWT_SECRET=<방금 openssl 출력 한 줄>
+DB_PASSWORD=<강한비밀번호>   # 예제 postgres 대신 권장; 볼륨 이미 있으면 기존 값 유지
+```
+
+저장 후:
+
+```bash
+./scripts/aws-up.sh
+```
+
+**자동 (git pull 후 init 스크립트가 있는 경우):**
+
+```bash
+cd ~/graduate-network-v2
+git pull origin main
+chmod +x scripts/init-env.sh scripts/aws-up.sh
+./scripts/init-env.sh      # 플레이스홀더 JWT / 빈·예제 DB 비번 채움
+./scripts/aws-up.sh
+```
+
+최신 `aws-up.sh`는 이 검사가 실패하기 전에 `init-env.sh`를 호출한다. 구 커밋만 있으면 위 수동 또는 `git pull` 후 재실행.
+
 ### 11.1 Postgres failed / `dependency postgres failed to start`
 
 백엔드가 `depends_on: postgres: condition: service_healthy`라서 DB가 healthy가 아니면 기동 실패로 보인다.
@@ -305,7 +354,7 @@ docker compose exec frontend wget -qO- http://backend:5000/api/health
 
 ### 11.5 기타
 
-1. **JWT_SECRET 없음** → compose 기동 실패. 루트 `.env` 확인.
+1. **JWT_SECRET 없음** → §11.0. 루트 `.env` / `./scripts/init-env.sh`.
 2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`. v2는 서비스명 **`postgres`**.
 3. **마이그레이션 누락** → init은 010까지. §7 migrate.
 4. **기업 미승인** → 신규 기업 공고 403 `COMPANY_NOT_APPROVED`.
@@ -357,9 +406,8 @@ ssh -i your-key.pem ubuntu@<EC2공인IP>
 cd ~
 git clone https://github.com/jsyang9455/graduate-network-v2.git
 cd graduate-network-v2
-cp .env.example .env
-# nano .env  → JWT_SECRET, DB_PASSWORD 설정
-chmod +x scripts/aws-up.sh
+chmod +x scripts/init-env.sh scripts/aws-up.sh
+./scripts/init-env.sh          # 또는 cp .env.example .env && nano .env
 ./scripts/aws-up.sh --with-test-accounts   # prod면 --with-test-accounts 생략
 # 브라우저: http://<EC2공인IP>/login.html  (강력 새로고침)
 ```

@@ -37,7 +37,9 @@ Usage: ./scripts/aws-up.sh [options]
   -h, --help             Show this help
 
 Must run from the jjobb_v2 repo root (script enforces this).
-Requires: docker compose v2, root .env with JWT_SECRET and DB_PASSWORD.
+Requires: docker compose v2.
+If .env is missing or JWT_SECRET/DB_PASSWORD incomplete, runs scripts/init-env.sh
+(copies .env.example and generates secrets — see docs/deploy-aws.md).
 EOF
 }
 
@@ -99,13 +101,39 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
-# --- .env secrets ---
+# --- .env secrets (REQ-NFR-010) ---
+need_init=0
 if [[ ! -f "$ROOT/.env" ]]; then
-  log_err "Missing .env — copy .env.example and set JWT_SECRET + DB_PASSWORD."
-  log_err "  cp .env.example .env && nano .env"
-  exit 1
+  log_warn "Missing .env — bootstrapping via scripts/init-env.sh"
+  need_init=1
+else
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+  if [[ -z "${JWT_SECRET:-}" || "$JWT_SECRET" == "replace_with_long_random_string" ]]; then
+    log_warn "JWT_SECRET missing/placeholder — fixing via scripts/init-env.sh"
+    need_init=1
+  fi
+  if [[ -z "${DB_PASSWORD:-}" ]]; then
+    log_warn "DB_PASSWORD empty — fixing via scripts/init-env.sh"
+    need_init=1
+  fi
 fi
 
+if [[ "$need_init" -eq 1 ]]; then
+  chmod +x "$ROOT/scripts/init-env.sh" 2>/dev/null || true
+  if [[ ! -f "$ROOT/scripts/init-env.sh" ]]; then
+    log_err "scripts/init-env.sh not found. Manual fix:"
+    log_err "  cp .env.example .env && openssl rand -base64 48   # paste as JWT_SECRET"
+    log_err "  nano .env"
+    exit 1
+  fi
+  "$ROOT/scripts/init-env.sh"
+fi
+
+# Re-load after possible init
 # shellcheck disable=SC1091
 set -a
 # shellcheck source=/dev/null
@@ -117,6 +145,7 @@ missing=()
 [[ -z "${DB_PASSWORD:-}" ]] && missing+=("DB_PASSWORD")
 if [[ ${#missing[@]} -gt 0 ]]; then
   log_err ".env incomplete: set ${missing[*]} (see .env.example / REQ-NFR-010)."
+  log_err "  ./scripts/init-env.sh   # or: cp .env.example .env && nano .env"
   exit 1
 fi
 log_ok ".env has JWT_SECRET and DB_PASSWORD"

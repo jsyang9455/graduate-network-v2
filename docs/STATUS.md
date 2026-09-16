@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** one-shot(compose·migrate·`/api/health` 폴링). compose: `./database`→`/database` 마운트·backend health(node)·frontend waits healthy (502 완화, 2026-09-16) |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** + **`scripts/init-env.sh`**(JWT/DB 시크릿 부트스트랩). compose: `./database`→`/database` 마운트·backend health(node)·frontend waits healthy (502 완화, 2026-09-16) |
 
 ## Blockers
 
@@ -85,9 +85,10 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 
 ## Ops note (2026-09-16)
 
-- v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** (compose · migrate · `/api/health` 폴링). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
+- v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** + **`./scripts/init-env.sh`** (`.env` JWT/DB 부트스트랩, REQ-NFR-010). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
 - 502 완화: backend에 `./database:/database:ro` 마운트(기동 migrate), healthcheck를 Node로, frontend는 backend healthy 대기.
 - Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`.
+- `error .env incomplete: set JWT_SECRET` → §11.0 / `init-env.sh` (예제 플레이스홀더 교체).
 
 ## Persona E2E 캠페인 (2026-09-15)
 
