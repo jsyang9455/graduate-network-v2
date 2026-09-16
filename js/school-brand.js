@@ -6,42 +6,56 @@
 (function (global) {
   const DEFAULT_LOGO = 'images/logo.svg';
 
-  function apiOrigin() {
-    try {
-      if (global.API_BASE_URL) {
-        return String(global.API_BASE_URL).replace(/\/api\/?$/, '');
-      }
-      if (global.api && global.api.baseURL) {
-        return String(global.api.baseURL).replace(/\/api\/?$/, '');
-      }
-      if (global.api && typeof global.api.getBaseUrl === 'function') {
-        return String(global.api.getBaseUrl()).replace(/\/api\/?$/, '');
-      }
-    } catch (_) { /* ignore */ }
-    try {
-      const stored = localStorage.getItem('jjobb_api_base');
-      if (stored) return String(stored).replace(/\/api\/?$/, '');
-    } catch (_) { /* ignore */ }
-    const host = global.location && global.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
-      return 'http://localhost:5000';
-    }
-    return '';
-  }
-
   function resolveLogoUrl(school) {
     if (!school) return null;
+    let path = null;
     if (school.logo_url) {
       if (school.logo_url.startsWith('http')) return school.logo_url;
-      const origin = apiOrigin();
-      return origin ? `${origin}${school.logo_url}` : school.logo_url;
+      path = school.logo_url;
+    } else if (school.logo_file_id && school.id) {
+      path = `/api/schools/${school.id}/logo`;
     }
-    if (school.logo_file_id && school.id) {
-      const origin = apiOrigin();
-      const path = `/api/schools/${school.id}/logo`;
-      return origin ? `${origin}${path}` : path;
+    if (!path) return null;
+
+    // Prefer same-origin relative /api/... so nginx proxy works and Helmet CORP
+    // (same-origin) does not block <img>. Absolute only when API base is explicit
+    // and differs from the page origin (e.g. API_BASE_URL on another host).
+    try {
+      const configured = global.API_BASE_URL
+        || (global.api && global.api.baseURL)
+        || (typeof localStorage !== 'undefined' && localStorage.getItem('jjobb_api_base'));
+      if (configured && global.location && global.location.origin) {
+        const origin = String(configured).replace(/\/api\/?$/, '');
+        if (origin && origin !== global.location.origin) {
+          return `${origin}${path}`;
+        }
+      }
+    } catch (_) { /* ignore */ }
+    return path;
+  }
+
+  function wireLogoFallback(img) {
+    if (!img || img.dataset.schoolLogoFallback === '1') return;
+    img.dataset.schoolLogoFallback = '1';
+    img.addEventListener('error', () => {
+      const fallback = img.getAttribute('data-default-src') || DEFAULT_LOGO;
+      if (!img.src || img.src.indexOf(fallback) !== -1) return;
+      img.src = fallback;
+      img.classList.remove('school-branded');
+      img.alt = img.alt || 'JJOBB';
+    });
+  }
+
+  function applyLogoToImg(img, logoUrl, name) {
+    if (!img || !logoUrl) return;
+    wireLogoFallback(img);
+    if (!img.getAttribute('data-default-src')) {
+      img.setAttribute('data-default-src', DEFAULT_LOGO);
     }
-    return null;
+    img.src = logoUrl;
+    img.alt = name ? `${name} 로고` : (img.alt || '학교 로고');
+    img.classList.add('school-branded');
+    img.hidden = false;
   }
 
   function applyFromUser(user) {
@@ -52,20 +66,12 @@
 
     const logoImg = document.getElementById('brandLogo')
       || document.querySelector('header .logo img, header .logo-img, .logo .logo-img');
-    if (logoImg) {
-      if (logoUrl) {
-        logoImg.src = logoUrl;
-        logoImg.alt = name ? `${name} 로고` : logoImg.alt;
-        logoImg.classList.add('school-branded');
-      }
+    if (logoImg && logoUrl) {
+      applyLogoToImg(logoImg, logoUrl, name);
     }
 
     document.querySelectorAll('[data-school-brand="logo"]').forEach((img) => {
-      if (logoUrl) {
-        img.src = logoUrl;
-        img.alt = name ? `${name} 로고` : img.alt;
-        img.hidden = false;
-      }
+      if (logoUrl) applyLogoToImg(img, logoUrl, name);
     });
 
     const contextEls = [
@@ -100,8 +106,7 @@
     const welcomeLogo = document.getElementById('welcomeSchoolLogo');
     if (welcomeLogo) {
       if (logoUrl) {
-        welcomeLogo.src = logoUrl;
-        welcomeLogo.hidden = false;
+        applyLogoToImg(welcomeLogo, logoUrl, name);
       } else {
         welcomeLogo.hidden = true;
       }

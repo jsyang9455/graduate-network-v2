@@ -9,14 +9,14 @@
 - [docs/qa/school-tenant-branding-work-order.md](qa/school-tenant-branding-work-order.md) — REQ-IAM-001/003/008/009, REQ-PLT-002/004
 - 구현: 마이그레이션 `020`, `POST /schools` 주 담당자 필수, `…/logo`, `/auth/me.school`, RBAC 플리커 수정, `admin-codes`·`school-brand.js`
 - 검증: [docs/qa/school-tenant-branding-verification.md](qa/school-tenant-branding-verification.md) — **STB 5/5** + curl me.school
-- **DX 데모 시드:** `database/demo-seed.sql` + `./scripts/load-demo-data.sh` + `scripts/verify-demo-data.cjs` — [docs/qa/demo-data-report.md](qa/demo-data-report.md) **5/5 Pass**; 공지 9·상담 세션/일지 5·edu 3·teacher `is_counselor`; JJTH 로고 바이트
+- **DX 데모 시드:** `database/demo-seed.sql` + `./scripts/load-demo-data.sh` + `scripts/verify-demo-data.cjs` — [docs/qa/demo-data-report.md](qa/demo-data-report.md) **5/5 Pass**; 공지 9·상담 세션/일지 5·edu 3·teacher `is_counselor`; JJTH 로고 바이트 + CORP/`school-brand` relative URL
 - 게이트: 워크넷·알림톡 **미변경** (`NOT_CONFIGURED`)
 
 ```
-Handoff: backend → qa
-REQ: REQ-CNS + announcements/edu demo + IAM school_id
-Need: AWS `./scripts/load-demo-data.sh` 후 verify
-Done: announcements×9, counseling sessions/journals, JJTH school_id+is_counselor, verify asserts, report
+Handoff: frontend/backend → qa
+REQ: REQ-IAM-009 / REQ-PLT-004 (JJTH logo display)
+Need: AWS `./scripts/load-demo-data.sh` 후 curl /api/schools/:id/logo + dashboard header
+Done: SVG bytes in uploads; logo GET CORP cross-origin; school-brand relative /api + onerror
 ```
 
 
@@ -64,7 +64,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 |--------|-------|---|------|
 | 멀티스쿨 스키마/가드 | backend | 98 | 020 logo + primary_admin; null-school 공고 비노출 |
 | IAM API·OpenAPI | api | 97 | roles permissions + company_approval + PW8 |
-| 권한 메뉴·schools UI | frontend | 98 | STB: rbac-pending·data-menu-min·school-brand·admin-codes 주담당/로고 |
+| 권한 메뉴·schools UI | frontend | 99 | STB + **menu line SVG icons** (data-icon); RBAC attrs unchanged |
 | 이력서 PDF | backend/frontend | 90 | |
 | 상담 문서 | backend/frontend | 95 | |
 | 채용 워크플로우 알림 | api/frontend | 82 | 미승인 공고 등록 차단 |

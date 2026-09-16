@@ -316,6 +316,8 @@ router.get('/:id/logo', async (req, res) => {
     res.setHeader('Content-Type', meta.mime || 'image/png');
     res.setHeader('Cache-Control', 'public, max-age=3600');
     res.setHeader('Content-Length', buffer.length);
+    // Allow <img> from frontend origins when API host differs (Helmet default is same-origin)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.send(buffer);
   } catch (error) {
     if (error.code === 'ENOENT') {

@@ -86,6 +86,23 @@ BASE_URL=http://127.0.0.1:8090 node scripts/verify-demo-data.cjs
 
 **종합: 5/5 Pass** (`scripts/verify-demo-data.cjs`).
 
+### JJTH 학교 로고 (REQ-IAM-009 / REQ-PLT-004)
+
+| 단계 | 확인 |
+|------|------|
+| 자산 | `images/school-logo-jjth.svg` |
+| 시드 | `files.bucket_key=demo/school-logo-jjth.svg` → `schools.logo_file_id` |
+| 스토리지 | `load-demo-data.sh`가 `STORAGE_LOCAL_DIR/demo/school-logo-jjth.svg`에 바이트 복사 |
+| API | 공개 `GET /api/schools/:id/logo` → `image/svg+xml` + `Cross-Origin-Resource-Policy: cross-origin` |
+| UI | `js/school-brand.js`는 nginx용 **상대** `/api/schools/:id/logo`; 실패 시 `images/logo.svg` onerror |
+
+```bash
+# AWS / compose 재적재 후
+./scripts/load-demo-data.sh
+curl -sI "http://127.0.0.1:8090/api/schools/1/logo"   # Content-Type: image/svg+xml
+curl -s "http://127.0.0.1:8090/api/schools/1/logo" | head -c 80
+```
+
 ## 5. Gaps / 한계
 
 | 항목 | 상태 | 메모 |
