@@ -40,7 +40,7 @@ Must run from the jjobb_v2 repo root (script enforces this).
 Requires: docker compose v2.
 If .env is missing or JWT_SECRET/DB_PASSWORD incomplete, runs scripts/init-env.sh
 (copies .env.example and generates secrets — see docs/deploy-aws.md).
-Host port 80 busy? FRONTEND_PORT=8080 ./scripts/aws-up.sh  (see docs/deploy-aws.md §11.2b)
+Default FRONTEND_PORT=8090 (SG must allow 8090). Override: FRONTEND_PORT=80 ./scripts/aws-up.sh
 EOF
 }
 
@@ -88,9 +88,38 @@ container_state() {
   docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$name" 2>/dev/null || echo "missing"
 }
 
-# Host publish port for frontend nginx (compose: "${FRONTEND_PORT:-80}:80")
+# Host publish port for frontend nginx (compose: "0.0.0.0:${FRONTEND_PORT:-8090}:80")
 frontend_host_port() {
-  echo "${FRONTEND_PORT:-80}"
+  echo "${FRONTEND_PORT:-8090}"
+}
+
+# Actual HostPort published for container :80 (empty if Created / not published).
+frontend_published_host_port() {
+  docker inspect -f '{{with index .NetworkSettings.Ports "80/tcp"}}{{with index . 0}}{{.HostPort}}{{end}}{{end}}' \
+    graduate-network-frontend 2>/dev/null || true
+}
+
+frontend_container_status() {
+  docker inspect -f '{{.State.Status}}' graduate-network-frontend 2>/dev/null || echo missing
+}
+
+# True when docker-proxy (or process) is listening on the expected host port.
+host_port_listening() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -lptn "sport = :${port}" 2>/dev/null | grep -q ":${port}" && return 0
+    return 1
+  fi
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+    return 1
+  fi
+  # Fallback: TCP connect (0 = something accepted or refused differently than "no route")
+  curl -sS -o /dev/null --connect-timeout 1 --max-time 2 "http://127.0.0.1:${port}/" 2>/dev/null
+  local rc=$?
+  # curl 7 = connection refused → not listening
+  [[ "$rc" -eq 0 || "$rc" -eq 22 || "$rc" -eq 52 || "$rc" -eq 56 ]] && return 0
+  return 1
 }
 
 port_in_use() {
@@ -104,6 +133,42 @@ port_in_use() {
     return 1
   fi
   return 1
+}
+
+# Extra diagnostics when host nginx path returns 000 but backend :5000 is 200.
+dump_nginx_zero_diagnostics() {
+  local port
+  port="$(frontend_host_port)"
+  echo ""
+  log_info "=== nginx=000 diagnostics (frontend claimed up, host :${port} not answering) ==="
+  log_info "docker compose ps frontend"
+  compose ps frontend || true
+  echo ""
+  log_info "frontend state / published ports"
+  echo "  $(container_state graduate-network-frontend)"
+  echo "  status=$(frontend_container_status) published_host_port=$(frontend_published_host_port)"
+  docker port graduate-network-frontend 2>/dev/null || echo "  (docker port: none — PORTS empty or container not running)"
+  echo ""
+  log_info "docker compose logs frontend --tail=50"
+  compose logs frontend --tail=50 || true
+  echo ""
+  log_info "curl -v http://127.0.0.1:${port}/  (and /api/health)"
+  curl -v --connect-timeout 2 --max-time 5 "http://127.0.0.1:${port}/" 2>&1 | sed 's/^/  /' || true
+  curl -v --connect-timeout 2 --max-time 5 "http://127.0.0.1:${port}/api/health" 2>&1 | sed 's/^/  /' || true
+  echo ""
+  log_info "in-container → backend (DNS + proxy upstream)"
+  if [[ "$(frontend_container_status)" == "running" ]]; then
+    compose exec -T frontend wget -qO- http://backend:5000/api/health 2>&1 | sed 's/^/  /' || \
+      echo "  (exec wget failed — network/DNS or frontend not running)"
+  else
+    echo "  skipped — frontend not running"
+  fi
+  echo ""
+  if command -v ss >/dev/null 2>&1; then
+    log_info "ss -lptn 'sport = :${port}'"
+    ss -lptn "sport = :${port}" 2>/dev/null || true
+    echo ""
+  fi
 }
 
 is_address_in_use_error() {
@@ -125,14 +190,16 @@ hint_port_conflict() {
   echo "  ss -lptn 'sport = :${port}'"
   echo "  # or: sudo lsof -iTCP:${port} -sTCP:LISTEN"
   echo ""
-  log_info "Option A — free the host port (common: host nginx/apache):"
-  echo "  sudo systemctl stop nginx    # or: sudo systemctl stop apache2"
-  echo "  sudo systemctl disable nginx # optional, if you do not need host nginx"
+  log_info "Option A — free the host port, then re-run:"
+  echo "  ss -lptn 'sport = :${port}'"
+  echo "  # if another container/process holds it, stop it, then:"
   echo "  ./scripts/aws-up.sh"
   echo ""
-  log_info "Option B — map frontend to another host port (no SG change if you open that port):"
-  echo "  FRONTEND_PORT=8080 ./scripts/aws-up.sh"
-  echo "  # then browse http://<EC2공인IP>:8080/  (SG inbound must allow 8080)"
+  log_info "Option B — use a different host port (SG must allow it):"
+  echo "  FRONTEND_PORT=8091 ./scripts/aws-up.sh"
+  echo "  # then browse http://<EC2공인IP>:8091/"
+  echo ""
+  log_info "Default is FRONTEND_PORT=8090 (not 80) so host nginx on :80 is usually fine."
   echo ""
 }
 
@@ -157,20 +224,61 @@ hint_backend_failure() {
   echo "  # password mismatch (data wipe OK): docker compose down -v && ./scripts/aws-up.sh"
 }
 
+# True when frontend did not publish host :FRONTEND_PORT (Created / empty PORTS).
+frontend_publish_broken() {
+  local st pub
+  st="$(frontend_container_status)"
+  pub="$(frontend_published_host_port)"
+  [[ "$st" == "created" || "$st" == "exited" || "$st" == "dead" || "$st" == "missing" ]] && return 0
+  [[ -z "$pub" ]] && return 0
+  return 1
+}
+
+# After compose up -d frontend: must be running with a HostPort (else nginx=000 forever).
+verify_frontend_published() {
+  local st pub
+  # Brief settle for docker-proxy
+  sleep 1
+  st="$(frontend_container_status)"
+  pub="$(frontend_published_host_port)"
+  echo "  frontend status=${st} published_host_port=${pub:-<empty>}"
+  if [[ "$st" != "running" ]]; then
+    dump_nginx_zero_diagnostics
+    if port_in_use "$(frontend_host_port)" || [[ "$st" == "created" ]]; then
+      die_diagnostics "Frontend is ${st} (not running) — host :$(frontend_host_port) likely not published (port conflict or crash)."
+    fi
+    die_diagnostics "Frontend is ${st} after compose up (expected running)."
+  fi
+  if [[ -z "$pub" ]]; then
+    dump_nginx_zero_diagnostics
+    die_diagnostics "Frontend is running but PORTS empty (host :$(frontend_host_port) not published) — curl will stay nginx=000."
+  fi
+  if [[ "$pub" != "$(frontend_host_port)" ]]; then
+    log_warn "Published HostPort=${pub} differs from FRONTEND_PORT=$(frontend_host_port) — health URL may be wrong."
+  fi
+}
+
 die_diagnostics() {
   local reason="$1"
   local extra_err="${2:-}"
   local combined="${reason}"$'\n'"${extra_err}"
   local port_conflict=0
   local backend_h
+  local fe_status
+  local fe_pub
   backend_h="$(container_health graduate-network-backend)"
+  fe_status="$(frontend_container_status)"
+  fe_pub="$(frontend_published_host_port)"
 
   if is_address_in_use_error "$combined"; then
     port_conflict=1
+  elif frontend_publish_broken; then
+    # Created / empty PORTS / exited while backend healthy → bind conflict or crash
+    if [[ "$backend_h" == "healthy" ]]; then
+      port_conflict=1
+    fi
   elif port_in_use "$(frontend_host_port)"; then
     # Frontend Created + healthy backend + host port busy → almost always bind conflict
-    local fe_status
-    fe_status="$(docker inspect -f '{{.State.Status}}' graduate-network-frontend 2>/dev/null || echo missing)"
     if [[ "$backend_h" == "healthy" && ( "$fe_status" == "created" || "$fe_status" == "missing" || "$fe_status" == "exited" ) ]]; then
       port_conflict=1
     fi
@@ -190,7 +298,13 @@ die_diagnostics() {
   echo "  $(container_state graduate-network-db)"
   log_info "=== diagnostics: frontend state ==="
   echo "  $(container_state graduate-network-frontend)"
+  echo "  published_host_port=${fe_pub:-<empty>}"
   echo ""
+
+  # Always dump nginx=000 style evidence when backend is healthy (path-A vs path-B).
+  if [[ "$backend_h" == "healthy" ]]; then
+    dump_nginx_zero_diagnostics
+  fi
 
   if [[ "$port_conflict" -eq 1 ]]; then
     hint_port_conflict
@@ -199,7 +313,7 @@ die_diagnostics() {
       ss -lptn "sport = :$(frontend_host_port)" 2>/dev/null || true
       echo ""
     fi
-    log_err "FAILED — frontend host port $(frontend_host_port) is in use (address already in use)."
+    log_err "FAILED — frontend host port $(frontend_host_port) not usable (in use / PORTS empty / Created)."
     log_err "Do not treat this as a backend dependency failure when backend is healthy."
     exit 1
   fi
@@ -219,6 +333,7 @@ die_diagnostics() {
     echo ""
     log_info "Backend is healthy — this is unlikely a 'dependency backend failed' root cause."
     log_info "Check frontend bind/ports and: ss -lptn 'sport = :$(frontend_host_port)'"
+    log_info "Browser URL uses FRONTEND_PORT (default 8090). Open SG inbound TCP $(frontend_host_port)."
   fi
   echo ""
   log_err "FAILED — /api/health did not become healthy."
@@ -322,20 +437,30 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 fi
 log_ok ".env has JWT_SECRET and DB_PASSWORD"
 
-# Frontend host publish port (compose "${FRONTEND_PORT:-80}:80")
+# Ensure FRONTEND_PORT is persisted for compose (default 8090) even when secrets already exist
+if [[ -z "${FRONTEND_PORT:-}" ]]; then
+  log_warn "FRONTEND_PORT missing in .env — writing 8090 via init-env.sh"
+  chmod +x "$ROOT/scripts/init-env.sh" 2>/dev/null || true
+  "$ROOT/scripts/init-env.sh"
+  # shellcheck disable=SC1091
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+fi
+
+# Frontend host publish port (compose "0.0.0.0:${FRONTEND_PORT:-8090}:80")
 FRONTEND_PORT="$(frontend_host_port)"
 export FRONTEND_PORT
-if [[ "$FRONTEND_PORT" == "80" ]]; then
-  HEALTH_URL="http://127.0.0.1/api/health"
-else
-  HEALTH_URL="http://127.0.0.1:${FRONTEND_PORT}/api/health"
-fi
+# Always include host port in health URL (default 8090 — never assume bare :80).
+HEALTH_URL="http://127.0.0.1:${FRONTEND_PORT}/api/health"
 
 echo ""
 echo "========================================================================"
 echo "  jjobb_v2 aws-up — postgres → migrate → backend → frontend → /api/health"
 echo "========================================================================"
 echo "  FRONTEND_PORT=${FRONTEND_PORT}  (health: ${HEALTH_URL})"
+echo "  SG inbound must allow TCP ${FRONTEND_PORT} (default 8090; host :80 optional)"
 echo ""
 
 # Staged bring-up avoids: frontend depends_on backend healthy while backend is
@@ -368,19 +493,32 @@ fi
 wait_container_healthy graduate-network-backend "Backend"
 log_ok "Backend is healthy"
 
-# Preflight: warn if host port already taken (before compose bind fails)
+# Preflight: fail fast if host port held by something other than our running frontend
+fe_pre_st="$(frontend_container_status)"
+fe_pre_pub="$(frontend_published_host_port)"
 if port_in_use "$FRONTEND_PORT"; then
-  log_warn "Host port ${FRONTEND_PORT} appears already in use — frontend publish may fail."
-  if command -v ss >/dev/null 2>&1; then
-    ss -lptn "sport = :${FRONTEND_PORT}" 2>/dev/null || true
+  if [[ "$fe_pre_st" == "running" && "$fe_pre_pub" == "$FRONTEND_PORT" ]]; then
+    log_info "Host :${FRONTEND_PORT} already owned by running frontend — will recreate/verify."
+  else
+    log_warn "Host port ${FRONTEND_PORT} is in use and frontend is not publishing it (status=${fe_pre_st} pub=${fe_pre_pub:-empty})."
+    if command -v ss >/dev/null 2>&1; then
+      ss -lptn "sport = :${FRONTEND_PORT}" 2>/dev/null || true
+    fi
+    die_diagnostics "Host port ${FRONTEND_PORT} already in use — free it or set FRONTEND_PORT=8091 in .env."
   fi
-  log_info "Fix: stop host nginx/apache, or: FRONTEND_PORT=8080 ./scripts/aws-up.sh"
+fi
+
+# Clear leftover Created/exited from a prior bind failure (empty PORTS → nginx=000).
+if [[ "$fe_pre_st" == "created" || "$fe_pre_st" == "exited" || "$fe_pre_st" == "dead" ]]; then
+  log_warn "Removing leftover frontend (status=${fe_pre_st}) before recreate..."
+  compose rm -f frontend >/dev/null 2>&1 || true
 fi
 
 log_info "Starting frontend (waits on backend healthy; host port ${FRONTEND_PORT})..."
 frontend_err="$(mktemp)"
 set +e
-compose up -d frontend >"$frontend_err" 2>&1
+# --force-recreate clears stale Created containers that compose may treat as "done"
+compose up -d --force-recreate frontend >"$frontend_err" 2>&1
 frontend_rc=$?
 set -e
 if [[ "$frontend_rc" -ne 0 ]]; then
@@ -392,7 +530,8 @@ if [[ "$frontend_rc" -ne 0 ]]; then
   die_diagnostics "Failed to start frontend." "$fe_out"
 fi
 rm -f "$frontend_err"
-log_ok "Frontend container started (host :${FRONTEND_PORT} → container :80)"
+verify_frontend_published
+log_ok "Frontend running (host :${FRONTEND_PORT} → container :80, published=$(frontend_published_host_port))"
 
 # --- poll /api/health via nginx ---
 log_info "Polling ${HEALTH_URL} until HTTP 200 (timeout ${HEALTH_TIMEOUT}s)..."
@@ -402,7 +541,7 @@ health_ok=0
 last_code="n/a"
 attempt=0
 last_msg=""
-warned_nginx_behind=0
+dumped_nginx_zero=0
 body_file="$(mktemp)"
 trap 'rm -f "$body_file"' EXIT
 
@@ -420,11 +559,19 @@ while (( SECONDS < deadline )); do
     echo "  … ${msg} (attempt ${attempt}, retry in ${POLL_INTERVAL}s)"
     last_msg="$msg"
   fi
-  # Backend OK but host nginx path failing → usually FRONTEND_PORT / host :80 conflict
-  if [[ "$warned_nginx_behind" -eq 0 && "$backend_code" == "200" && "$code" != "200" && "$attempt" -ge 3 ]]; then
-    warned_nginx_behind=1
-    log_warn "Backend :5000 is healthy but ${HEALTH_URL} is not yet 200."
-    log_warn "If this continues: check frontend (host port ${FRONTEND_PORT}), or Ctrl+C and see §11.2b / hint_port_conflict."
+  # nginx=000 + backend 200 → host port not answering; dump once and fail fast if PORTS broken
+  if [[ "$backend_code" == "200" && "$code" == "000" && "$attempt" -ge 2 ]]; then
+    if [[ "$dumped_nginx_zero" -eq 0 ]]; then
+      dumped_nginx_zero=1
+      dump_nginx_zero_diagnostics
+    fi
+    if frontend_publish_broken; then
+      die_diagnostics "nginx=000 with empty/missing frontend publish (status=$(frontend_container_status))."
+    fi
+    # Still running with ports but not answering → crash-loop / wrong listen; fail before full timeout
+    if [[ "$attempt" -ge 6 ]]; then
+      die_diagnostics "nginx=000 for ~30s while backend:5000=200 — frontend not accepting on :${FRONTEND_PORT}."
+    fi
   fi
   sleep "$POLL_INTERVAL"
 done
@@ -453,9 +600,10 @@ if command -v curl >/dev/null 2>&1; then
   fi
 fi
 
-BASE_URL="http://${PUBLIC_HINT}"
-if [[ "$FRONTEND_PORT" != "80" ]]; then
-  BASE_URL="http://${PUBLIC_HINT}:${FRONTEND_PORT}"
+# Default FRONTEND_PORT=8090 → always show :port unless explicitly 80
+BASE_URL="http://${PUBLIC_HINT}:${FRONTEND_PORT}"
+if [[ "$FRONTEND_PORT" == "80" ]]; then
+  BASE_URL="http://${PUBLIC_HINT}"
 fi
 
 echo ""
@@ -467,11 +615,7 @@ echo "Next (browser):"
 echo "  ${BASE_URL}/"
 echo "  ${BASE_URL}/login.html"
 echo ""
-if [[ "$FRONTEND_PORT" == "80" ]]; then
-  echo "Tips: hard-refresh after deploy; SG must allow inbound 80."
-else
-  echo "Tips: hard-refresh after deploy; SG must allow inbound ${FRONTEND_PORT} (FRONTEND_PORT)."
-fi
+echo "Tips: hard-refresh after deploy; SG must allow inbound TCP ${FRONTEND_PORT} (default 8090)."
 echo "Logs:  docker compose logs -f backend"
 echo ""
 exit 0

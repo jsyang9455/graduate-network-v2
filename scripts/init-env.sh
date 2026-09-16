@@ -138,5 +138,14 @@ else
   log_ok "DB_PASSWORD already set — left unchanged"
 fi
 
+# AWS default frontend host port (avoids host :80 nginx/apache conflicts).
+fp_val="$(read_env_var FRONTEND_PORT "$ENV_FILE")"
+if [[ -z "$fp_val" ]]; then
+  upsert_env FRONTEND_PORT "8090" "$ENV_FILE"
+  log_ok "FRONTEND_PORT=8090 set (AWS default — open SG TCP 8090)"
+else
+  log_ok "FRONTEND_PORT already set (${fp_val}) — left unchanged"
+fi
+
 log_info "Secrets are in .env only — never commit .env (REQ-NFR-010)."
 exit 0

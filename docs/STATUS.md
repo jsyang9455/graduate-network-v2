@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** + **`scripts/init-env.sh`**. **2026-09-16:** `schema.sql` majors INSERT(partial unique) + migrate 013/014 IF EXISTS 가드 — incomplete init → `announcements` 없음 수정. 테스트 EC2: `down -v` + `aws-up` |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + **`scripts/aws-up.sh`** + **`scripts/init-env.sh`**. **2026-09-16:** `nginx=000`+`:5000=200` → frontend PORTS/Created(§11.2c); aws-up verify publish + DNS resolver in nginx.conf |
 
 ## Blockers
 
@@ -86,6 +86,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 ## Ops note (2026-09-16)
 
 - v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** + **`./scripts/init-env.sh`** (`.env` JWT/DB 부트스트랩, REQ-NFR-010). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
+- **`nginx=000` + `backend:5000=200`:** 호스트 frontend publish 실패(보통 :80 점유 → Created/PORTS empty) 또는 nginx 미listen. **기본 `FRONTEND_PORT=8090`**으로 :80 충돌 회피(SG에 8090 개방). §11.2b/§11.2c. `aws-up`은 publish 검증·조기 진단 덤프.
 - **aws-up 폴링:** curl 실패 시 `nginx=000000` 오표기 수정; 상태 변경/~30초만 출력; backend healthcheck의 `GET /api/health 200` 반복은 정상(deploy-aws §8).
 - 502 / `dependency backend failed to start` 완화: staged `aws-up` 기동, `./database` 마운트, `scripts/healthcheck.js`, backend `start_period: 180s`, migrate idempotent(initdb 010)·DB connect retry.
 - Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`.
