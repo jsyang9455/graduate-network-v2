@@ -86,6 +86,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 ## Ops note (2026-09-16)
 
 - v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** + **`./scripts/init-env.sh`** (`.env` JWT/DB 부트스트랩, REQ-NFR-010). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
+- **aws-up 폴링:** curl 실패 시 `nginx=000000` 오표기 수정; 상태 변경/~30초만 출력; backend healthcheck의 `GET /api/health 200` 반복은 정상(deploy-aws §8).
 - 502 / `dependency backend failed to start` 완화: staged `aws-up` 기동, `./database` 마운트, `scripts/healthcheck.js`, backend `start_period: 180s`, migrate idempotent(initdb 010)·DB connect retry.
 - Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`.
 - `error .env incomplete: set JWT_SECRET` → §11.0 / `init-env.sh` (예제 플레이스홀더 교체).
