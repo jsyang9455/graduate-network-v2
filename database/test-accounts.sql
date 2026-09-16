@@ -3,25 +3,29 @@
 -- bcrypt ($2b$10$AknqEf4Z…): verified via bcrypt.compare('password123', hash) === true
 -- (구 해시 $2b$10$rZ0HwKnI… 는 password123 과 불일치 — 로그인 401 원인)
 -- REQ-JOB-007: 기업 DX 계정은 기본 학교 바인딩 + approval_status=approved
+-- 모든 student/teacher/graduate/admin DX → school_id = 전주공업고(JJTH)
+-- teacher@jjob.com → is_counselor=true (상담 예약·일지 UI)
 --
 -- Do NOT DELETE users: audit_logs.actor_id, school_transfers.*, user_roles.granted_by,
 -- counseling_journals.counselor_id, posts.blinded_by, trip_reports.author_id 등
 -- ON DELETE CASCADE 없는 FK가 남아 DELETE가 실패한다. email UPSERT로 재적재한다.
 
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_counselor BOOLEAN DEFAULT false;
+
 INSERT INTO schools (code, name, region, status)
 VALUES ('JJTH', '전주공업고등학교', '전북', 'active')
 ON CONFLICT (code) DO UPDATE SET status = 'active';
 
-INSERT INTO users (email, password_hash, name, user_type, phone, is_active, school_id, school_name)
-SELECT v.email, v.password_hash, v.name, v.user_type, v.phone, true, s.id, s.name
+INSERT INTO users (email, password_hash, name, user_type, phone, is_active, school_id, school_name, is_counselor)
+SELECT v.email, v.password_hash, v.name, v.user_type, v.phone, true, s.id, s.name, v.is_counselor
 FROM (
   VALUES
-    ('student@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '김재학', 'student', '010-1111-1111'),
-    ('graduate@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '이졸업', 'graduate', '010-2222-2222'),
-    ('teacher@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '박선생', 'teacher', '010-3333-3333'),
-    ('company@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB채용담당', 'company', '010-4444-4444'),
-    ('admin@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB관리자', 'admin', '010-5555-5555')
-) AS v(email, password_hash, name, user_type, phone)
+    ('student@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '김재학', 'student', '010-1111-1111', false),
+    ('graduate@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '이졸업', 'graduate', '010-2222-2222', false),
+    ('teacher@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '박선생', 'teacher', '010-3333-3333', true),
+    ('company@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB채용담당', 'company', '010-4444-4444', false),
+    ('admin@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB관리자', 'admin', '010-5555-5555', false)
+) AS v(email, password_hash, name, user_type, phone, is_counselor)
 CROSS JOIN LATERAL (
   SELECT id, name FROM schools
   WHERE code = 'JJTH' OR name = '전주공업고등학교'
@@ -35,6 +39,7 @@ ON CONFLICT (email) DO UPDATE SET
   is_active = true,
   school_id = EXCLUDED.school_id,
   school_name = EXCLUDED.school_name,
+  is_counselor = EXCLUDED.is_counselor,
   withdraw_reason = NULL,
   withdrawn_at = NULL,
   updated_at = CURRENT_TIMESTAMP;

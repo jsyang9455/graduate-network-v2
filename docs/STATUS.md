@@ -9,14 +9,14 @@
 - [docs/qa/school-tenant-branding-work-order.md](qa/school-tenant-branding-work-order.md) — REQ-IAM-001/003/008/009, REQ-PLT-002/004
 - 구현: 마이그레이션 `020`, `POST /schools` 주 담당자 필수, `…/logo`, `/auth/me.school`, RBAC 플리커 수정, `admin-codes`·`school-brand.js`
 - 검증: [docs/qa/school-tenant-branding-verification.md](qa/school-tenant-branding-verification.md) — **STB 5/5** + curl me.school
-- **DX 데모 시드:** `database/demo-seed.sql` + `./scripts/load-demo-data.sh` + `scripts/verify-demo-data.cjs` — [docs/qa/demo-data-report.md](qa/demo-data-report.md) **5/5 Pass**
+- **DX 데모 시드:** `database/demo-seed.sql` + `./scripts/load-demo-data.sh` + `scripts/verify-demo-data.cjs` — [docs/qa/demo-data-report.md](qa/demo-data-report.md) **5/5 Pass**; 공지 9·상담 세션/일지 5·edu 3·teacher `is_counselor`; JJTH 로고 바이트
 - 게이트: 워크넷·알림톡 **미변경** (`NOT_CONFIGURED`)
 
 ```
-Handoff: qa → architect
-REQ: REQ-RSM/JOB/COM/TRP + IAM-001/003 (demo seed)
-Need: optional AWS compose load on EC2; logo binary upload polish
-Done: demo-seed idempotent, load+verify scripts, persona API 5/5, report
+Handoff: backend → qa
+REQ: REQ-CNS + announcements/edu demo + IAM school_id
+Need: AWS `./scripts/load-demo-data.sh` 후 verify
+Done: announcements×9, counseling sessions/journals, JJTH school_id+is_counselor, verify asserts, report
 ```
 
 
@@ -73,7 +73,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 견학 모듈 | backend/frontend | 80 | 사후 보고 API+industry-visit UI |
 | 커뮤니티 고도화 | api/frontend | 75 | COM-002 태그·첨부·스크랩 UI |
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
-| QA 스위트 | qa | 99 | policy-decisions + persona → **96/96**; **demo-data 5/5** |
+| QA 스위트 | qa | 99 | policy-decisions + persona → **96/96**; **demo-data 5/5** (announcements+CNS) |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
 | AWS EC2 배포 문서 | architect | — | deploy-aws + aws-up **8090**. nginx host-only `/api`. **bcrypt password123 해시 수정** + `verify-login.sh` |
 

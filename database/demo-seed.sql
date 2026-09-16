@@ -20,6 +20,9 @@ BEGIN
   END IF;
 END $$;
 
+-- Ensure is_counselor column (counseling UI gates on this)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_counselor BOOLEAN DEFAULT false;
+
 -- Ensure company approved + school binding (REQ-JOB-007)
 UPDATE company_profiles cp
 SET approval_status = 'approved',
@@ -29,9 +32,11 @@ SET approval_status = 'approved',
 FROM users u
 WHERE cp.user_id = u.id AND u.email = 'company@jjob.com';
 
+-- All DX personas → 전주공업고 (JJTH); teacher is counselor
 UPDATE users u
 SET school_id = s.id,
     school_name = s.name,
+    is_counselor = CASE WHEN u.email = 'teacher@jjob.com' THEN true ELSE COALESCE(u.is_counselor, false) END,
     updated_at = CURRENT_TIMESTAMP
 FROM schools s
 WHERE (s.code = 'JJTH' OR s.name = '전주공업고등학교')
@@ -39,7 +44,15 @@ WHERE (s.code = 'JJTH' OR s.name = '전주공업고등학교')
     'student@jjob.com','graduate@jjob.com','teacher@jjob.com',
     'company@jjob.com','admin@jjob.com'
   )
-  AND (u.school_id IS DISTINCT FROM s.id OR u.school_name IS DISTINCT FROM s.name);
+  AND (
+    u.school_id IS DISTINCT FROM s.id
+    OR u.school_name IS DISTINCT FROM s.name
+    OR (u.email = 'teacher@jjob.com' AND COALESCE(u.is_counselor, false) IS NOT TRUE)
+  );
+
+UPDATE users u
+SET is_counselor = true, updated_at = CURRENT_TIMESTAMP
+WHERE u.email = 'teacher@jjob.com' AND COALESCE(u.is_counselor, false) IS NOT TRUE;
 
 -- Sync RBAC roles for DX (idempotent)
 INSERT INTO user_roles (user_id, role_id, school_id)
@@ -64,11 +77,15 @@ AND NOT EXISTS (
 );
 
 -- ── 1) School branding (logo_file + primary_admin) — migration 020+ ──────────
+-- Metadata only here: load-demo-data.sh copies images/school-logo-jjth.svg
+-- into STORAGE_LOCAL_DIR/demo/school-logo-jjth.svg so GET /api/schools/:id/logo streams bytes.
 DO $$
 DECLARE
   v_school_id INTEGER;
   v_admin_id  INTEGER;
   v_file_id   INTEGER;
+  -- Keep in sync with images/school-logo-jjth.svg (wc -c); load script also UPDATEs size
+  v_logo_size INTEGER := 1180;
 BEGIN
   SELECT id INTO v_school_id FROM schools
   WHERE code = 'JJTH' OR name = '전주공업고등학교'
@@ -85,7 +102,7 @@ BEGIN
     VALUES (
       v_school_id, v_admin_id,
       'demo/school-logo-jjth.svg',
-      'image/svg+xml', 256, 'school_logo',
+      'image/svg+xml', v_logo_size, 'school_logo',
       '[DEMO] jjth-logo.svg'
     )
     RETURNING id INTO v_file_id;
@@ -94,6 +111,7 @@ BEGIN
     SET school_id = v_school_id,
         owner_user_id = v_admin_id,
         mime = 'image/svg+xml',
+        size = v_logo_size,
         kind = 'school_logo',
         original_name = '[DEMO] jjth-logo.svg'
     WHERE id = v_file_id;
@@ -461,139 +479,137 @@ BEGIN
     SET score = EXCLUDED.score, reasons = EXCLUDED.reasons, computed_at = CURRENT_TIMESTAMP;
 END $$;
 
--- ── 5) Job fair + certification announcements ────────────────────────────────
+-- ── 5) Announcements (job-fair / industry-visit / certification) — JJTH ─────
+-- App valid types only (backend/routes/announcements.js). General notices →
+-- education_programs + posts category news (sections 5b / 3).
 DO $$
 DECLARE
   v_school_id INTEGER;
+  r RECORD;
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'announcements') THEN
+    RAISE NOTICE 'demo-seed: announcements table missing — skip';
+    RETURN;
+  END IF;
+
   SELECT id INTO v_school_id FROM schools
   WHERE code = 'JJTH' OR name = '전주공업고등학교' ORDER BY id LIMIT 1;
 
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'announcements') THEN
-    -- Job fair
+  FOR r IN
+    SELECT * FROM (VALUES
+      -- job-fair (3)
+      ('job-fair', '[DEMO] 2026 전주공고 연계 취업박람회', '전주공업고등학교·전주시',
+       '지역 우수 기업 참여 취업박람회. 현장 상담·간이 면접.',
+       20, '10:00 - 16:00', '전주공업고등학교 체육관', 15, 200, 12, '무료',
+       ARRAY['현장 상담','이력서 클리닉','기업 부스'],
+       ARRAY['이력서 1부','교복 또는 단정한 복장'],
+       '063-280-0000', 'jobfair@jjth.demo', ARRAY['취업박람회','전주','DEMO']),
+      ('job-fair', '[DEMO] 스마트제조 현장채용 데이', '전주시산업진흥원·전주공업고',
+       '스마트제조·전자 분야 강소기업 현장 채용 상담.',
+       35, '13:00 - 17:00', '전주 중소기업지원센터', 28, 150, 40, '무료',
+       ARRAY['현장 면접','직무 설명회'],
+       ARRAY['이력서','학생증'],
+       '063-711-2100', 'smart-hire@jjth.demo', ARRAY['스마트제조','채용','DEMO']),
+      ('job-fair', '[DEMO] 공공기관·공기업 채용 설명회', '전북인재개발원 연계',
+       '전북 공공기관 채용 절차·NCS 안내. 전주공고 재학생 우선 배정.',
+       50, '14:00 - 18:00', '전주공업고등학교 시청각실', 42, 120, 25, '무료',
+       ARRAY['NCS 안내','선배 멘토링'],
+       ARRAY['신분증','필기구'],
+       '063-250-5100', 'public@jjth.demo', ARRAY['공공기관','NCS','DEMO']),
+      -- industry-visit (3)
+      ('industry-visit', '[DEMO] 현대위아 전주공장 견학', '현대위아',
+       '자동차 부품 생산 라인 견학 및 현직자 간담회.',
+       25, '09:30 - 15:00', '현대위아 전주공장', 18, 30, 8, '무료',
+       ARRAY['점심 제공','현직자 간담회'],
+       ARRAY['안전화','긴 소매'],
+       '063-440-2000', 'visit@demo.hyundai-wia', ARRAY['견학','자동차','DEMO']),
+      ('industry-visit', '[DEMO] LG전자 스마트팩토리 견학', 'LG전자',
+       '자동화 라인·품질관리 프로세스 견학. AI/로봇 현장 체험.',
+       40, '10:00 - 15:00', 'LG전자 창원 1공장', 32, 25, 10, '무료',
+       ARRAY['현장 투어','담당자 특강','교통비 지원'],
+       ARRAY['단정한 복장','정보보안 서약'],
+       '055-260-1114', 'factory@jjth.demo', ARRAY['스마트팩토리','전자','DEMO']),
+      ('industry-visit', '[DEMO] 전북 농기계 클러스터 견학', '전라북도 농업기술원',
+       '농기계 제조·수리 클러스터 방문 및 취업 기회 탐색.',
+       30, '13:00 - 17:00', '전북 익산 농기계 클러스터', 22, 40, 6, '무료',
+       ARRAY['기업 면담','채용 연계'],
+       ARRAY['편한 복장','운동화'],
+       '063-290-6000', 'agri@jjth.demo', ARRAY['농기계','견학','DEMO']),
+      -- certification (3)
+      ('certification', '[DEMO] 정보처리기능사 응시료 지원', '전주공업고등학교',
+       '정보처리기능사 응시료 일부 지원 프로그램.',
+       NULL, '상시', '학교 진로센터', 60, 40, 5, '학교 지원(일부)',
+       ARRAY['응시료 지원','문제집 대여'],
+       ARRAY['재학생','성적 기준 충족'],
+       '063-280-1111', 'cert@jjth.demo', ARRAY['자격증','지원','DEMO']),
+      ('certification', '[DEMO] 전기기능사 실기 특강', '전주공업고 전기과',
+       '전기기능사 실기 대비 특강 및 재료비 지원.',
+       12, '15:00 - 18:00', '전기과 실습실', 7, 24, 9, '재료비 학교 지원',
+       ARRAY['실습 재료','모의고사'],
+       ARRAY['전기 관련 학과 재학'],
+       '063-280-1222', 'elec@jjth.demo', ARRAY['전기기능사','실기','DEMO']),
+      ('certification', '[DEMO] 용접기능사 취득 과정 연계', '폴리텍 전주캠퍼스 연계',
+       '용접기능사 실기 위주 단기 과정. 응시료·훈련수당 안내.',
+       45, '09:00 - 17:00', '폴리텍대학 전주캠퍼스', 38, 20, 4, '연계 과정(별도 안내)',
+       ARRAY['실습재료','응시료 안내'],
+       ARRAY['재학생 또는 졸업 1년 이내'],
+       '063-270-7000', 'weld@jjth.demo', ARRAY['용접기능사','실기','DEMO'])
+    ) AS t(
+      typ, title, organizer, description,
+      event_offset_days, event_time, location, deadline_offset_days,
+      capacity, current_applicants, fee, benefits, requirements,
+      contact_phone, contact_email, tags
+    )
+  LOOP
     IF EXISTS (
-      SELECT 1 FROM announcements
-      WHERE school_id = v_school_id AND title = '[DEMO] 2026 전주공고 연계 취업박람회'
+      SELECT 1 FROM announcements a
+      WHERE a.school_id = v_school_id AND a.title = r.title
     ) THEN
       UPDATE announcements SET
-        type = 'job-fair',
-        organizer = '전주공업고등학교·전주시',
-        description = '지역 우수 기업 참여 취업박람회. 현장 상담·간이 면접.',
-        event_date = (CURRENT_DATE + INTERVAL '20 days')::date,
-        event_time = '10:00 - 16:00',
-        location = '전주공업고등학교 체육관',
-        deadline = (CURRENT_DATE + INTERVAL '15 days')::date,
-        capacity = 200,
-        current_applicants = GREATEST(current_applicants, 12),
-        fee = '무료',
-        benefits = ARRAY['현장 상담','이력서 클리닉','기업 부스'],
-        requirements = ARRAY['이력서 1부','교복 또는 단정한 복장'],
-        contact_phone = '063-280-0000',
-        contact_email = 'jobfair@jjth.demo',
-        tags = ARRAY['취업박람회','전주','DEMO'],
+        type = r.typ,
+        organizer = r.organizer,
+        description = r.description,
+        event_date = CASE WHEN r.event_offset_days IS NULL THEN event_date
+                          ELSE (CURRENT_DATE + (r.event_offset_days || ' days')::interval)::date END,
+        event_time = r.event_time,
+        location = r.location,
+        deadline = (CURRENT_DATE + (r.deadline_offset_days || ' days')::interval)::date,
+        capacity = r.capacity,
+        current_applicants = GREATEST(current_applicants, r.current_applicants),
+        fee = r.fee,
+        benefits = r.benefits,
+        requirements = r.requirements,
+        contact_phone = r.contact_phone,
+        contact_email = r.contact_email,
+        tags = r.tags,
         is_active = true,
+        school_id = v_school_id,
         updated_at = CURRENT_TIMESTAMP
-      WHERE school_id = v_school_id AND title = '[DEMO] 2026 전주공고 연계 취업박람회';
+      WHERE school_id = v_school_id AND title = r.title;
     ELSE
       INSERT INTO announcements (
         type, title, organizer, description, event_date, event_time, location, deadline,
         capacity, current_applicants, fee, benefits, requirements,
         contact_phone, contact_email, tags, school_id, is_active
       ) VALUES (
-        'job-fair',
-        '[DEMO] 2026 전주공고 연계 취업박람회',
-        '전주공업고등학교·전주시',
-        '지역 우수 기업 참여 취업박람회. 현장 상담·간이 면접.',
-        (CURRENT_DATE + INTERVAL '20 days')::date,
-        '10:00 - 16:00',
-        '전주공업고등학교 체육관',
-        (CURRENT_DATE + INTERVAL '15 days')::date,
-        200, 12, '무료',
-        ARRAY['현장 상담','이력서 클리닉','기업 부스'],
-        ARRAY['이력서 1부','교복 또는 단정한 복장'],
-        '063-280-0000', 'jobfair@jjth.demo',
-        ARRAY['취업박람회','전주','DEMO'],
-        v_school_id, true
+        r.typ, r.title, r.organizer, r.description,
+        CASE WHEN r.event_offset_days IS NULL THEN NULL
+             ELSE (CURRENT_DATE + (r.event_offset_days || ' days')::interval)::date END,
+        r.event_time, r.location,
+        (CURRENT_DATE + (r.deadline_offset_days || ' days')::interval)::date,
+        r.capacity, r.current_applicants, r.fee, r.benefits, r.requirements,
+        r.contact_phone, r.contact_email, r.tags, v_school_id, true
       );
     END IF;
-
-    -- Certification support (closest to "exhibition" support program in this app)
-    IF EXISTS (
-      SELECT 1 FROM announcements
-      WHERE school_id = v_school_id AND title = '[DEMO] 정보처리기능사 응시료 지원'
-    ) THEN
-      UPDATE announcements SET
-        type = 'certification',
-        organizer = '전주공업고등학교',
-        description = '정보처리기능사 응시료 일부 지원 프로그램.',
-        deadline = (CURRENT_DATE + INTERVAL '60 days')::date,
-        capacity = 40,
-        fee = '학교 지원(일부)',
-        tags = ARRAY['자격증','지원','DEMO'],
-        is_active = true,
-        school_id = v_school_id,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE school_id = v_school_id AND title = '[DEMO] 정보처리기능사 응시료 지원';
-    ELSE
-      INSERT INTO announcements (
-        type, title, organizer, description, deadline, capacity, current_applicants,
-        fee, benefits, requirements, contact_phone, contact_email, tags, school_id, is_active
-      ) VALUES (
-        'certification',
-        '[DEMO] 정보처리기능사 응시료 지원',
-        '전주공업고등학교',
-        '정보처리기능사 응시료 일부 지원 프로그램.',
-        (CURRENT_DATE + INTERVAL '60 days')::date,
-        40, 5, '학교 지원(일부)',
-        ARRAY['응시료 지원','문제집 대여'],
-        ARRAY['재학생','성적 기준 충족'],
-        '063-280-1111', 'cert@jjth.demo',
-        ARRAY['자격증','지원','DEMO'],
-        v_school_id, true
-      );
-    END IF;
-
-    -- Industry-visit announcement (legacy path; also mirrored to field_trips below)
-    IF NOT EXISTS (
-      SELECT 1 FROM announcements
-      WHERE school_id = v_school_id AND title = '[DEMO] 현대위아 전주공장 견학'
-    ) THEN
-      INSERT INTO announcements (
-        type, title, organizer, description, event_date, event_time, location, deadline,
-        capacity, current_applicants, fee, benefits, requirements,
-        contact_phone, contact_email, tags, school_id, is_active
-      ) VALUES (
-        'industry-visit',
-        '[DEMO] 현대위아 전주공장 견학',
-        '현대위아',
-        '자동차 부품 생산 라인 견학 및 현직자 간담회.',
-        (CURRENT_DATE + INTERVAL '25 days')::date,
-        '09:30 - 15:00',
-        '현대위아 전주공장',
-        (CURRENT_DATE + INTERVAL '18 days')::date,
-        30, 8, '무료',
-        ARRAY['점심 제공','현직자 간담회'],
-        ARRAY['안전화','긴 소매'],
-        '063-440-2000', 'visit@demo.hyundai-wia',
-        ARRAY['견학','자동차','DEMO'],
-        v_school_id, true
-      );
-    ELSE
-      UPDATE announcements SET
-        is_active = true,
-        school_id = v_school_id,
-        tags = ARRAY['견학','자동차','DEMO'],
-        updated_at = CURRENT_TIMESTAMP
-      WHERE title = '[DEMO] 현대위아 전주공장 견학';
-    END IF;
-  END IF;
+  END LOOP;
 END $$;
 
--- Announcement application (student → job fair) if table exists
+-- Announcement applications (student → multiple DEMO programs)
 DO $$
 DECLARE
   v_student INTEGER;
   v_ann_id  INTEGER;
+  v_title   TEXT;
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.tables WHERE table_name = 'announcement_applications'
@@ -602,20 +618,82 @@ BEGIN
   END IF;
 
   SELECT id INTO v_student FROM users WHERE email = 'student@jjob.com';
-  SELECT id INTO v_ann_id FROM announcements
-  WHERE title = '[DEMO] 2026 전주공고 연계 취업박람회' LIMIT 1;
 
-  IF v_ann_id IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM announcement_applications
-    WHERE announcement_id = v_ann_id AND user_id = v_student
-  ) THEN
-    INSERT INTO announcement_applications (
-      announcement_id, user_id, applicant_name, applicant_phone, applicant_email, message, status
-    ) VALUES (
-      v_ann_id, v_student, '김재학', '010-1111-1111', 'student@jjob.com',
-      '[DEMO] 취업박람회 참가 신청합니다.', 'pending'
-    );
+  FOREACH v_title IN ARRAY ARRAY[
+    '[DEMO] 2026 전주공고 연계 취업박람회',
+    '[DEMO] 정보처리기능사 응시료 지원',
+    '[DEMO] 스마트제조 현장채용 데이'
+  ]
+  LOOP
+    SELECT id INTO v_ann_id FROM announcements WHERE title = v_title LIMIT 1;
+    IF v_ann_id IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM announcement_applications
+      WHERE announcement_id = v_ann_id AND user_id = v_student
+    ) THEN
+      INSERT INTO announcement_applications (
+        announcement_id, user_id, applicant_name, applicant_phone, applicant_email, message, status
+      ) VALUES (
+        v_ann_id, v_student, '김재학', '010-1111-1111', 'student@jjob.com',
+        '[DEMO] 참가 신청합니다. (' || v_title || ')', 'pending'
+      );
+    END IF;
+  END LOOP;
+END $$;
+
+-- ── 5b) Education programs (일반 교육·공지성 프로그램) ───────────────────────
+DO $$
+DECLARE
+  v_school_id INTEGER;
+  v_teacher   INTEGER;
+  v_admin     INTEGER;
+  r RECORD;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'education_programs') THEN
+    RETURN;
   END IF;
+
+  SELECT id INTO v_school_id FROM schools
+  WHERE code = 'JJTH' OR name = '전주공업고등학교' ORDER BY id LIMIT 1;
+  SELECT id INTO v_teacher FROM users WHERE email = 'teacher@jjob.com';
+  SELECT id INTO v_admin FROM users WHERE email = 'admin@jjob.com';
+
+  FOR r IN
+    SELECT * FROM (VALUES
+      ('[DEMO] 3월 진로·취업 오리엔테이션', '진로', 'offline', '2시간',
+       '신학기 진로·취업 일정과 상담 예약 안내. 전주공고 재학생 대상.',
+       '박선생', '무료', NULL),
+      ('[DEMO] 이력서·면접 클리닉', '취업준비', 'offline', '주 1회×4주',
+       '대표 이력서 첨삭과 모의면접. DEMO 채용 공고 지원과 연계.',
+       '박선생', '무료', NULL),
+      ('[DEMO] 자격증 로드맵 설명회', '자격증', 'hybrid', '90분',
+       '정보처리·전기·용접 기능사 응시 일정과 학교 지원 프로그램 안내.',
+       'JJOB관리자', '무료', NULL)
+    ) AS t(title, category, typ, duration, description, instructor, cost, link)
+  LOOP
+    IF EXISTS (
+      SELECT 1 FROM education_programs ep
+      WHERE ep.school_id = v_school_id AND ep.title = r.title
+    ) THEN
+      UPDATE education_programs SET
+        category = r.category,
+        type = r.typ,
+        duration = r.duration,
+        description = r.description,
+        instructor = r.instructor,
+        cost = r.cost,
+        created_by = COALESCE(created_by, v_teacher, v_admin),
+        school_id = v_school_id,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE school_id = v_school_id AND title = r.title;
+    ELSE
+      INSERT INTO education_programs (
+        title, category, type, duration, description, instructor, cost, link, created_by, school_id
+      ) VALUES (
+        r.title, r.category, r.typ, r.duration, r.description, r.instructor, r.cost, r.link,
+        COALESCE(v_teacher, v_admin), v_school_id
+      );
+    END IF;
+  END LOOP;
 END $$;
 
 -- ── 6) Field trips (견학) + application + after-report (교사) ────────────────
@@ -711,12 +789,96 @@ BEGIN
   END IF;
 END $$;
 
--- ── 7) Optional counseling journal (teacher → student) ───────────────────────
+-- ── 7) Counseling sessions (예약) + journals (일지·타임라인) ──────────────────
 DO $$
 DECLARE
   v_school_id INTEGER;
   v_teacher   INTEGER;
   v_student   INTEGER;
+  v_graduate  INTEGER;
+  r RECORD;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'counseling_sessions') THEN
+    RAISE NOTICE 'demo-seed: counseling_sessions missing — skip sessions';
+  ELSE
+    SELECT id INTO v_school_id FROM schools
+    WHERE code = 'JJTH' OR name = '전주공업고등학교' ORDER BY id LIMIT 1;
+    SELECT id INTO v_teacher FROM users WHERE email = 'teacher@jjob.com';
+    SELECT id INTO v_student FROM users WHERE email = 'student@jjob.com';
+    SELECT id INTO v_graduate FROM users WHERE email = 'graduate@jjob.com';
+
+    -- Ensure teacher can appear in /counseling/teachers
+    UPDATE users SET is_counselor = true WHERE id = v_teacher;
+
+    FOR r IN
+      SELECT * FROM (VALUES
+        -- pending request (student)
+        (v_student, v_teacher, '진로상담',
+         (CURRENT_TIMESTAMP + INTERVAL '3 days')::timestamp,
+         60, 'pending',
+         '[DEMO] 스마트팩토리 진로 상담 예약',
+         '희망 직무·자격증 로드맵 상담 요청'),
+        -- approved upcoming
+        (v_student, v_teacher, '취업상담',
+         (CURRENT_TIMESTAMP + INTERVAL '7 days')::timestamp,
+         60, 'approved',
+         '[DEMO] 이력서·면접 클리닉',
+         '대표 이력서 첨삭 및 모의면접'),
+        -- scheduled (legacy status synonym for calendar)
+        (v_student, v_teacher, '학습상담',
+         (CURRENT_TIMESTAMP + INTERVAL '14 days')::timestamp,
+         45, 'scheduled',
+         '[DEMO] 정보처리기능사 학습 계획',
+         '응시 일정·문제집 계획'),
+        -- completed past (timeline)
+        (v_student, v_teacher, '진로상담',
+         (CURRENT_TIMESTAMP - INTERVAL '10 days')::timestamp,
+         60, 'completed',
+         '[DEMO] 1차 진로 탐색 상담(완료)',
+         '관심 분야: 임베디드·스마트팩토리'),
+        -- graduate session
+        (v_graduate, v_teacher, '취업상담',
+         (CURRENT_TIMESTAMP + INTERVAL '5 days')::timestamp,
+         45, 'pending',
+         '[DEMO] 후배 멘토링 연계 상담',
+         '졸업생 멘토 활동·후배 상담 일정')
+      ) AS t(user_id, counselor_id, session_type, session_date, duration_minutes, status, topic, notes)
+    LOOP
+      IF NOT EXISTS (
+        SELECT 1 FROM counseling_sessions cs
+        WHERE cs.counselor_id = r.counselor_id
+          AND cs.user_id = r.user_id
+          AND cs.topic = r.topic
+      ) THEN
+        INSERT INTO counseling_sessions (
+          user_id, counselor_id, session_type, session_date, duration_minutes,
+          status, topic, notes, school_id
+        ) VALUES (
+          r.user_id, r.counselor_id, r.session_type, r.session_date, r.duration_minutes,
+          r.status, r.topic, r.notes, v_school_id
+        );
+      ELSE
+        UPDATE counseling_sessions SET
+          session_type = r.session_type,
+          session_date = r.session_date,
+          duration_minutes = r.duration_minutes,
+          status = r.status,
+          notes = r.notes,
+          school_id = v_school_id,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE counselor_id = r.counselor_id AND user_id = r.user_id AND topic = r.topic;
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v_school_id INTEGER;
+  v_teacher   INTEGER;
+  v_student   INTEGER;
+  v_graduate  INTEGER;
+  r RECORD;
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'counseling_journals') THEN
     RETURN;
@@ -726,24 +888,67 @@ BEGIN
   WHERE code = 'JJTH' OR name = '전주공업고등학교' ORDER BY id LIMIT 1;
   SELECT id INTO v_teacher FROM users WHERE email = 'teacher@jjob.com';
   SELECT id INTO v_student FROM users WHERE email = 'student@jjob.com';
+  SELECT id INTO v_graduate FROM users WHERE email = 'graduate@jjob.com';
 
-  IF NOT EXISTS (
-    SELECT 1 FROM counseling_journals
-    WHERE teacher_id = v_teacher AND student_id = v_student
-      AND title = '[DEMO] 진로 상담 — 스마트팩토리'
-  ) THEN
-    INSERT INTO counseling_journals (
-      teacher_id, teacher_name, student_id, student_name,
-      counseling_date, type, title, content, action_taken, school_id
-    ) VALUES (
-      v_teacher, '박선생', v_student, '김재학',
-      CURRENT_DATE, '진로상담',
-      '[DEMO] 진로 상담 — 스마트팩토리',
-      '스마트팩토리·임베디드 진로에 관심. 이력서·자격증 로드맵 안내.',
-      '정보처리기능사 응시 권장, DEMO 채용 공고 지원 독려',
-      v_school_id
-    );
-  END IF;
+  FOR r IN
+    SELECT * FROM (VALUES
+      (v_student, '김재학', '진로상담', CURRENT_DATE - 10,
+       '[DEMO] 진로 상담 — 스마트팩토리',
+       '스마트팩토리·임베디드 진로에 관심. 이력서·자격증 로드맵 안내.',
+       '정보처리기능사 응시 권장, DEMO 채용 공고 지원 독려',
+       '자격증 원서 마감 확인', CURRENT_DATE + 14),
+      (v_student, '김재학', '취업상담', CURRENT_DATE - 3,
+       '[DEMO] 취업 상담 — 이력서 첨삭',
+       '대표 이력서 항목·키워드 정리. 스마트팩토리 공고 지원서 점검.',
+       '지원서 제출 완료 확인, 면접 일정 공유',
+       '모의면접 일정 잡기', CURRENT_DATE + 7),
+      (v_student, '김재학', '학습상담', CURRENT_DATE - 1,
+       '[DEMO] 학습 상담 — 기능사 대비',
+       '정보처리기능사 필기 진도 점검. 주 3회 문제풀이 계획.',
+       '문제집 대여 안내',
+       NULL, NULL),
+      (v_student, '김재학', '생활상담', CURRENT_DATE - 20,
+       '[DEMO] 생활 상담 — 현장실습 적응',
+       '현장실습 전 긴장감·출퇴근 루틴 상담. 보호자 연락 체계 안내.',
+       '실습 담당 교사와 공유',
+       NULL, NULL),
+      (v_graduate, '이졸업', '취업상담', CURRENT_DATE - 5,
+       '[DEMO] 졸업생 상담 — 멘토링 연계',
+       '후배 멘토링 가능 일정·관심 분야(전자회로) 정리.',
+       '밴드 취업후기 글과 연계 안내',
+       '멘토 매칭 팔로업', CURRENT_DATE + 21)
+    ) AS t(
+      student_id, student_name, typ, counseling_date,
+      title, content, action_taken, follow_up, follow_up_at
+    )
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM counseling_journals
+      WHERE teacher_id = v_teacher AND student_id = r.student_id AND title = r.title
+    ) THEN
+      INSERT INTO counseling_journals (
+        teacher_id, teacher_name, student_id, student_name,
+        counseling_date, type, title, content, action_taken, follow_up, follow_up_at, school_id
+      ) VALUES (
+        v_teacher, '박선생', r.student_id, r.student_name,
+        r.counseling_date, r.typ, r.title, r.content, r.action_taken, r.follow_up, r.follow_up_at,
+        v_school_id
+      );
+    ELSE
+      UPDATE counseling_journals SET
+        type = r.typ,
+        content = r.content,
+        action_taken = r.action_taken,
+        follow_up = r.follow_up,
+        follow_up_at = r.follow_up_at,
+        counseling_date = r.counseling_date,
+        school_id = v_school_id,
+        teacher_name = '박선생',
+        student_name = r.student_name,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE teacher_id = v_teacher AND student_id = r.student_id AND title = r.title;
+    END IF;
+  END LOOP;
 END $$;
 
 -- ── Summary ──────────────────────────────────────────────────────────────────
@@ -756,5 +961,9 @@ SELECT
   (SELECT COUNT(*) FROM jobs WHERE title LIKE '[DEMO]%') AS demo_jobs,
   (SELECT COUNT(*) FROM announcements WHERE title LIKE '[DEMO]%') AS demo_announcements,
   (SELECT COUNT(*) FROM field_trips WHERE title LIKE '[DEMO]%') AS demo_field_trips,
+  (SELECT COUNT(*) FROM education_programs WHERE title LIKE '[DEMO]%') AS demo_edu_programs,
+  (SELECT COUNT(*) FROM counseling_sessions WHERE topic LIKE '[DEMO]%') AS demo_counseling_sessions,
+  (SELECT COUNT(*) FROM counseling_journals WHERE title LIKE '[DEMO]%') AS demo_counseling_journals,
+  (SELECT COALESCE(is_counselor, false) FROM users WHERE email = 'teacher@jjob.com') AS teacher_is_counselor,
   (SELECT logo_file_id IS NOT NULL AND primary_admin_user_id IS NOT NULL
      FROM schools WHERE code = 'JJTH' LIMIT 1) AS school_branding_ok;
