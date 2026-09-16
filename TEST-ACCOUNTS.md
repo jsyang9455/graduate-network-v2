@@ -76,5 +76,8 @@
 ## 참고사항
 
 - 비밀번호는 bcrypt로 암호화되어 저장됩니다
-- 테스트 계정은 초기 데이터에 자동으로 생성됩니다
-- 실제 운영 환경에서는 강력한 비밀번호로 변경하세요
+- DX `@jjob.com` 계정은 Compose `seed.sql`에 **없음** — `database/test-accounts.sql` /
+  `./scripts/load-test-accounts.sh` / `aws-up.sh`(비-prod 기본)로 적재
+- 기업 `company@jjob.com`은 시드에서 `approval_status=approved` (공개 가입 기업은 기본 pending —
+  **로그인은 가능**, 공고 등록만 승인 후)
+- 실제 운영 환경에서는 강력한 비밀번호로 변경하고 테스트 시드를 넣지 마세요

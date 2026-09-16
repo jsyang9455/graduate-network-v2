@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + aws-up/init-env. **FRONTEND_PORT=8090** 기본(SG 8090). nginx=000 → §11.2c |
+| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + aws-up. **8090**. nginx URI 잘림 §11.4b 수정. DX 계정 비-prod 기본 |
 
 ## Blockers
 
@@ -86,7 +86,10 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 ## Ops note (2026-09-16)
 
 - v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** + **`./scripts/init-env.sh`** (`.env` JWT/DB 부트스트랩, REQ-NFR-010). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
-- **`nginx=000` + `backend:5000=200`:** 호스트 frontend publish 실패(보통 :80 점유 → Created/PORTS empty) 또는 nginx 미listen. **기본 `FRONTEND_PORT=8090`**으로 :80 충돌 회피(SG에 8090 개방). §11.2b/§11.2c. `aws-up`은 publish 검증·조기 진단 덤프.
+- **해소: health 200 + login 404** — `nginx.conf` 변수 `proxy_pass …/api/` 가 URI를 `/api/`로 잘라 Express `NOT_FOUND`. 수정: host-only `proxy_pass http://$api_upstream`. frontend **재빌드** 필요(§11.4b).
+- **DX 계정:** `seed.sql` ≠ `@jjob.com`. `aws-up` 비-prod 기본으로 `load-test-accounts.sh`. prod: `--no-test-accounts` / `DEPLOY_ENV=production`.
+- `js/api.js`: 공인 IP/:8090 → `/api` (localhost 오버라이드만). 로그인 UI: 네트워크 vs 401 vs 404 구분.
+- **`nginx=000` + `backend:5000=200`:** 호스트 frontend publish 실패(보통 :80 점유 → Created/PORTS empty). **기본 `FRONTEND_PORT=8090`**(SG 8090). §11.2b/§11.2c.
 - **aws-up 폴링:** curl 실패 시 `nginx=000000` 오표기 수정; 상태 변경/~30초만 출력; backend healthcheck의 `GET /api/health 200` 반복은 정상(deploy-aws §8).
 - 502 / `dependency backend failed to start` 완화: staged `aws-up` 기동, `./database` 마운트, `scripts/healthcheck.js`, backend `start_period: 180s`, migrate idempotent(initdb 010)·DB connect retry.
 - Compose postgres: `POSTGRES_*` ← `.env`의 `DB_*`, healthcheck `start_period: 90s`, `shm_size: 256mb`.

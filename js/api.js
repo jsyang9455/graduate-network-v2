@@ -1,15 +1,18 @@
 // API Configuration — local API is port 5000 (compose/backend default). Nginx `/api` in production.
 // Override: localStorage.jjobb_api_base = 'http://localhost:5050/api' (macOS AirPlay often holds 5000).
 const API_BASE_URL = (() => {
+  const hostname = window.location.hostname;
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
   try {
     const override = localStorage.getItem('jjobb_api_base');
-    if (override) return override.replace(/\/$/, '');
+    // Honor override only on localhost (AirPlay → :5050). On EC2/:8090 a stale
+    // `http://localhost:5000/api` override would break login in the browser.
+    if (override && isLocal) return override.replace(/\/$/, '');
   } catch (_) { /* ignore */ }
-  const hostname = window.location.hostname;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+  if (isLocal) {
     return 'http://localhost:5000/api';
   }
-  // EC2 공인 IP·도메인: Nginx `/api` 프록시 (호스트 5000 개방 불필요)
+  // EC2 공인 IP·도메인·:8090: same-origin Nginx `/api` (must NOT use :5000)
   return '/api';
 })();
 
@@ -49,17 +52,26 @@ const api = {
         headers,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         const msg = (typeof data.error === 'string' ? data.error : data.error?.message) || 'Request failed';
         const detail = data.detail ? `\n상세: ${data.detail}` : '';
-        throw new Error(msg + detail);
+        const err = new Error(msg + detail);
+        err.status = response.status;
+        err.code = data.code || null;
+        throw err;
       }
 
       return data;
     } catch (error) {
       console.error('API request error:', error);
+      if (error && error.name === 'TypeError' && !error.status) {
+        const net = new Error('NETWORK');
+        net.code = 'NETWORK';
+        net.cause = error;
+        throw net;
+      }
       throw error;
     }
   },

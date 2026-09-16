@@ -4,15 +4,20 @@
 #
 # Usage (from repo root):
 #   ./scripts/aws-up.sh
-#   ./scripts/aws-up.sh --with-test-accounts
+#   ./scripts/aws-up.sh --with-test-accounts   # force DX accounts
+#   ./scripts/aws-up.sh --no-test-accounts     # skip (prod)
 #   ./scripts/aws-up.sh --timeout 300
+#
+# Test accounts: default ON for non-prod (dedicated test EC2). Skip when
+# DEPLOY_ENV=production|prod, LOAD_TEST_ACCOUNTS=0, or --no-test-accounts.
 #
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-WITH_TEST_ACCOUNTS=0
+# -1 = decide after .env (non-prod default on); 0 = off; 1 = on
+WITH_TEST_ACCOUNTS=-1
 HEALTH_TIMEOUT=300
 POLL_INTERVAL=5
 # HEALTH_URL set after .env load (respects FRONTEND_PORT)
@@ -32,21 +37,29 @@ usage() {
   cat <<'EOF'
 Usage: ./scripts/aws-up.sh [options]
 
-  --with-test-accounts   After healthy, run scripts/load-test-accounts.sh (dev/test only)
+  --with-test-accounts   Force load database/test-accounts.sql (DX personas)
+  --no-test-accounts     Skip test accounts (use on production)
   --timeout SECONDS      Max wait for /api/health (default: 300)
   -h, --help             Show this help
+
+Test accounts (student@jjob.com / password123, …):
+  Default: load on non-prod EC2 (DEPLOY_ENV empty|test|dev).
+  Skip when: --no-test-accounts | LOAD_TEST_ACCOUNTS=0 | DEPLOY_ENV=production|prod
+  Force when: --with-test-accounts | LOAD_TEST_ACCOUNTS=1
 
 Must run from the jjobb_v2 repo root (script enforces this).
 Requires: docker compose v2.
 If .env is missing or JWT_SECRET/DB_PASSWORD incomplete, runs scripts/init-env.sh
 (copies .env.example and generates secrets — see docs/deploy-aws.md).
 Default FRONTEND_PORT=8090 (SG must allow 8090). Override: FRONTEND_PORT=80 ./scripts/aws-up.sh
+After nginx.conf changes: this script rebuilds images (required — conf is baked in).
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --with-test-accounts) WITH_TEST_ACCOUNTS=1; shift ;;
+    --no-test-accounts) WITH_TEST_ACCOUNTS=0; shift ;;
     --timeout)
       HEALTH_TIMEOUT="${2:?--timeout requires seconds}"
       shift 2
@@ -583,12 +596,30 @@ fi
 body="$(cat "$body_file" 2>/dev/null || true)"
 log_ok "/api/health → 200 ${body}"
 
-# --- optional DX accounts ---
+# --- DX test accounts (default on for non-prod; seed.sql ≠ TEST-ACCOUNTS.md emails) ---
+DEPLOY_ENV_NORM="$(echo "${DEPLOY_ENV:-}" | tr '[:upper:]' '[:lower:]')"
+LOAD_FLAG_NORM="$(echo "${LOAD_TEST_ACCOUNTS:-}" | tr '[:upper:]' '[:lower:]')"
+if [[ "$WITH_TEST_ACCOUNTS" -eq -1 ]]; then
+  if [[ "$LOAD_FLAG_NORM" == "1" || "$LOAD_FLAG_NORM" == "true" || "$LOAD_FLAG_NORM" == "yes" ]]; then
+    WITH_TEST_ACCOUNTS=1
+  elif [[ "$LOAD_FLAG_NORM" == "0" || "$LOAD_FLAG_NORM" == "false" || "$LOAD_FLAG_NORM" == "no" ]]; then
+    WITH_TEST_ACCOUNTS=0
+  elif [[ "$DEPLOY_ENV_NORM" == "production" || "$DEPLOY_ENV_NORM" == "prod" ]]; then
+    WITH_TEST_ACCOUNTS=0
+  else
+    # Dedicated test EC2 / empty DEPLOY_ENV → load DX personas by default
+    WITH_TEST_ACCOUNTS=1
+  fi
+fi
+
 if [[ "$WITH_TEST_ACCOUNTS" -eq 1 ]]; then
-  log_info "Loading test accounts (--with-test-accounts)..."
+  log_info "Loading DX test accounts (database/test-accounts.sql)..."
   chmod +x "$ROOT/scripts/load-test-accounts.sh" 2>/dev/null || true
   "$ROOT/scripts/load-test-accounts.sh"
-  log_ok "Test accounts loaded (dev/test only — do not leave on public prod)"
+  log_ok "Test accounts loaded (dev/test only — skip with --no-test-accounts on prod)"
+else
+  log_info "Skipped test accounts (prod / --no-test-accounts / LOAD_TEST_ACCOUNTS=0)."
+  log_info "  Later: ./scripts/load-test-accounts.sh"
 fi
 
 # --- success ---
@@ -615,7 +646,18 @@ echo "Next (browser):"
 echo "  ${BASE_URL}/"
 echo "  ${BASE_URL}/login.html"
 echo ""
-echo "Tips: hard-refresh after deploy; SG must allow inbound TCP ${FRONTEND_PORT} (default 8090)."
+if [[ "$WITH_TEST_ACCOUNTS" -eq 1 ]]; then
+  echo "DX login (password for all: password123):"
+  echo "  student@jjob.com | graduate@jjob.com | teacher@jjob.com"
+  echo "  company@jjob.com | admin@jjob.com"
+  echo ""
+  echo "Verify:"
+  echo "  curl -sS -X POST ${BASE_URL}/api/auth/login -H 'Content-Type: application/json' \\"
+  echo "    -d '{\"email\":\"student@jjob.com\",\"password\":\"password123\"}'"
+  echo ""
+fi
+echo "Tips: hard-refresh (Ctrl+Shift+R) after deploy; SG must allow TCP ${FRONTEND_PORT}."
+echo "If login was 404 while /api/health was 200: rebuild frontend (nginx.conf baked in)."
 echo "Logs:  docker compose logs -f backend"
 echo ""
 exit 0

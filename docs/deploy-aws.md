@@ -26,10 +26,12 @@
 cd ~/graduate-network-v2
 chmod +x scripts/aws-up.sh scripts/init-env.sh
 ./scripts/aws-up.sh
-# DX 테스트 계정까지:  ./scripts/aws-up.sh --with-test-accounts
+# 전용 테스트 EC2: DX 계정 기본 적재. prod만 끌 것:
+#   ./scripts/aws-up.sh --no-test-accounts
+#   # 또는 .env: DEPLOY_ENV=production / LOAD_TEST_ACCOUNTS=0
 ```
 
-스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD·**FRONTEND_PORT=8090** 생성) → **단계 기동**(`postgres` healthy → migrate → `backend` healthy → `frontend`) → `http://127.0.0.1:8090/api/health` 200까지 폴링(변경·~30초마다만 출력, 성공 시 즉시 종료) → 실패 시 `ps`·frontend/backend 로그·공통 원인 힌트 덤프 → 성공 시 브라우저 URL 힌트(`http://<IP>:8090/`).
+스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD·**FRONTEND_PORT=8090** 생성) → **단계 기동**(`postgres` healthy → migrate → `backend` healthy → `frontend`) → `http://127.0.0.1:8090/api/health` 200까지 폴링 → **비-prod면 `load-test-accounts.sh`** → 실패 시 diagnostics → 성공 시 브라우저 URL·DX 로그인 curl 힌트.
 
 한 번에 `compose up`하면 frontend가 backend healthy를 기다리며 **`dependency backend failed to start`** 가 날 수 있어, `aws-up.sh`는 순서를 나눈다.
 
@@ -225,23 +227,26 @@ docker compose exec frontend wget -qO- http://backend:5000/api/health
 
 ## 9. DX 테스트 계정 (`student@jjob.com`)
 
-Compose init에는 **`seed.sql`만** 있다. `student@jjob.com` 등 DX 계정은 **없음**.
+Compose init에는 **`seed.sql`만** 있다. `student@jjob.com` 등 DX 계정은 **없음** (`database/test-accounts.sql` 별도).
 
-dev/test EC2에서 DX 로그인이 필요하면:
+**전용 테스트 EC2:** `./scripts/aws-up.sh`가 **기본으로** DX 계정을 적재한다 (`DEPLOY_ENV`가 `production`/`prod`가 아니면).
 
 ```bash
 cd ~/graduate-network-v2
+# 이미 기동 중이면 계정만:
 chmod +x scripts/load-test-accounts.sh
 ./scripts/load-test-accounts.sh
+
+# 로그인 검증 (호스트에서)
+curl -sS -X POST http://127.0.0.1:8090/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"student@jjob.com","password":"password123"}'
 ```
 
-(동일: `docker compose exec -T postgres psql -U postgres -d graduate_network < database/test-accounts.sql`)
-
-- 로그인 예: `student@jjob.com` / `password123` (`TEST-ACCOUNTS.md`)
-- init 시드만 쓸 때: `choi.seungmin@example.com` / `password123` 등 **`seed.sql` 계정**
-- **프로덕션·공개 EC2에 테스트 계정/약한 비밀번호 시드를 남기지 말 것**
-
-공개 가입 기업은 기본 `pending` → 공고 CRUD는 승인 후 (`REQ-JOB-007`).
+- DX: `student@jjob.com` / `graduate@jjob.com` / `teacher@jjob.com` / `company@jjob.com` / `admin@jjob.com` — 비밀번호 **`password123`** (`TEST-ACCOUNTS.md`)
+- init 시드만: `choi.seungmin@example.com` / `password123` 등 **`seed.sql`**
+- **프로덕션:** `./scripts/aws-up.sh --no-test-accounts` 또는 `.env`에 `DEPLOY_ENV=production`
+- 공개 가입 기업 `pending`은 **로그인은 허용**, 공고 CRUD만 승인 후 (`REQ-JOB-007`)
 
 ---
 
@@ -460,13 +465,32 @@ docker compose exec frontend wget -qO- http://backend:5000/api/health
 
 ### 11.4 API URL (공인 IP에서 `:5000`)
 
-현재 `js/api.js`: localhost → `http://localhost:5000/api`, **공인 IP/도메인 → `/api`**.
+현재 `js/api.js`: localhost → `http://localhost:5000/api`, **공인 IP/도메인/:8090 → `/api`**.  
+`localStorage.jjobb_api_base` 오버라이드는 **localhost에서만** 적용(EC2에서 오래된 `:5000` 오버라이드 무시).
 
 구 캐시/구 커밋이 `:5000`을 쓰면 SG에서 막혀 타임아웃. `git pull` + `docker compose up -d --build` + 브라우저 강력 새로고침.
 
+### 11.4b `/api/health` 200인데 `/api/auth/login` 404
+
+증상: health·UI는 되는데 로그인·schools·jobs가 Express `NOT_FOUND`.
+
+원인: `nginx.conf`에서 **변수 `proxy_pass http://$host/api/`** 를 쓰면 URI가 `/api/`로 잘린다(정확한 `=/api/health`만 정상).
+
+조치:
+
+```bash
+git pull
+./scripts/aws-up.sh          # frontend 이미지 재빌드 포함 (nginx.conf는 bake-in)
+# 또는: docker compose up -d --build frontend
+curl -sS -X POST http://127.0.0.1:8090/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"student@jjob.com","password":"password123"}'
+```
+
 ### 11.5 DX 계정 없음 (`student@jjob.com` 로그인 실패)
 
-§9 `./scripts/load-test-accounts.sh` 실행. 또는 `seed.sql` 계정 사용.
+§9 `./scripts/load-test-accounts.sh` 실행. 또는 `seed.sql` 계정 사용.  
+`aws-up` 기본(비-prod)은 이미 적재한다. 401이면 계정, 404면 §11.4b.
 
 ### 11.6 기타
 
@@ -526,8 +550,11 @@ git clone https://github.com/jsyang9455/graduate-network-v2.git
 cd graduate-network-v2
 chmod +x scripts/init-env.sh scripts/aws-up.sh
 ./scripts/init-env.sh          # 또는 cp .env.example .env && nano .env
-./scripts/aws-up.sh --with-test-accounts   # prod면 --with-test-accounts 생략
-# 브라우저: http://<EC2공인IP>/login.html  (강력 새로고침)
+./scripts/aws-up.sh   # 비-prod면 DX 계정 기본 적재; prod: --no-test-accounts
+# 브라우저: http://<EC2공인IP>:8090/login.html  (강력 새로고침 Ctrl+Shift+R)
+# 검증:
+# curl -sS -X POST http://127.0.0.1:8090/api/auth/login -H 'Content-Type: application/json' \
+#   -d '{"email":"student@jjob.com","password":"password123"}'
 ```
 
 ---
