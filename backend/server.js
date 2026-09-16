@@ -116,12 +116,18 @@ app.use((req, res) => {
 });
 
 async function start() {
-  const { applyPendingMigrations } = require('./scripts/apply-migrations');
+  const {
+    applyPendingMigrations,
+    isIdempotentSchemaError,
+  } = require('./scripts/apply-migrations');
   try {
     await applyPendingMigrations();
   } catch (err) {
     console.error('❌ Failed to apply migrations:', err.message);
-    if (process.env.NODE_ENV === 'production') {
+    if (isIdempotentSchemaError(err)) {
+      console.warn('⚠️  Continuing startup after idempotent migration conflict');
+    } else if (process.env.NODE_ENV === 'production') {
+      // Auth failure, missing /database mount, hard SQL — keep container unhealthy.
       process.exit(1);
     }
   }

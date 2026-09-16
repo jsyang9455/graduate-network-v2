@@ -70,18 +70,13 @@ services:
       - graduate-network
     restart: unless-stopped
     healthcheck:
-      # node:alpine has no wget by default — probe with Node.
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://127.0.0.1:5000/api/health',(r)=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))",
-        ]
-      interval: 15s
+      # node:alpine has no wget/curl — use committed probe (not inline -e).
+      # start_period covers waitForDatabase + migrate-on-boot on small EC2.
+      test: ["CMD", "node", "scripts/healthcheck.js"]
+      interval: 10s
       timeout: 5s
-      retries: 8
-      start_period: 60s
+      retries: 18
+      start_period: 180s
 
   # Frontend
   # nginx.conf is baked into the image (/etc/nginx/conf.d/). After changing it:

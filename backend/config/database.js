@@ -9,7 +9,8 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  // Cold EC2 / first boot: 2s was too aggressive and aborted migrate-on-start.
+  connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS) || 10000,
 });
 
 // Test connection
@@ -17,9 +18,9 @@ pool.on('connect', () => {
   console.log('✅ Database connected successfully');
 });
 
+// Idle client errors should not kill the API process (healthcheck / restart loops).
 pool.on('error', (err) => {
-  console.error('❌ Unexpected database error:', err);
-  process.exit(-1);
+  console.error('❌ Unexpected database pool error:', err.message);
 });
 
 // Query helper

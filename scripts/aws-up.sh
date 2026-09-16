@@ -13,7 +13,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 WITH_TEST_ACCOUNTS=0
-HEALTH_TIMEOUT=240
+HEALTH_TIMEOUT=300
 HEALTH_URL="http://127.0.0.1/api/health"
 POLL_INTERVAL=5
 
@@ -33,7 +33,7 @@ usage() {
 Usage: ./scripts/aws-up.sh [options]
 
   --with-test-accounts   After healthy, run scripts/load-test-accounts.sh (dev/test only)
-  --timeout SECONDS      Max wait for /api/health (default: 240)
+  --timeout SECONDS      Max wait for /api/health (default: 300)
   -h, --help             Show this help
 
 Must run from the jjobb_v2 repo root (script enforces this).
@@ -63,12 +63,48 @@ compose() {
   docker compose "$@"
 }
 
+container_health() {
+  local name="$1"
+  docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null || echo missing
+}
+
+container_state() {
+  local name="$1"
+  docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$name" 2>/dev/null || echo "missing"
+}
+
+hint_backend_failure() {
+  echo ""
+  log_info "=== hint: common causes of 'dependency backend failed to start' ==="
+  echo "  1) Backend never became healthy (migrate crash / DB auth / missing /database mount)"
+  echo "  2) Healthcheck exhausted retries before listen (slow EC2) — pull latest compose start_period"
+  echo "  3) DB_PASSWORD in .env ≠ password baked into existing postgres_data volume"
+  echo "  4) JWT_SECRET missing (compose refuses to start backend)"
+  echo ""
+  log_info "Look in backend logs for:"
+  echo "  - password authentication failed"
+  echo "  - Failed to apply migrations"
+  echo "  - Migrations directory not found"
+  echo "  - Database not ready"
+  echo ""
+  log_info "Quick checks:"
+  echo "  docker compose ps -a"
+  echo "  docker compose logs backend --tail=120"
+  echo "  docker inspect graduate-network-backend --format '{{.State.Status}} {{.State.Health.Status}} {{.State.Error}}'"
+  echo "  # password mismatch (data wipe OK): docker compose down -v && ./scripts/aws-up.sh"
+}
+
 die_diagnostics() {
   local reason="$1"
   log_err "$reason"
   echo ""
   log_info "=== diagnostics: docker compose ps -a ==="
   compose ps -a || true
+  echo ""
+  log_info "=== diagnostics: backend state ==="
+  echo "  $(container_state graduate-network-backend)"
+  log_info "=== diagnostics: postgres state ==="
+  echo "  $(container_state graduate-network-db)"
   echo ""
   log_info "=== diagnostics: backend logs (tail 120) ==="
   compose logs backend --tail=120 || true
@@ -78,10 +114,33 @@ die_diagnostics() {
   echo ""
   log_info "=== diagnostics: frontend logs (tail 40) ==="
   compose logs frontend --tail=40 || true
+  hint_backend_failure
   echo ""
   log_err "FAILED — /api/health did not become healthy."
   log_err "Send the diagnostics above (ps + backend/postgres logs) when asking for help."
   exit 1
+}
+
+wait_container_healthy() {
+  local name="$1"
+  local label="$2"
+  local deadline=$((SECONDS + HEALTH_TIMEOUT))
+  while (( SECONDS < deadline )); do
+    local health
+    health="$(container_health "$name")"
+    if [[ "$health" == "healthy" ]]; then
+      return 0
+    fi
+    # Exited/restarting with Error → fail fast with diagnostics
+    local status
+    status="$(docker inspect -f '{{.State.Status}}' "$name" 2>/dev/null || echo missing)"
+    if [[ "$status" == "exited" || "$status" == "dead" ]]; then
+      die_diagnostics "${label} container is ${status} (health=${health}). Often: migrate crash or DB auth."
+    fi
+    echo "  … ${label} health=${health} status=${status} (retry in ${POLL_INTERVAL}s)"
+    sleep "$POLL_INTERVAL"
+  done
+  die_diagnostics "${label} did not become healthy within ${HEALTH_TIMEOUT}s."
 }
 
 # --- preflight: repo root ---
@@ -152,45 +211,44 @@ log_ok ".env has JWT_SECRET and DB_PASSWORD"
 
 echo ""
 echo "========================================================================"
-echo "  jjobb_v2 aws-up — compose up + migrate + /api/health"
+echo "  jjobb_v2 aws-up — postgres → migrate → backend → frontend → /api/health"
 echo "========================================================================"
 echo ""
 
-# --- compose up ---
-log_info "Building and starting containers (docker compose up -d --build)..."
-compose up -d --build
-
-# --- wait postgres healthy ---
-log_info "Waiting for postgres to be healthy..."
-deadline=$((SECONDS + HEALTH_TIMEOUT))
-postgres_ok=0
-while (( SECONDS < deadline )); do
-  health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' graduate-network-db 2>/dev/null || echo missing)"
-  if [[ "$health" == "healthy" ]]; then
-    postgres_ok=1
-    break
-  fi
-  echo "  … postgres health=${health} (retry in ${POLL_INTERVAL}s)"
-  sleep "$POLL_INTERVAL"
-done
-if [[ "$postgres_ok" -ne 1 ]]; then
-  die_diagnostics "Postgres did not become healthy within ${HEALTH_TIMEOUT}s."
+# Staged bring-up avoids: frontend depends_on backend healthy while backend is
+# still migrating / crash-looping → "dependency backend failed to start".
+log_info "Building images (docker compose build)..."
+if ! compose build; then
+  die_diagnostics "docker compose build failed."
 fi
+
+log_info "Starting postgres..."
+if ! compose up -d postgres; then
+  die_diagnostics "Failed to start postgres (compose up)."
+fi
+wait_container_healthy graduate-network-db "Postgres"
 log_ok "Postgres is healthy"
 
-# --- migrate (explicit volume; long-running backend also mounts ./database) ---
+# --- migrate before long-running backend (same /database mount) ---
 log_info "Running migrations (database volume → /database)..."
 if ! compose run --rm \
   -v "${ROOT}/database:/database:ro" \
   backend npm run migrate; then
-  die_diagnostics "Migration failed."
+  die_diagnostics "Migration failed (check DB_PASSWORD vs existing postgres_data volume)."
 fi
 log_ok "Migrations completed"
 
-# Ensure app services are up after one-off migrate
-log_info "Ensuring backend + frontend are up..."
-compose up -d backend frontend
-sleep 2
+log_info "Starting backend..."
+if ! compose up -d backend; then
+  die_diagnostics "Failed to start backend — often 'dependency postgres failed' or JWT/.env."
+fi
+wait_container_healthy graduate-network-backend "Backend"
+log_ok "Backend is healthy"
+
+log_info "Starting frontend (waits on backend healthy)..."
+if ! compose up -d frontend; then
+  die_diagnostics "Failed to start frontend — typically: dependency backend failed to start / backend unhealthy."
+fi
 
 # --- poll /api/health via nginx ---
 log_info "Polling ${HEALTH_URL} until HTTP 200 (timeout ${HEALTH_TIMEOUT}s)..."

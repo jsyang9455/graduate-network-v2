@@ -29,7 +29,9 @@ chmod +x scripts/aws-up.sh scripts/init-env.sh
 # DX 테스트 계정까지:  ./scripts/aws-up.sh --with-test-accounts
 ```
 
-스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD 생성) → `docker compose up -d --build` → Postgres healthy 대기 → migrate(`/database` 마운트) → `http://127.0.0.1/api/health` 200까지 폴링 → 실패 시 `ps`·backend/postgres 로그 덤프 → 성공 시 브라우저 URL 힌트.
+스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD 생성) → **단계 기동**(`postgres` healthy → migrate → `backend` healthy → `frontend`) → `http://127.0.0.1/api/health` 200까지 폴링 → 실패 시 `ps`·backend/postgres 로그·공통 원인 힌트 덤프 → 성공 시 브라우저 URL 힌트.
+
+한 번에 `compose up`하면 frontend가 backend healthy를 기다리며 **`dependency backend failed to start`** 가 날 수 있어, `aws-up.sh`는 순서를 나눈다.
 
 §6–§8 수동 단계는 스크립트 실패 디버깅·부분 재실행용이다.
 
@@ -147,7 +149,8 @@ docker compose logs --tail=80
 
 서비스명은 **`postgres`**(컨테이너명만 `graduate-network-db`). `depends_on`/`DB_HOST`에 `db`를 쓰지 말 것.
 
-Postgres는 `healthcheck` + `start_period: 90s`(첫 init: schema+seed+010) 후 백엔드가 기동한다.
+Postgres는 `healthcheck` + `start_period: 90s`(첫 init: schema+seed+010) 후 백엔드가 기동한다.  
+Backend는 `scripts/healthcheck.js`(node alpine에 wget 없음) + `start_period: 180s`(DB 대기·migrate-on-boot).
 
 ---
 
@@ -322,7 +325,37 @@ docker compose up -d --build
 docker compose run --rm -v "$(pwd)/database:/database:ro" backend npm run migrate
 ```
 
-### 11.2 `/api/health` 502 · 백엔드
+### 11.2 `dependency backend failed to start` / `graduate-network-backend Error`
+
+Frontend는 `depends_on: backend: condition: service_healthy`이다. **백엔드가 healthy가 되기 전에** frontend를 같이 올리면 Compose가 이 메시지로 실패한다. (구 `aws-up.sh`가 `compose up` 한 번에 전부 기동할 때 흔함.)
+
+| 순위 | 원인 | 로그에서 볼 것 |
+|------|------|----------------|
+| 1 | migrate-on-boot 실패 → `exit 1` (컨테이너 Error/restart) | `Failed to apply migrations`, `Migrations directory not found` |
+| 2 | `.env` `DB_PASSWORD` ≠ 기존 `postgres_data` 볼륨 비번 | `password authentication failed` |
+| 3 | healthcheck가 listen 전에 소진 (느린 EC2 / 긴 migrate) | `unhealthy`, health 실패 반복 |
+| 4 | JWT_SECRET 미설정 | compose가 backend 자체를 안 올림 |
+| 5 | initdb로 010이 이미 적용됐는데 `schema_migrations`에 없음 | 구 코드는 재적용 충돌; 최신은 idempotent skip |
+
+```bash
+cd ~/graduate-network-v2
+git pull origin main
+./scripts/aws-up.sh
+# 실패 시 스크립트가 덤프하는 줄 + 아래를 확인:
+docker compose ps -a
+docker inspect graduate-network-backend --format '{{.State.Status}} {{.State.Health.Status}} {{.State.Error}}'
+docker compose logs backend --tail=120
+```
+
+데이터 삭제 허용(비번 불일치·손상 볼륨):
+
+```bash
+docker compose down -v
+# .env DB_PASSWORD / JWT_SECRET 유지 또는 init-env.sh
+./scripts/aws-up.sh
+```
+
+### 11.3 `/api/health` 502 · 백엔드
 
 Nginx는 살아 있으나 upstream(`backend:5000`)이 없거나 기동 직후 크래시하면 **502**.
 
@@ -342,17 +375,17 @@ docker compose logs postgres --tail=80
 docker compose exec frontend wget -qO- http://backend:5000/api/health
 ```
 
-### 11.3 API URL (공인 IP에서 `:5000`)
+### 11.4 API URL (공인 IP에서 `:5000`)
 
 현재 `js/api.js`: localhost → `http://localhost:5000/api`, **공인 IP/도메인 → `/api`**.
 
 구 캐시/구 커밋이 `:5000`을 쓰면 SG에서 막혀 타임아웃. `git pull` + `docker compose up -d --build` + 브라우저 강력 새로고침.
 
-### 11.4 DX 계정 없음 (`student@jjob.com` 로그인 실패)
+### 11.5 DX 계정 없음 (`student@jjob.com` 로그인 실패)
 
 §9 `./scripts/load-test-accounts.sh` 실행. 또는 `seed.sql` 계정 사용.
 
-### 11.5 기타
+### 11.6 기타
 
 1. **JWT_SECRET 없음** → §11.0. 루트 `.env` / `./scripts/init-env.sh`.
 2. **v1 `deploy-aws.sh` / `AWS-DEPLOYMENT.md`** → 잘못된 저장소·`DB_HOST=db`. v2는 서비스명 **`postgres`**.
