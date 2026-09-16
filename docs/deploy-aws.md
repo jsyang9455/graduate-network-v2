@@ -29,7 +29,7 @@ chmod +x scripts/aws-up.sh scripts/init-env.sh
 # DX 테스트 계정까지:  ./scripts/aws-up.sh --with-test-accounts
 ```
 
-스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD 생성) → **단계 기동**(`postgres` healthy → migrate → `backend` healthy → `frontend`) → `http://127.0.0.1/api/health` 200까지 폴링 → 실패 시 `ps`·backend/postgres 로그·공통 원인 힌트 덤프 → 성공 시 브라우저 URL 힌트.
+스크립트가 하는 일: `.env` 검사(또는 `init-env.sh`로 JWT_SECRET·DB_PASSWORD 생성) → **단계 기동**(`postgres` healthy → migrate → `backend` healthy → `frontend`) → `http://127.0.0.1/api/health` 200까지 폴링(변경·~30초마다만 출력, 성공 시 즉시 종료) → 실패 시 `ps`·backend/postgres 로그·공통 원인 힌트 덤프 → 성공 시 브라우저 URL 힌트.
 
 한 번에 `compose up`하면 frontend가 backend healthy를 기다리며 **`dependency backend failed to start`** 가 날 수 있어, `aws-up.sh`는 순서를 나눈다.
 
@@ -189,7 +189,9 @@ docker compose down -v
 ## 8. 헬스 체크 (`/api/health` — bare `/health` 아님)
 
 정식 경로는 **`GET /api/health`** (Express `backend/server.js` + Nginx `location /api/`).  
-`aws-up.sh`가 이미 200을 확인할 때까지 폴링한다. 수동 재확인:
+`aws-up.sh`가 이미 200을 확인할 때까지 폴링한다(상태 변경·약 30초마다만 출력; 성공 시 종료). 수동 재확인:
+
+**로그 노이즈:** `docker compose logs -f backend`에 약 10초마다 `GET /api/health 200`이 보이면 Compose healthcheck + morgan 액세스 로그이며 **정상**(오류 아님). 스크립트 폴링이 멈추지 않으면 Ctrl+C로 `aws-up.sh`만 중단하면 된다(컨테이너는 계속 기동).
 
 ```bash
 # EC2 호스트에서 (권장)

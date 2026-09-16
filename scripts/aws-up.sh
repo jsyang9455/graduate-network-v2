@@ -69,6 +69,20 @@ container_health() {
   docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$name" 2>/dev/null || echo missing
 }
 
+# curl -w '%{http_code}' already prints 000 on connect failure; do NOT also
+# `|| echo 000` or the code becomes "000000" and never matches "200".
+curl_http_code() {
+  local url="$1"
+  local out_file="${2:-/dev/null}"
+  local code
+  code="$(curl -sS -o "$out_file" -w '%{http_code}' --connect-timeout 2 --max-time 5 "$url" 2>/dev/null || true)"
+  if [[ "$code" =~ ^[0-9]{3}$ ]]; then
+    printf '%s' "$code"
+  else
+    printf '000'
+  fi
+}
+
 container_state() {
   local name="$1"
   docker inspect -f 'status={{.State.Status}} exit={{.State.ExitCode}} err={{.State.Error}} oom={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}' "$name" 2>/dev/null || echo "missing"
@@ -216,6 +230,8 @@ wait_container_healthy() {
   local name="$1"
   local label="$2"
   local deadline=$((SECONDS + HEALTH_TIMEOUT))
+  local attempt=0
+  local last_msg=""
   while (( SECONDS < deadline )); do
     local health
     health="$(container_health "$name")"
@@ -228,7 +244,13 @@ wait_container_healthy() {
     if [[ "$status" == "exited" || "$status" == "dead" ]]; then
       die_diagnostics "${label} container is ${status} (health=${health}). Often: migrate crash or DB auth."
     fi
-    echo "  … ${label} health=${health} status=${status} (retry in ${POLL_INTERVAL}s)"
+    attempt=$((attempt + 1))
+    local msg="${label} health=${health} status=${status}"
+    # Print on status change, then every 6th attempt (~30s) — not every poll
+    if [[ "$msg" != "$last_msg" ]] || (( attempt == 1 || attempt % 6 == 0 )); then
+      echo "  … ${msg} (attempt ${attempt}, retry in ${POLL_INTERVAL}s)"
+      last_msg="$msg"
+    fi
     sleep "$POLL_INTERVAL"
   done
   die_diagnostics "${label} did not become healthy within ${HEALTH_TIMEOUT}s."
@@ -374,21 +396,36 @@ log_ok "Frontend container started (host :${FRONTEND_PORT} → container :80)"
 
 # --- poll /api/health via nginx ---
 log_info "Polling ${HEALTH_URL} until HTTP 200 (timeout ${HEALTH_TIMEOUT}s)..."
+log_info "Progress lines print on change or ~every 30s (not every poll). Ctrl+C aborts the script only."
 deadline=$((SECONDS + HEALTH_TIMEOUT))
 health_ok=0
 last_code="n/a"
+attempt=0
+last_msg=""
+warned_nginx_behind=0
 body_file="$(mktemp)"
 trap 'rm -f "$body_file"' EXIT
 
 while (( SECONDS < deadline )); do
-  code="$(curl -sS -o "$body_file" -w '%{http_code}' "$HEALTH_URL" 2>/dev/null || echo "000")"
+  code="$(curl_http_code "$HEALTH_URL" "$body_file")"
   last_code="$code"
   if [[ "$code" == "200" ]]; then
     health_ok=1
     break
   fi
-  backend_code="$(curl -sS -o /dev/null -w '%{http_code}' http://127.0.0.1:5000/api/health 2>/dev/null || echo "000")"
-  echo "  … nginx=${code} backend:5000=${backend_code} (retry in ${POLL_INTERVAL}s)"
+  backend_code="$(curl_http_code "http://127.0.0.1:5000/api/health")"
+  attempt=$((attempt + 1))
+  msg="nginx=${code} backend:5000=${backend_code}"
+  if [[ "$msg" != "$last_msg" ]] || (( attempt == 1 || attempt % 6 == 0 )); then
+    echo "  … ${msg} (attempt ${attempt}, retry in ${POLL_INTERVAL}s)"
+    last_msg="$msg"
+  fi
+  # Backend OK but host nginx path failing → usually FRONTEND_PORT / host :80 conflict
+  if [[ "$warned_nginx_behind" -eq 0 && "$backend_code" == "200" && "$code" != "200" && "$attempt" -ge 3 ]]; then
+    warned_nginx_behind=1
+    log_warn "Backend :5000 is healthy but ${HEALTH_URL} is not yet 200."
+    log_warn "If this continues: check frontend (host port ${FRONTEND_PORT}), or Ctrl+C and see §11.2b / hint_port_conflict."
+  fi
   sleep "$POLL_INTERVAL"
 done
 
