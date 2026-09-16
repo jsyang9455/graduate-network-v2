@@ -1,26 +1,27 @@
 -- Initial seed data for testing
+-- All passwords: password123 (bcrypt $2b$10$AknqEf4Z… — do NOT restore the old rZ0HwKnI… hash)
 
 -- Insert sample users
 INSERT INTO users (email, password_hash, name, user_type, phone) VALUES
 -- Graduates
-('kim.mingyu@example.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '김민규', 'graduate', '010-1234-5678'),
-('lee.jihoon@example.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '이지훈', 'graduate', '010-2345-6789'),
-('park.sooyoung@example.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '박수영', 'graduate', '010-3456-7890'),
+('kim.mingyu@example.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '김민규', 'graduate', '010-1234-5678'),
+('lee.jihoon@example.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '이지훈', 'graduate', '010-2345-6789'),
+('park.sooyoung@example.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '박수영', 'graduate', '010-3456-7890'),
 
 -- Students
-('choi.seungmin@example.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '최승민', 'student', '010-4567-8901'),
-('jung.yuna@example.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '정유나', 'student', '010-5678-9012'),
+('choi.seungmin@example.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '최승민', 'student', '010-4567-8901'),
+('jung.yuna@example.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '정유나', 'student', '010-5678-9012'),
 
 -- Teachers
-('teacher.kim@example.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '김선생', 'teacher', '010-6789-0123'),
+('teacher.kim@example.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '김선생', 'teacher', '010-6789-0123'),
 
 -- Companies
-('hr@samsung.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '삼성전자', 'company', '02-1234-5678'),
-('recruit@hyundai.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '현대자동차', 'company', '02-2345-6789'),
-('jobs@posco.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '포스코', 'company', '02-3456-7890'),
+('hr@samsung.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '삼성전자', 'company', '02-1234-5678'),
+('recruit@hyundai.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '현대자동차', 'company', '02-2345-6789'),
+('jobs@posco.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '포스코', 'company', '02-3456-7890'),
 
 -- Admin
-('admin@jeonjutech.edu', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '관리자', 'admin', '063-1234-5678');
+('admin@jeonjutech.edu', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '관리자', 'admin', '063-1234-5678');
 
 -- Insert graduate profiles
 INSERT INTO graduate_profiles (user_id, graduation_year, major, current_company, current_position, career_start_date, bio, skills, is_mentor, mentor_capacity) VALUES

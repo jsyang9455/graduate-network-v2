@@ -59,7 +59,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | 알림톡/SMS | backend | 15 | NOT_CONFIGURED |
 | QA 스위트 | qa | 99 | policy-decisions + persona → **96/96** |
 | NFR compose secrets | qa/ops | 85 | JWT env 이전 (NFR-010). 운영 시크릿 로테이션은 배포 시 |
-| AWS EC2 배포 문서 | architect | — | [docs/deploy-aws.md](deploy-aws.md) + aws-up. **8090**. nginx URI 잘림 §11.4b 수정. DX 계정 비-prod 기본 |
+| AWS EC2 배포 문서 | architect | — | deploy-aws + aws-up **8090**. nginx host-only `/api`. **bcrypt password123 해시 수정** + `verify-login.sh` |
 
 ## Blockers
 
@@ -86,7 +86,8 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 ## Ops note (2026-09-16)
 
 - v2 AWS: [docs/deploy-aws.md](deploy-aws.md) + **`./scripts/aws-up.sh`** + **`./scripts/init-env.sh`** (`.env` JWT/DB 부트스트랩, REQ-NFR-010). `AWS-DEPLOYMENT.md`/`deploy-aws.sh`는 v1 지향.
-- **해소: health 200 + login 404** — `nginx.conf` 변수 `proxy_pass …/api/` 가 URI를 `/api/`로 잘라 Express `NOT_FOUND`. 수정: host-only `proxy_pass http://$api_upstream`. frontend **재빌드** 필요(§11.4b).
+- **해소: health 200 + login 404** — `nginx.conf` 변수 `proxy_pass …/api/` 가 URI를 `/api/`로 잘라 Express `NOT_FOUND`. 수정: host-only `proxy_pass http://$api_upstream`. `nginx.conf`는 이미지 bake-in + **bind-mount** (restart만으로도 반영).
+- **해소: health 200 + login 401** — `seed.sql`/`test-accounts.sql` 구 bcrypt 해시(`rZ0HwKnI…`)가 `password123`과 불일치. 수정 해시 + `load-test-accounts.sh`가 backend bcrypt로 재해시 후 `./scripts/verify-login.sh`로 curl 검증.
 - **DX 계정:** `seed.sql` ≠ `@jjob.com`. `aws-up` 비-prod 기본으로 `load-test-accounts.sh`. prod: `--no-test-accounts` / `DEPLOY_ENV=production`.
 - `js/api.js`: 공인 IP/:8090 → `/api` (localhost 오버라이드만). 로그인 UI: 네트워크 vs 401 vs 404 구분.
 - **`nginx=000` + `backend:5000=200`:** 호스트 frontend publish 실패(보통 :80 점유 → Created/PORTS empty). **기본 `FRONTEND_PORT=8090`**(SG 8090). §11.2b/§11.2c.

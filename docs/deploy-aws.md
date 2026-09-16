@@ -487,10 +487,24 @@ curl -sS -X POST http://127.0.0.1:8090/api/auth/login \
   -d '{"email":"student@jjob.com","password":"password123"}'
 ```
 
-### 11.5 DX 계정 없음 (`student@jjob.com` 로그인 실패)
+### 11.5 DX 계정 없음 / 401 (`student@jjob.com` 로그인 실패)
 
-§9 `./scripts/load-test-accounts.sh` 실행. 또는 `seed.sql` 계정 사용.  
-`aws-up` 기본(비-prod)은 이미 적재한다. 401이면 계정, 404면 §11.4b.
+증상: `/api/health` 200 + `/api/auth/login` → **401** `UNAUTHENTICATED`.
+
+원인 후보:
+1. DX 미적재 (`seed.sql`에는 `student@jjob.com` 없음)
+2. **잘못된 bcrypt 해시** — 구 `database/*.sql`의 `$2b$10$rZ0HwKnI…` 는 `password123`과 **불일치** (계정은 있어도 401)
+
+조치:
+
+```bash
+git pull
+./scripts/load-test-accounts.sh   # SQL + bcrypt 재해시 + curl 검증
+./scripts/verify-login.sh
+# 공개 IP: BASE_URL=http://<EC2공인IP>:8090 ./scripts/verify-login.sh
+```
+
+`aws-up` 기본(비-prod)은 이미 적재·검증한다. **404**면 §11.4b (nginx), **401**이면 본 절.
 
 ### 11.6 기타
 

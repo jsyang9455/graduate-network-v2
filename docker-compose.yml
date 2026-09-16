@@ -79,10 +79,10 @@ services:
       start_period: 180s
 
   # Frontend
-  # nginx.conf is baked into the image (/etc/nginx/conf.d/). After changing it:
-  #   docker compose up -d --build frontend
-  # The bind mount refreshes HTML/JS/CSS after git pull without rebuild, but does
-  # NOT update nginx.conf. Sensitive paths are denied in nginx.conf.
+  # nginx.conf is COPY'd at build AND bind-mounted so `git pull` picks up proxy
+  # fixes without a full image rebuild (reload via: docker compose restart frontend).
+  # Prefer rebuild after Dockerfile changes: docker compose up -d --build frontend
+  # Sensitive paths are denied in nginx.conf.
   frontend:
     build:
       context: .
@@ -90,6 +90,7 @@ services:
     container_name: graduate-network-frontend
     volumes:
       - .:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/nginx.conf:ro
     ports:
       # Bind IPv4 explicitly so host curl to 127.0.0.1 hits docker-proxy.
       # Default 8090 avoids host nginx/apache on :80 (common on EC2 AMIs).

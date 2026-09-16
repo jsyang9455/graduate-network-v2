@@ -614,12 +614,12 @@ fi
 
 if [[ "$WITH_TEST_ACCOUNTS" -eq 1 ]]; then
   log_info "Loading DX test accounts (database/test-accounts.sql)..."
-  chmod +x "$ROOT/scripts/load-test-accounts.sh" 2>/dev/null || true
+  chmod +x "$ROOT/scripts/load-test-accounts.sh" "$ROOT/scripts/verify-login.sh" 2>/dev/null || true
   "$ROOT/scripts/load-test-accounts.sh"
-  log_ok "Test accounts loaded (dev/test only — skip with --no-test-accounts on prod)"
+  log_ok "Test accounts loaded + login verified (dev/test only — skip with --no-test-accounts on prod)"
 else
   log_info "Skipped test accounts (prod / --no-test-accounts / LOAD_TEST_ACCOUNTS=0)."
-  log_info "  Later: ./scripts/load-test-accounts.sh"
+  log_info "  Later: ./scripts/load-test-accounts.sh && ./scripts/verify-login.sh"
 fi
 
 # --- success ---
@@ -657,7 +657,8 @@ if [[ "$WITH_TEST_ACCOUNTS" -eq 1 ]]; then
   echo ""
 fi
 echo "Tips: hard-refresh (Ctrl+Shift+R) after deploy; SG must allow TCP ${FRONTEND_PORT}."
-echo "If login was 404 while /api/health was 200: rebuild frontend (nginx.conf baked in)."
+echo "If login was 404 while /api/health was 200: restart/rebuild frontend (nginx.conf mounted + baked)."
+echo "Verify: ./scripts/verify-login.sh"
 echo "Logs:  docker compose logs -f backend"
 echo ""
 exit 0

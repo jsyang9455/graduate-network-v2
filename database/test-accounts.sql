@@ -1,5 +1,7 @@
 -- 각 사용자 타입별 테스트 계정 추가
--- 비밀번호: password123 (bcrypt 해시)
+-- 비밀번호: password123
+-- bcrypt ($2b$10$AknqEf4Z…): verified via bcrypt.compare('password123', hash) === true
+-- (구 해시 $2b$10$rZ0HwKnI… 는 password123 과 불일치 — 로그인 401 원인)
 -- REQ-JOB-007: 기업 DX 계정은 기본 학교 바인딩 + approval_status=approved
 
 DELETE FROM company_profiles WHERE user_id IN (
@@ -36,11 +38,11 @@ INSERT INTO users (email, password_hash, name, user_type, phone, is_active, scho
 SELECT v.email, v.password_hash, v.name, v.user_type, v.phone, true, s.id, s.name
 FROM (
   VALUES
-    ('student@jjob.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '김재학', 'student', '010-1111-1111'),
-    ('graduate@jjob.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '이졸업', 'graduate', '010-2222-2222'),
-    ('teacher@jjob.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', '박선생', 'teacher', '010-3333-3333'),
-    ('company@jjob.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', 'JJOB채용담당', 'company', '010-4444-4444'),
-    ('admin@jjob.com', '$2b$10$rZ0HwKnIbZpYWzJQ/gWotuXp8kCVmH/k7dCLJW/RA7gx1i5YvYLVm', 'JJOB관리자', 'admin', '010-5555-5555')
+    ('student@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '김재학', 'student', '010-1111-1111'),
+    ('graduate@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '이졸업', 'graduate', '010-2222-2222'),
+    ('teacher@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '박선생', 'teacher', '010-3333-3333'),
+    ('company@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB채용담당', 'company', '010-4444-4444'),
+    ('admin@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB관리자', 'admin', '010-5555-5555')
 ) AS v(email, password_hash, name, user_type, phone)
 CROSS JOIN LATERAL (
   SELECT id, name FROM schools
