@@ -106,6 +106,7 @@ class AuthManager {
         const path = (href || '').split('?')[0];
         if (path.includes('admin-permissions')) return 'manage';
         if (path.includes('admin-codes') || path.includes('admin-schools')) return 'write';
+        if (path.includes('job-create') || path.includes('job-edit') || path.includes('company-profile')) return 'write';
         return null;
     }
 
@@ -120,6 +121,10 @@ class AuthManager {
         const href = link.getAttribute('href') || '';
         const menu = link.getAttribute('data-menu') || this.menuCodeForHref(href);
         if (!menu) return true;
+        if (href.split('?')[0].includes('company-profile')) {
+            const user = this.getCurrentUser();
+            if (!(user && (user.user_type === 'company' || this.isStaffAdmin(user)))) return false;
+        }
         const minAction = this.menuMinAction(link, href);
         if (minAction) {
             return this.hasMenuAction(menu, minAction) === true;

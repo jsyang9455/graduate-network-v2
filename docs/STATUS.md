@@ -12,6 +12,7 @@
 - **DX 데모 시드:** `database/demo-seed.sql` + `./scripts/load-demo-data.sh` + `scripts/verify-demo-data.cjs` — [docs/qa/demo-data-report.md](qa/demo-data-report.md) **5/5 Pass**; 공지 9·상담 세션/일지 5·edu 3·teacher `is_counselor`; JJTH 로고 바이트 + CORP/`school-brand` relative URL
 - **메뉴 아이콘:** 사이드바·어드민·대시보드 통계 이모지 → 공유 `data-icon` 라인 SVG — [docs/qa/menu-icons-note.md](qa/menu-icons-note.md)
 - 게이트: 워크넷·알림톡 **미변경** (`NOT_CONFIGURED`)
+- **RBAC 메뉴 fix (2026-10-20):** `js/auth.js` — `job-create`/`job-edit`/`company-profile` 사이드바 링크는 `jobs:write` 필요, `company-profile`은 추가로 company 또는 staff admin만. 이전에는 `jobs:read`만으로 학생·졸업생에게 노출됨. 브라우저 검증: student/graduate 둘 다 숨김, company/admin 둘 다 표시, teacher 공고 등록만 표시
 
 ```
 Handoff: frontend → qa
