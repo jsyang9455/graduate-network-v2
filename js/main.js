@@ -8,7 +8,59 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fade-in animations
     setupScrollAnimations();
+
+    setupHeroCarousel();
 });
+
+function setupHeroCarousel() {
+    const root = document.getElementById('heroCarousel');
+    if (!root) return;
+    const slides = Array.from(root.querySelectorAll('.hero-slide'));
+    if (slides.length < 2) return;
+
+    const currentEl = root.querySelector('[data-hero-current]');
+    const totalEl = root.querySelector('[data-hero-total]');
+    if (totalEl) totalEl.textContent = String(slides.length);
+
+    let index = 0;
+    let timer = null;
+    const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function show(next) {
+        index = (next + slides.length) % slides.length;
+        slides.forEach((slide, i) => {
+            const active = i === index;
+            slide.classList.toggle('is-active', active);
+            slide.setAttribute('aria-hidden', active ? 'false' : 'true');
+            slide.querySelectorAll('a, button').forEach((el) => {
+                if (active) el.removeAttribute('tabindex');
+                else el.setAttribute('tabindex', '-1');
+            });
+        });
+        if (currentEl) currentEl.textContent = String(index + 1);
+    }
+
+    function start() {
+        if (reduceMotion) return;
+        stop();
+        timer = setInterval(() => show(index + 1), 6000);
+    }
+
+    function stop() {
+        if (timer) clearInterval(timer);
+        timer = null;
+    }
+
+    root.querySelector('[data-hero-prev]')?.addEventListener('click', () => { show(index - 1); start(); });
+    root.querySelector('[data-hero-next]')?.addEventListener('click', () => { show(index + 1); start(); });
+    root.addEventListener('mouseenter', stop);
+    root.addEventListener('mouseleave', start);
+    root.addEventListener('focusin', stop);
+    root.addEventListener('focusout', start);
+
+    show(0);
+    start();
+}
 
 async function updateStats() {
     try {

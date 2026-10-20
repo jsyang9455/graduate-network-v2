@@ -79,13 +79,20 @@ function normalizeJob(j) {
     };
 }
 
+const JOB_TYPE_LABELS = { 'full-time': '정규직', 'part-time': '파트타임', contract: '계약직', internship: '인턴' };
+const EXPERIENCE_LABELS = { entry: '신입', junior: '주니어', mid: '경력', senior: '시니어' };
+
 function escHtmlJ(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+function jobsListContainer() {
+    return document.getElementById('jobsList') || document.querySelector('.jobs-container');
+}
+
 async function loadJobs() {
-    const container = document.querySelector('.jobs-container');
-    if (container) container.innerHTML = '<p style="text-align:center;padding:3rem;color:#6b7280;">불러오는 중...</p>';
+    const container = jobsListContainer();
+    if (container) container.innerHTML = '<p class="jobs-empty">불러오는 중...</p>';
     try {
         const data = await api.get('/jobs');
         allJobs = (data.jobs || []).map(normalizeJob);
@@ -93,16 +100,19 @@ async function loadJobs() {
         displayJobs(filteredJobs);
     } catch (e) {
         console.error('채용 공고 로드 실패:', e);
-        if (container) container.innerHTML = '<p style="text-align:center;padding:3rem;color:#ef4444;">채용 공고를 불러오지 못했습니다.</p>';
+        if (container) container.innerHTML = '<p class="jobs-empty jobs-empty--error">채용 공고를 불러오지 못했습니다.</p>';
     }
 }
 
 function displayJobs(jobs) {
-    const container = document.querySelector('.jobs-container');
+    const container = jobsListContainer();
     if (!container) return;
-    
+
+    const countEl = document.getElementById('jobsCount');
+    if (countEl) countEl.textContent = `${jobs.length}개의 공고`;
+
     if (jobs.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 3rem; color: #6b7280;">검색 결과가 없습니다.</p>';
+        container.innerHTML = '<p class="jobs-empty">검색 결과가 없습니다.</p>';
         return;
     }
 
@@ -113,52 +123,51 @@ function displayJobs(jobs) {
         const daysLeft = job.deadline
             ? Math.ceil((new Date(job.deadline) - new Date()) / (1000 * 60 * 60 * 24))
             : null;
-        const deadlineText = daysLeft !== null ? `${job.deadline} (D-${daysLeft})` : '상시채용';
+        let ddayText = '상시채용';
+        let ddayClass = '';
+        if (daysLeft !== null) {
+            if (daysLeft < 0) { ddayText = '마감'; ddayClass = ' is-closed'; }
+            else if (daysLeft === 0) { ddayText = 'D-Day'; ddayClass = ' is-urgent'; }
+            else { ddayText = `D-${daysLeft}`; if (daysLeft <= 7) ddayClass = ' is-urgent'; }
+        }
         const canEdit = isCompanyOrAdmin && (user.user_type === 'admin' || String(job.company_id) === String(user.id));
+        const initial = escHtmlJ((job.company || '?').trim().charAt(0) || '?');
+        const tags = [
+            JOB_TYPE_LABELS[job.jobType] || job.jobType,
+            EXPERIENCE_LABELS[job.experience] || job.experience,
+            job.recruitCount ? `${job.recruitCount}명 채용` : '',
+        ]
+            .filter(Boolean)
+            .map((t) => `<span class="tag">${escHtmlJ(t)}</span>`)
+            .join('');
         return `
-            <div class="job-card" data-job-id="${job.id}">
-                <div class="job-card-header">
-                    <div class="job-title-section">
-                        ${job.companyType ? `<span class="company-badge">${escHtmlJ(job.companyType)}</span>` : ''}
-                        <h2>${escHtmlJ(job.company)}</h2>
-                        <h3>${escHtmlJ(job.position)}</h3>
-                    </div>
-                    ${canEdit ? `<div style="display:flex;gap:0.5rem;">
+            <article class="job-card" data-job-id="${job.id}">
+                <div class="job-card-top">
+                    <div class="job-card-logo" aria-hidden="true">${initial}</div>
+                    <span class="job-dday${ddayClass}">${ddayText}</span>
+                </div>
+                <h3 class="job-card-title">
+                    <button type="button" class="job-card-link" onclick="viewJobDetail(${job.id})">${escHtmlJ(job.position)}</button>
+                </h3>
+                <p class="job-card-company">
+                    ${escHtmlJ(job.company)}
+                    ${job.companyType ? `<span class="job-card-sep">·</span>${escHtmlJ(job.companyType)}` : ''}
+                </p>
+                <p class="job-card-meta">
+                    ${escHtmlJ(job.location || '지역 미정')}
+                    ${job.deadline ? `<span class="job-card-sep">·</span>${escHtmlJ(job.deadline)} 마감` : ''}
+                </p>
+                ${job.salary ? `<p class="job-card-salary">${escHtmlJ(job.salary)}</p>` : ''}
+                ${tags ? `<div class="job-tags">${tags}</div>` : ''}
+                <div class="job-card-footer">
+                    ${canEdit ? `
                         <button class="btn btn-secondary btn-sm" onclick="openEditJob(${job.id})">수정</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteJob(${job.id})">삭제</button>
-                    </div>` : ''}
+                    ` : ''}
+                    ${!isCompanyOrAdmin ? `<button class="btn btn-secondary btn-sm" onclick="toggleJobScrap(${job.id}, this)">관심</button>` : ''}
+                    <button class="btn btn-primary btn-sm" onclick="applyJob(${job.id})">지원하기</button>
                 </div>
-                <div class="job-card-body">
-                    <div class="job-info-grid">
-                        <div class="info-item">
-                            <span class="info-label">🎯 경력</span>
-                            <span class="info-value">${escHtmlJ(job.experience || '-')}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">📍 지역</span>
-                            <span class="info-value">${escHtmlJ(job.location || '-')}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">💰 연봉</span>
-                            <span class="info-value">${escHtmlJ(job.salary || '-')}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">📅 마감일</span>
-                            <span class="info-value">${escHtmlJ(deadlineText)}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">👥 채용인원</span>
-                            <span class="info-value">${job.recruitCount || '-'}명</span>
-                        </div>
-                    </div>
-                    <p class="job-description">${escHtmlJ(job.description)}</p>
-                </div>
-                <div class="job-card-footer">
-                    <button class="btn btn-secondary" onclick="viewJobDetail(${job.id})">상세보기</button>
-                    ${!isCompanyOrAdmin ? `<button class="btn btn-secondary" onclick="toggleJobScrap(${job.id}, this)">관심</button>` : ''}
-                    <button class="btn btn-primary" onclick="applyJob(${job.id})">지원하기</button>
-                </div>
-            </div>
+            </article>
         `;
     }).join('');
 }
@@ -194,7 +203,7 @@ function setupSearch() {
 
 function setupFilters() {
     const filterBtn = document.querySelector('.btn-filter');
-    const filterSelects = ['filterCompany', 'filterExperience', 'filterLocation'];
+    const filterSelects = ['filterCompany', 'filterExperience', 'filterLocation', 'typeFilter', 'statusFilter'];
     
     if (filterBtn) {
         filterBtn.addEventListener('click', applyCurrentFilters);
@@ -210,12 +219,7 @@ function setupFilters() {
 }
 
 function applyCurrentFilters() {
-    const company = document.getElementById('filterCompany').value;
-    const experience = document.getElementById('filterExperience').value;
-    const location = document.getElementById('filterLocation').value;
-    const searchQuery = document.getElementById('searchInput').value.trim();
-    
-    applyFilters(company, experience, location, searchQuery);
+    filterJobs(document.getElementById('searchInput')?.value.trim() || '');
 }
 
 function filterJobs(query) {
@@ -253,6 +257,18 @@ function applyFilters(companyType, experience, location, searchQuery = '') {
     if (location) {
         filtered = filtered.filter(job => job.location === location);
     }
+
+    const jobType = document.getElementById('typeFilter')?.value || '';
+    if (jobType) {
+        filtered = filtered.filter(job => job.jobType === jobType);
+    }
+
+    const status = document.getElementById('statusFilter')?.value || '';
+    if (status === 'open') {
+        filtered = filtered.filter(job => job.status !== 'closed');
+    } else if (status === 'closed') {
+        filtered = filtered.filter(job => job.status === 'closed');
+    }
     
     filteredJobs = filtered;
     displayJobs(filteredJobs);
@@ -269,44 +285,32 @@ function viewJobDetail(jobId) {
     const daysLeft = job.deadline
         ? Math.ceil((new Date(job.deadline) - new Date()) / (1000 * 60 * 60 * 24))
         : null;
-    const deadlineText = daysLeft !== null ? `${job.deadline} (D-${daysLeft})` : '상시채용';
-    const deadlineColor = daysLeft === null ? '#6b7280' : daysLeft > 7 ? '#166534' : daysLeft > 0 ? '#854d0e' : '#ef4444';
+    const deadlineText = daysLeft === null ? '상시채용'
+        : daysLeft > 0 ? `${job.deadline} (D-${daysLeft})`
+        : daysLeft === 0 ? `${job.deadline} (D-Day)` : `${job.deadline} (마감)`;
+    const deadlineClass = daysLeft !== null && daysLeft <= 7 ? ' is-urgent' : '';
+    const facts = [
+        ['고용 형태', JOB_TYPE_LABELS[job.jobType] || job.jobType],
+        ['경력', EXPERIENCE_LABELS[job.experience] || job.experience],
+        ['근무지', job.location],
+        ['급여', job.salary],
+        ['채용 인원', job.recruitCount ? `${job.recruitCount}명` : ''],
+    ];
 
     if (document.getElementById('jdCompanyType')) document.getElementById('jdCompanyType').textContent = job.companyType || '';
     if (document.getElementById('jdCompany'))     document.getElementById('jdCompany').textContent     = job.company || '';
     if (document.getElementById('jdPosition'))    document.getElementById('jdPosition').textContent    = job.position || '';
 
     if (document.getElementById('jdContent')) document.getElementById('jdContent').innerHTML = `
-        ${job.description ? `<p style="color:#374151; font-size:0.95rem; line-height:1.7; margin:0 0 1.5rem; padding:1rem; background:#f8fafc; border-radius:8px; border-left:3px solid #3b82f6;">${escHtmlJ(job.description)}</p>` : ''}
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.5rem;">
-            <div style="background:#f0f4ff; padding:0.9rem; border-radius:8px;">
-                <div style="font-size:0.75rem; color:#6b7280; margin-bottom:0.25rem;">💼 경력</div>
-                <div style="font-weight:600; color:#1e3a8a;">${escHtmlJ(job.experience || '-')}</div>
-            </div>
-            <div style="background:#f0f4ff; padding:0.9rem; border-radius:8px;">
-                <div style="font-size:0.75rem; color:#6b7280; margin-bottom:0.25rem;">📍 근무지</div>
-                <div style="font-weight:600; color:#1e3a8a;">${escHtmlJ(job.location || '-')}</div>
-            </div>
-            <div style="background:#fefce8; padding:0.9rem; border-radius:8px;">
-                <div style="font-size:0.75rem; color:#6b7280; margin-bottom:0.25rem;">💰 연봉</div>
-                <div style="font-weight:600; color:#854d0e;">${escHtmlJ(job.salary || '-')}</div>
-            </div>
-            <div style="background:#f0fdf4; padding:0.9rem; border-radius:8px;">
-                <div style="font-size:0.75rem; color:#6b7280; margin-bottom:0.25rem;">👥 채용인원</div>
-                <div style="font-weight:600; color:#166534;">${job.recruitCount || '-'}명</div>
-            </div>
-            <div style="background:#fff1f2; padding:0.9rem; border-radius:8px; grid-column:1/-1;">
-                <div style="font-size:0.75rem; color:#6b7280; margin-bottom:0.25rem;">📅 지원 마감</div>
-                <div style="font-weight:600; color:${deadlineColor};">${escHtmlJ(deadlineText)}</div>
-            </div>
-        </div>
-        ${job.requirements ? `<div style="margin-bottom:1.25rem;">
-            <strong style="color:#1e40af; display:block; margin-bottom:0.6rem; font-size:0.95rem;">📋 지원 자격</strong>
-            <div style="font-size:0.9rem; color:#374151; line-height:1.7; padding:0.75rem; background:#f8fafc; border-radius:8px;">${escHtmlJ(job.requirements)}</div>
-        </div>` : ''}
-        <div style="display:flex; gap:0.75rem; margin-top:1.5rem;">
-            <button onclick="closeJobDetailModal()" style="flex:1; padding:0.875rem; background:#f3f4f6; border:none; border-radius:8px; font-size:1rem; cursor:pointer; color:#374151; font-weight:600;">닫기</button>
-            <button onclick="closeJobDetailModal(); applyJob(${job.id})" style="flex:2; padding:0.875rem; background:#1e40af; color:white; border:none; border-radius:8px; font-size:1rem; cursor:pointer; font-weight:600;">지원하기</button>
+        <dl class="job-detail-facts">
+            ${facts.map(([k, v]) => `<div><dt>${k}</dt><dd>${escHtmlJ(v || '-')}</dd></div>`).join('')}
+            <div><dt>지원 마감</dt><dd class="job-detail-deadline${deadlineClass}">${escHtmlJ(deadlineText)}</dd></div>
+        </dl>
+        ${job.description ? `<section class="job-detail-section"><h3>주요 업무</h3><p>${escHtmlJ(job.description)}</p></section>` : ''}
+        ${job.requirements ? `<section class="job-detail-section"><h3>자격 요건</h3><p>${escHtmlJ(job.requirements)}</p></section>` : ''}
+        <div class="job-modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeJobDetailModal()">닫기</button>
+            <button type="button" class="btn btn-primary" onclick="closeJobDetailModal(); applyJob(${job.id})">지원하기</button>
         </div>
     `;
 

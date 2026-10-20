@@ -79,6 +79,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 - **접근성:** 폼 label, 버튼 이름, 포커스. 신규 화면은 키보드 제출 가능.
 - **에러:** 403이면 「소속 학교 권한이 없습니다」. 503 NOT_CONFIGURED이면 게이트 안내.
 - **비주얼 시스템 (2026-09-15/16):** 로고 정렬 네이비(`--secondary-color`)·리프 그린(`--primary-color`) 토큰. 헤더 로고는 `images/logo.svg`(다크 헤더) / `images/logo-color.svg`(라이트). 랜딩 `index.html` 메인 배너는 `images/main-banner.jpg` 풀블리드. **아이콘:** 랜딩 서비스·사이드바·관리자 메뉴·대시보드 stat 모두 SVG mask(`data-icon`, stroke 1.8, `currentColor`). 메뉴 emoji 사용 금지. 모바일 drawer는 동일 사이드바 DOM을 재사용.
+- **비주얼 시스템 v2 (2026-10-20, 원티드 레퍼런스):** 모든 페이지가 마지막에 `css/theme.css`를 로드해 기존 페이지별 CSS를 덮어씀. 원칙: 흰 헤더(로고 `images/logo-color.svg`, 학교 로고는 `.school-branded` 네이비 pill), 1px hairline 카드(radius 12, 그림자·translate hover 없음), 플랫 버튼(radius 10), 회색 칩, `word-break: keep-all`. 토큰은 `css/style.css` `:root` (`--primary-color #00875a`, `--text-dark #171719`, `--border-color #e1e2e4`, `--radius-sm/md/lg`, `--focus-ring`). 랜딩 메인은 3장 배너 캐러셀(`images/banner-career|fair|mentoring.jpg`, `js/main.js` `setupHeroCarousel`, 6초 자동재생·hover/focus 정지·reduced-motion 존중). 로그인 좌측 비주얼은 `images/auth-visual.jpg`. 채용 목록은 그리드 카드(이니셜 로고·D-day 칩·회사/조건·태그), 상세/지원 모달은 `.job-modal*` 클래스. 고용형태 필터 값은 DB 코드(`full-time` 등), 화면 라벨은 `js/jobs.js` `JOB_TYPE_LABELS`. 관리 테이블 `td .btn-sm`은 외곽선 소형 버튼으로 한 줄 배치.
 
 ## 4. 핵심 사용자 흐름
 

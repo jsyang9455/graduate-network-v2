@@ -6,27 +6,36 @@
     box-sizing: border-box;
 }
 
-/* JJOBB visual system — navy + leaf green (logo-aligned), calm public-education tone */
+/* JJOBB visual system — neutral gray surfaces + leaf green accent (logo-aligned). Component skin: css/theme.css */
 :root {
-    --primary-color: #1f6b45;
+    --primary-color: #00875a;
+    --primary-hover: #006b47;
     --secondary-color: #163a5f;
-    --accent-color: #2f8f4e;
-    --primary-soft: #e8f5ee;
-    --secondary-soft: #e8eef5;
-    --success-color: #2f9e6e;
-    --danger-color: #c45c5c;
-    --warning-color: #c48a2e;
-    --text-dark: #1e293b;
-    --text-light: #5b6b7c;
-    --bg-light: #f2f6f4;
+    --accent-color: #00a86b;
+    --primary-soft: #e6f6ef;
+    --secondary-soft: #eef1f5;
+    --success-color: #00875a;
+    --danger-color: #e5484d;
+    --warning-color: #d97706;
+    --text-dark: #171719;
+    --text-color: #37383c;
+    --text-light: #70737c;
+    --text-muted: #989ba2;
+    --bg-light: #f7f7f8;
     --bg-white: #ffffff;
-    --border-color: #d5e0da;
-    --header-start: #163a5f;
-    --header-end: #1f6b45;
-    --shadow-soft: 0 8px 24px rgba(22, 58, 95, 0.12);
-    --icon-stroke: #163a5f;
-    --icon-fill: #2f8f4e;
-    --banner-image: url('../images/main-banner.jpg');
+    --border-color: #e1e2e4;
+    --border-strong: #c2c4c8;
+    --header-start: #ffffff;
+    --header-end: #ffffff;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --shadow-soft: 0 4px 16px rgba(23, 23, 25, 0.06);
+    --shadow-hover: 0 8px 24px rgba(23, 23, 25, 0.08);
+    --focus-ring: 0 0 0 3px rgba(0, 135, 90, 0.16);
+    --icon-stroke: #37383c;
+    --icon-fill: #00875a;
+    --banner-image: url('../images/banner-career.jpg');
     --font-sans: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
 }
 

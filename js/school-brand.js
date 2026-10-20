@@ -4,7 +4,7 @@
  * JWT only in localStorage — school payload may be cached on the user object after /me.
  */
 (function (global) {
-  const DEFAULT_LOGO = 'images/logo.svg';
+  const DEFAULT_LOGO = 'images/logo-color.svg';
 
   function resolveLogoUrl(school) {
     if (!school) return null;
