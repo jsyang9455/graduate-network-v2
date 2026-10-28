@@ -56,8 +56,9 @@ body > header:not(.content-header) nav {
     gap: 2rem;
 }
 
+.logo img,
 .logo-img {
-    height: 34px;
+    height: 20px;
 }
 
 /* School logos are authored light-on-dark; keep them legible on the white bar */
@@ -752,6 +753,16 @@ td .btn-sm.btn-warning {
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);
     border-radius: 10px;
+}
+
+.welcome-section .school-brand-logo[src$="logo-wordmark.svg"] {
+    background: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    filter: brightness(0) invert(1);
+    width: auto;
+    height: 28px;
+    padding: 0;
 }
 
 /* Stat tiles */
@@ -1808,6 +1819,11 @@ footer {
     header#mainHeader nav,
     body > header:not(.content-header) nav {
         min-height: 56px;
+    }
+
+    .logo img,
+    .logo-img {
+        height: 18px;
     }
 
     .nav-toggle {

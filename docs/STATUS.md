@@ -14,6 +14,8 @@
 - 게이트: 워크넷·알림톡 **미변경** (`NOT_CONFIGURED`)
 - **RBAC 메뉴 fix (2026-10-20):** `js/auth.js` — `job-create`/`job-edit`/`company-profile` 사이드바 링크는 `jobs:write` 필요, `company-profile`은 추가로 company 또는 staff admin만. 이전에는 `jobs:read`만으로 학생·졸업생에게 노출됨. 브라우저 검증: student/graduate 둘 다 숨김, company/admin 둘 다 표시, teacher 공고 등록만 표시
 - **디자인 리프레시 v2 (2026-10-20, 원티드 레퍼런스):** 신규 `css/theme.css`(28개 페이지 마지막 로드) + `css/style.css` 토큰 교체, 흰 헤더·hairline 카드·플랫 버튼. 랜딩 3장 배너 캐러셀, 로그인 비주얼, 채용 목록 카드/모달 재작성. 기존 버그 동시 수정: `displayJobs`가 헤더·필터까지 지우던 문제(`#jobsList`에만 렌더), 검색 버튼·유형/상태 필터 미연결, 유형 필터 값이 한글이라 DB 코드(`full-time`)와 불일치. 브라우저 검증: index/login/student 대시보드/jobs(student·company·admin, 390px 모바일)/admin-jobs. `npm test` 101/101. 상세: [docs/05-frontend-ia.md](05-frontend-ia.md) §3. 미해결: 데모 시드 `requirements`에 리터럴 `\n` 표시(database 역할), 기업 계정에도 공고 `지원하기` 버튼 노출(기존 동작, 정책 확인 필요)
+- **로고 워드마크 (2026-10-28):** 헤더 로고를 아이콘 없는 네이버식 그린 워드마크 `images/logo-wordmark.svg`(SVG path, 폰트 비의존)로 교체 — 20개 HTML + `js/nav.js` + `js/school-brand.js` 기본값. 환영 배너(다크)에서는 흰색 처리. 브라우저 검증: index, student dashboard. 이후 로고 축소(SVG 여백 제거, 헤더 20px) + 네이버 N식 단독 심볼 `images/logo-symbol.svg`를 28개 페이지 파비콘으로 적용
+- **브랜드 표기 JJOB → JJOBB (2026-10-28):** 표시 이름 오타 수정 — `021_v2_brand_name_jjobb.sql`(users.name `JJOBB채용담당`/`JJOBB관리자`, company_name `JJOBB채용`, 교육 강사명), 시드 `database/test-accounts.sql`·`create-test-accounts.sql`·`database/demo-seed.sql`, `TEST-ACCOUNTS.md`. 로그인 이메일 `@jjob.com`은 유지. 적용된 `018`은 이력 보존 위해 미수정(021이 덮어씀). 로컬 migrate 적용, `npm test` 101/101, 대시보드 추천 공고 표기 확인
 
 ```
 Handoff: frontend → qa

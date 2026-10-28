@@ -198,7 +198,7 @@
       bar.className = 'mobile-sidebar-bar';
       bar.innerHTML =
         '<a class="mobile-sidebar-brand" href="dashboard.html">' +
-        '<img src="images/logo-color.svg" alt="JJOBB" class="logo-img" width="118" height="40">' +
+        '<img src="images/logo-wordmark.svg" alt="JJOBB" class="logo-img" width="89" height="20">' +
         '</a>';
       document.body.insertBefore(bar, document.body.firstChild);
       document.body.classList.add(SIDEBAR_ONLY_CLASS);

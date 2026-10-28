@@ -15,8 +15,8 @@ FROM (
     ('student@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '김재학', 'student', '010-1111-1111', false),
     ('graduate@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '이졸업', 'graduate', '010-2222-2222', false),
     ('teacher@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', '박선생', 'teacher', '010-3333-3333', true),
-    ('company@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB채용담당', 'company', '010-4444-4444', false),
-    ('admin@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOB관리자', 'admin', '010-5555-5555', false)
+    ('company@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOBB채용담당', 'company', '010-4444-4444', false),
+    ('admin@jjob.com', '$2b$10$AknqEf4ZBF0oo6hG5cfSZu1xgs4kzgdnhO/HXxMMGZGxeMGIi0WjG', 'JJOBB관리자', 'admin', '010-5555-5555', false)
 ) AS v(email, password_hash, name, user_type, phone, is_counselor)
 CROSS JOIN LATERAL (
   SELECT id, name FROM schools
@@ -61,7 +61,7 @@ WHERE u.email = 'graduate@jjob.com'
 
 UPDATE company_profiles cp
 SET
-  company_name = 'JJOB채용',
+  company_name = 'JJOBB채용',
   industry = 'IT/서비스',
   company_size = '스타트업',
   website = 'https://jjob.com',
@@ -78,7 +78,7 @@ INSERT INTO company_profiles (
   user_id, company_name, industry, company_size, website, description, founded_year,
   approval_status, approved_at
 )
-SELECT u.id, 'JJOB채용', 'IT/서비스', '스타트업', 'https://jjob.com',
+SELECT u.id, 'JJOBB채용', 'IT/서비스', '스타트업', 'https://jjob.com',
        '전주공고 졸업생을 위한 채용 플랫폼', 2026,
        'approved', CURRENT_TIMESTAMP
 FROM users u

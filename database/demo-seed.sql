@@ -667,7 +667,7 @@ BEGIN
        '박선생', '무료', NULL),
       ('[DEMO] 자격증 로드맵 설명회', '자격증', 'hybrid', '90분',
        '정보처리·전기·용접 기능사 응시 일정과 학교 지원 프로그램 안내.',
-       'JJOB관리자', '무료', NULL)
+       'JJOBB관리자', '무료', NULL)
     ) AS t(title, category, typ, duration, description, instructor, cost, link)
   LOOP
     IF EXISTS (

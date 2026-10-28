@@ -132,6 +132,7 @@ roles *──* menus          (role_menu_permissions)
    Sprint 6에서 적용: `database/migrations/016_v2_sprint6_associated_com_trip.sql` — job_scraps, field_trip_reports, posts tags GIN.
    기업 승인: `database/migrations/017_v2_company_approval.sql` — `company_profiles.approval_*`, 기존 기업 `approved` 백필, 신규 DEFAULT `pending`.
    정책 반영: `018` DX 프로필만(전주공고 일괄 바인딩 제거), `019_v2_policy_company_approval_jobs.sql` — `company_approval` 메뉴 + 018 일괄 바인딩 되돌림(DX `company@jjob.com` 제외).
+   브랜드 표기: `database/migrations/021_v2_brand_name_jjobb.sql` — `users.name`·`company_profiles.company_name`·`education_programs.instructor`의 `JJOB` → `JJOBB`. 로그인 이메일(`@jjob.com`)·URL은 유지.
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내. `company_profile_*`는 API `company_profiles`로 대체(B-LS).
 
 ## 6. 인덱스·무결성 (최소)
