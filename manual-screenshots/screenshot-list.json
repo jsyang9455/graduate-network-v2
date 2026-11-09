@@ -3,140 +3,203 @@
     "id": "01_main",
     "title": "메인 페이지",
     "auth": null,
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/01_main.png",
+    "file": "01_main.png",
     "success": true
   },
   {
     "id": "02_login",
     "title": "로그인",
     "auth": null,
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/02_login.png",
+    "file": "02_login.png",
     "success": true
   },
   {
     "id": "03_register",
     "title": "회원가입",
     "auth": null,
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/03_register.png",
+    "file": "03_register.png",
     "success": true
   },
   {
     "id": "04_student_dashboard",
     "title": "학생 대시보드",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/04_student_dashboard.png",
+    "file": "04_student_dashboard.png",
     "success": true
   },
   {
     "id": "05_student_jobs",
     "title": "채용 정보",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/05_student_jobs.png",
+    "file": "05_student_jobs.png",
     "success": true
   },
   {
-    "id": "06_student_jobfair",
-    "title": "취업박람회",
+    "id": "06_student_job_detail",
+    "title": "채용 공고 상세",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/06_student_jobfair.png",
+    "file": "06_student_job_detail.png",
     "success": true
   },
   {
-    "id": "07_student_industryvisit",
-    "title": "산업체 견학",
+    "id": "07_student_career",
+    "title": "이력서·경력 관리",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/07_student_industryvisit.png",
+    "file": "07_student_career.png",
     "success": true
   },
   {
-    "id": "08_student_certification",
-    "title": "자격증 지원",
+    "id": "08_student_profile",
+    "title": "내 프로필",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/08_student_certification.png",
+    "file": "08_student_profile.png",
     "success": true
   },
   {
     "id": "09_student_counseling",
     "title": "진로 상담",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/09_student_counseling.png",
+    "file": "09_student_counseling.png",
     "success": true
   },
   {
     "id": "10_student_networking",
-    "title": "동문 네트워킹",
+    "title": "JJOBB 밴드",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/10_student_networking.png",
+    "file": "10_student_networking.png",
     "success": true
   },
   {
-    "id": "11_student_profile",
-    "title": "내 프로필",
+    "id": "11_student_community",
+    "title": "커뮤니티",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/11_student_profile.png",
+    "file": "11_student_community.png",
     "success": true
   },
   {
-    "id": "12_student_career",
-    "title": "경력 관리",
+    "id": "12_student_jobfair",
+    "title": "취업 박람회",
     "auth": "student",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/12_student_career.png",
+    "file": "12_student_jobfair.png",
     "success": true
   },
   {
-    "id": "13_teacher_dashboard",
+    "id": "13_student_industryvisit",
+    "title": "산업체 견학",
+    "auth": "student",
+    "file": "13_student_industryvisit.png",
+    "success": true
+  },
+  {
+    "id": "14_student_certification",
+    "title": "자격증 지원",
+    "auth": "student",
+    "file": "14_student_certification.png",
+    "success": true
+  },
+  {
+    "id": "15_teacher_dashboard",
     "title": "교사 대시보드",
     "auth": "teacher",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/13_teacher_dashboard.png",
+    "file": "15_teacher_dashboard.png",
     "success": true
   },
   {
-    "id": "14_teacher_counseling",
+    "id": "16_teacher_counseling",
     "title": "진로 상담 관리",
     "auth": "teacher",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/14_teacher_counseling.png",
+    "file": "16_teacher_counseling.png",
     "success": true
   },
   {
-    "id": "15_admin_dashboard",
+    "id": "17_teacher_journal",
+    "title": "상담일지",
+    "auth": "teacher",
+    "file": "17_teacher_journal.png",
+    "success": true
+  },
+  {
+    "id": "18_company_dashboard",
+    "title": "기업 대시보드",
+    "auth": "company",
+    "file": "18_company_dashboard.png",
+    "success": true
+  },
+  {
+    "id": "19_company_job_create",
+    "title": "채용 공고 등록",
+    "auth": "company",
+    "file": "19_company_job_create.png",
+    "success": true
+  },
+  {
+    "id": "20_company_profile",
+    "title": "기업 정보",
+    "auth": "company",
+    "file": "20_company_profile.png",
+    "success": true
+  },
+  {
+    "id": "21_admin_dashboard",
     "title": "관리자 대시보드",
     "auth": "admin",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/15_admin_dashboard.png",
+    "file": "21_admin_dashboard.png",
     "success": true
   },
   {
-    "id": "16_admin_users",
+    "id": "22_admin_users",
     "title": "회원 관리",
     "auth": "admin",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/16_admin_users.png",
+    "file": "22_admin_users.png",
     "success": true
   },
   {
-    "id": "17_admin_jobs",
+    "id": "23_admin_company_approval",
+    "title": "기업 승인",
+    "auth": "admin",
+    "file": "23_admin_company_approval.png",
+    "success": true
+  },
+  {
+    "id": "24_admin_permissions",
+    "title": "권한 매트릭스",
+    "auth": "admin",
+    "file": "24_admin_permissions.png",
+    "success": true
+  },
+  {
+    "id": "25_admin_jobs",
     "title": "채용공고 관리",
     "auth": "admin",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/17_admin_jobs.png",
+    "file": "25_admin_jobs.png",
     "success": true
   },
   {
-    "id": "18_admin_board",
+    "id": "26_admin_board",
     "title": "게시판 관리",
     "auth": "admin",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/18_admin_board.png",
+    "file": "26_admin_board.png",
     "success": true
   },
   {
-    "id": "19_admin_announcements",
-    "title": "공지사항 관리",
-    "auth": "admin",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/19_admin_announcements.png",
-    "success": true
-  },
-  {
-    "id": "20_admin_codes",
+    "id": "27_admin_codes",
     "title": "코드 관리",
     "auth": "admin",
-    "file": "/Users/yangjongseog/graduate-network/manual-screenshots/20_admin_codes.png",
+    "file": "27_admin_codes.png",
+    "success": true
+  },
+  {
+    "id": "28_admin_announcements",
+    "title": "공지사항 관리",
+    "auth": "admin",
+    "file": "28_admin_announcements.png",
+    "success": true
+  },
+  {
+    "id": "29_mobile_jobs",
+    "title": "모바일 채용 정보 (375px)",
+    "auth": "student",
+    "file": "29_mobile_jobs.png",
     "success": true
   }
 ]

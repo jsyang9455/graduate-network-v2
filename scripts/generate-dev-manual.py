@@ -1,11 +1,11 @@
 """
-전북지역 졸업생 네트워크 - 개발자 매뉴얼 DOCX 생성
+JJOBB 전북 직업계고 졸업생 취업 네트워크 - 개발자 매뉴얼 DOCX 생성 (v2)
 실행: python3 scripts/generate-dev-manual.py
 """
 
 import os
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor, Cm
+from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
@@ -13,12 +13,12 @@ from docx.oxml import OxmlElement
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_FILE = os.path.join(BASE_DIR, '전북지역_졸업생네트워크_개발자매뉴얼.docx')
 
-BRAND_BLUE  = RGBColor(0x1e, 0x40, 0xaf)
+VERSION = 'v2.1'
+DATE = '2026년 11월 9일'
+
+BRAND_NAVY  = RGBColor(0x0f, 0x2b, 0x4c)
 DARK        = RGBColor(0x1f, 0x29, 0x37)
 GRAY        = RGBColor(0x6b, 0x72, 0x80)
-GREEN       = RGBColor(0x06, 0x60, 0x2f)
-RED_DARK    = RGBColor(0x7f, 0x1d, 0x1d)
-CODE_BG     = RGBColor(0xf1, 0xf5, 0xf9)
 
 
 # ─────────────────────────── 헬퍼 ────────────────────────────
@@ -29,7 +29,7 @@ def add_page_break(doc):
 
 def h1(doc, text):
     p = doc.add_heading(text, level=1)
-    p.runs[0].font.color.rgb = BRAND_BLUE
+    p.runs[0].font.color.rgb = BRAND_NAVY
     p.runs[0].font.size = Pt(16)
     p.paragraph_format.space_before = Pt(18)
     p.paragraph_format.space_after = Pt(6)
@@ -66,7 +66,6 @@ def code_block(doc, text):
     p.paragraph_format.left_indent = Cm(0.8)
     p.paragraph_format.space_before = Pt(4)
     p.paragraph_format.space_after = Pt(4)
-    # 배경 음영 효과를 위해 shading XML 추가
     pPr = p._p.get_or_add_pPr()
     shd = OxmlElement('w:shd')
     shd.set(qn('w:val'), 'clear')
@@ -78,15 +77,6 @@ def code_block(doc, text):
     run.font.size = Pt(9.5)
     run.font.color.rgb = RGBColor(0x0f, 0x17, 0x2a)
     return p
-
-
-def inline_code(paragraph, text):
-    """인라인 코드"""
-    run = paragraph.add_run(f' {text} ')
-    run.font.name = 'Courier New'
-    run.font.size = Pt(9.5)
-    run.font.color.rgb = RGBColor(0x0f, 0x17, 0x2a)
-    return run
 
 
 def add_bullets(doc, items, indent=0):
@@ -108,55 +98,39 @@ def add_note(doc, text, kind='info'):
     p.paragraph_format.space_after  = Pt(4)
 
 
-def add_api_table(doc, rows):
-    """
-    rows = [(method, endpoint, auth, description), ...]
-    """
-    tbl = doc.add_table(rows=1 + len(rows), cols=4)
+def add_table(doc, header, rows, size=9.5):
+    tbl = doc.add_table(rows=1 + len(rows), cols=len(header))
     tbl.style = 'Light Shading Accent 1'
-    # 헤더
-    hdrs = ['Method', 'Endpoint', 'Auth', '설명']
+    for ci, h in enumerate(header):
+        cell = tbl.cell(0, ci)
+        cell.text = h
+        cell.paragraphs[0].runs[0].font.bold = True
+        cell.paragraphs[0].runs[0].font.size = Pt(size + 0.5)
+    for ri, row in enumerate(rows, 1):
+        for ci, val in enumerate(row):
+            tbl.cell(ri, ci).text = val
+            tbl.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(size)
+    doc.add_paragraph()
+
+
+def add_api_table(doc, rows):
+    """rows = [(method, endpoint, 권한, 설명), ...]"""
     method_colors = {'GET': RGBColor(0x05,0x78,0x03), 'POST': RGBColor(0x00,0x4e,0xc7),
                      'PUT': RGBColor(0x92,0x40,0x0e), 'DELETE': RGBColor(0x7f,0x1d,0x1d), 'PATCH': RGBColor(0x5b,0x21,0xb6)}
-    for i, h in enumerate(hdrs):
+    tbl = doc.add_table(rows=1 + len(rows), cols=4)
+    tbl.style = 'Light Shading Accent 1'
+    for i, h in enumerate(['Method', 'Endpoint', '권한', '설명']):
         cell = tbl.cell(0, i)
         cell.text = h
         cell.paragraphs[0].runs[0].font.bold = True
         cell.paragraphs[0].runs[0].font.size = Pt(10)
-    # 데이터
     for ri, (method, endpoint, auth, desc) in enumerate(rows, 1):
-        tbl.cell(ri, 0).text = method
-        tbl.cell(ri, 1).text = endpoint
-        tbl.cell(ri, 2).text = auth
-        tbl.cell(ri, 3).text = desc
-        # method 색상
-        color = method_colors.get(method, GRAY)
-        tbl.cell(ri, 0).paragraphs[0].runs[0].font.color.rgb = color
-        tbl.cell(ri, 0).paragraphs[0].runs[0].font.bold = True
-        for ci in range(4):
-            tbl.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(10)
-    doc.add_paragraph()  # 여백
-
-
-def add_db_table(doc, table_name, columns):
-    """
-    columns = [(col_name, type, nullable, description), ...]
-    """
-    h3(doc, f'▸ {table_name}')
-    tbl = doc.add_table(rows=1 + len(columns), cols=4)
-    tbl.style = 'Light Shading Accent 1'
-    for i, h in enumerate(['컬럼명', '타입', 'Nullable', '설명']):
-        cell = tbl.cell(0, i)
-        cell.text = h
-        cell.paragraphs[0].runs[0].font.bold = True
-        cell.paragraphs[0].runs[0].font.size = Pt(9.5)
-    for ri, (col, dtype, nullable, desc) in enumerate(columns, 1):
-        for ci, val in enumerate([col, dtype, nullable, desc]):
+        for ci, val in enumerate([method, endpoint, auth, desc]):
             tbl.cell(ri, ci).text = val
-            r = tbl.cell(ri, ci).paragraphs[0].runs[0]
-            r.font.size = Pt(9.5)
-            if ci == 0:
-                r.font.name = 'Courier New'
+            tbl.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(9.5)
+        run = tbl.cell(ri, 0).paragraphs[0].runs[0]
+        run.font.color.rgb = method_colors.get(method, GRAY)
+        run.font.bold = True
     doc.add_paragraph()
 
 
@@ -164,620 +138,411 @@ def add_db_table(doc, table_name, columns):
 
 def build_manual():
     doc = Document()
-
-    # 여백
     for section in doc.sections:
         section.top_margin    = Cm(2.5)
         section.bottom_margin = Cm(2.5)
         section.left_margin   = Cm(3.0)
         section.right_margin  = Cm(2.5)
 
-    # ── 표지 ──────────────────────────────────────────────────
+    # ── 표지 ──
     for _ in range(3):
         doc.add_paragraph()
-
-    t1 = doc.add_heading('전북지역 졸업생 네트워크 플랫폼', level=0)
-    t1.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    t1.runs[0].font.color.rgb = BRAND_BLUE
-    t1.runs[0].font.size = Pt(22)
-
-    t2 = doc.add_heading('개 발 자 매 뉴 얼', level=0)
-    t2.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    t2.runs[0].font.color.rgb = DARK
-    t2.runs[0].font.size = Pt(18)
-
+    for text, size, color in [
+        ('JJOBB', 28, BRAND_NAVY),
+        ('전북 직업계고 졸업생 취업 네트워크', 18, BRAND_NAVY),
+        ('개 발 자 매 뉴 얼', 16, DARK),
+    ]:
+        t = doc.add_heading(text, level=0)
+        t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        t.runs[0].font.color.rgb = color
+        t.runs[0].font.size = Pt(size)
     doc.add_paragraph()
-    info_lines = [
-        '버전: v2.0',
-        '작성일: 2026년 2월 26일',
-        '대상: 백엔드 / 프론트엔드 개발자',
-        'GitHub: https://github.com/jsyang9455/graduate-network',
-        '라이브: https://jjobb.kr',
-    ]
-    for line in info_lines:
+    for line in [
+        f'버전: {VERSION} (v2 고도화)',
+        f'작성일: {DATE}',
+        '대상: 백엔드 / 프론트엔드 / 운영 담당 개발자',
+        'GitHub: https://github.com/jsyang9455/graduate-network-v2',
+        '설계 문서: docs/ (STATUS.md, 01~08, openapi.yaml)',
+    ]:
         p = doc.add_paragraph(line)
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         p.runs[0].font.size = Pt(10.5)
         p.runs[0].font.color.rgb = GRAY
-
     add_page_break(doc)
 
-    # ── 목차 ──────────────────────────────────────────────────
+    # ── 목차 ──
     h1(doc, '목   차')
-    toc = [
+    for num, title in [
         ('1장', '아키텍처 개요'),
         ('2장', '개발 환경 설정'),
         ('3장', '프로젝트 구조'),
-        ('4장', '데이터베이스 스키마'),
-        ('5장', 'Backend API 레퍼런스'),
-        ('6장', '인증 (JWT)'),
+        ('4장', '데이터베이스 · 마이그레이션'),
+        ('5장', '인증 · 인가 (JWT, RBAC, 학교 범위)'),
+        ('6장', 'Backend API 레퍼런스'),
         ('7장', '프론트엔드 구조'),
-        ('8장', '배포 (Docker / AWS)'),
-        ('9장', '환경 변수'),
-        ('10장', 'Nginx 설정'),
-        ('부록', '마이그레이션 · 트러블슈팅'),
-    ]
-    for num, title in toc:
+        ('8장', '테스트'),
+        ('9장', '배포 (Docker / AWS)'),
+        ('10장', '환경 변수 · Nginx'),
+        ('부록', '트러블슈팅 · 테스트 계정 · 개발 규칙'),
+    ]:
         p = doc.add_paragraph()
         p.add_run(f'{num}  ').font.bold = True
         p.add_run(title).font.size = Pt(11)
         p.paragraph_format.space_after = Pt(4)
-
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 1장. 아키텍처 개요               ║
-    # ╚═══════════════════════════════════╝
+    # ── 1장 ──
     h1(doc, '1장. 아키텍처 개요')
-
     h2(doc, '1.1 전체 구성')
     add_bullets(doc, [
-        '클라이언트: 순수 HTML + CSS + Vanilla JS (SPA 없음, 다중 HTML 파일)',
-        '프론트엔드 서버: Nginx (포트 80) — 정적 파일 서빙 + /api/ 역방향 프록시',
-        '백엔드 서버: Node.js + Express (포트 5000/5001)',
-        '데이터베이스: PostgreSQL 15',
-        '컨테이너: Docker Compose (3-tier)',
-        '운영 서버: AWS EC2 (Ubuntu 22.04)',
+        '클라이언트: HTML + CSS + Vanilla JS (다중 HTML, 프레임워크 없음). css/theme.css를 모든 페이지에서 마지막에 로드',
+        '프론트 서버: Nginx — 정적 파일 + /api/ 역방향 프록시 (호스트 포트 기본 8090)',
+        '백엔드: Node.js + Express (컨테이너 5000, 로컬 macOS는 5050 권장)',
+        'DB: PostgreSQL 15 — 기동 시 database/migrations 자동 적용',
+        '파일 저장: STORAGE_DRIVER=local(기본, /app/uploads 볼륨) 또는 s3',
+        '문서 생성: pdfkit(이력서·상담일지 PDF), docx(상담일지 DOCX)',
     ])
-
-    h2(doc, '1.2 기술 스택')
-    tbl = doc.add_table(rows=7, cols=3)
-    tbl.style = 'Light Shading Accent 1'
-    for ci, h in enumerate(['레이어', '기술', '버전']):
-        tbl.cell(0, ci).text = h
-        tbl.cell(0, ci).paragraphs[0].runs[0].font.bold = True
-    rows_data = [
-        ('Frontend', 'HTML5 / CSS3 / Vanilla JS', '-'),
-        ('Backend', 'Node.js + Express', 'v22 / 4.18'),
-        ('Database', 'PostgreSQL', '15-alpine'),
-        ('Auth', 'JWT (jsonwebtoken)', '9.0'),
-        ('Container', 'Docker + Docker Compose', '3.8'),
-        ('Reverse Proxy', 'Nginx', '1.25-alpine'),
-    ]
-    for ri, (layer, tech, ver) in enumerate(rows_data, 1):
-        for ci, val in enumerate([layer, tech, ver]):
-            tbl.cell(ri, ci).text = val
-            tbl.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(10)
-    doc.add_paragraph()
-
+    h2(doc, '1.2 v2 핵심 변경')
+    add_table(doc, ['영역', 'v1', 'v2'], [
+        ['테넌시', '단일 학교', '다중 학교 (users.school_id, schools 테이블)'],
+        ['인가', 'user_type 체크', 'RBAC 메뉴 권한(role_menu_permissions) + 학교 범위 가드'],
+        ['클라이언트 저장', 'localStorage에 사용자·업무 데이터', 'localStorage에는 JWT(token)만'],
+        ['이력서', '프로필 텍스트', 'resumes / resume_items, PDF 생성, 지원 시 첨부'],
+        ['신규 기능', '-', '상담일지 PDF/DOCX, 견학(정원·선착순/승인), 커뮤니티 신고·블라인드, 추천, 알림, 기업 승인, 학교 로고'],
+        ['외부 연동', '-', '워크넷·알림톡은 키 없으면 NOT_CONFIGURED (가짜 연동 금지)'],
+    ])
     h2(doc, '1.3 요청 흐름')
-    body(doc, '브라우저 요청 처리 순서:')
     add_bullets(doc, [
-        '브라우저 → Nginx :80',
-        '/api/* 요청 → Nginx가 backend:5000 으로 프록시',
-        '정적 파일 요청 → Nginx가 직접 서빙',
-        'Backend → PostgreSQL 쿼리 실행',
-        'JWT 검증은 Express 미들웨어(middleware/auth.js)에서 처리',
+        '브라우저 → Nginx(:8090) → 정적 파일 직접 서빙',
+        '/api/* → backend:5000 프록시',
+        'Express: auth(JWT) → authorize(menu, action) → schoolScope → 핸들러 → PostgreSQL',
     ])
-
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 2장. 개발 환경 설정              ║
-    # ╚═══════════════════════════════════╝
+    # ── 2장 ──
     h1(doc, '2장. 개발 환경 설정')
-
     h2(doc, '2.1 필수 도구')
-    add_bullets(doc, [
-        'Node.js v18 이상 (https://nodejs.org)',
-        'PostgreSQL 15 (로컬: Postgres.app 또는 Docker)',
-        'Git',
-        'Docker Desktop (선택, 통합 실행 시)',
-    ])
-
-    h2(doc, '2.2 로컬 백엔드 실행')
-    code_block(doc, '# 1. 저장소 클론\ngit clone https://github.com/jsyang9455/graduate-network.git\ncd graduate-network/backend')
-    code_block(doc, '# 2. 의존성 설치\nnpm install')
-    code_block(doc, '# 3. 환경 변수 파일 생성 (backend/.env)\nDB_HOST=localhost\nDB_PORT=5432\nDB_NAME=graduate_network\nDB_USER=<your_pg_user>\nDB_PASSWORD=<your_pg_password>\nJWT_SECRET=your_jwt_secret_key\nJWT_EXPIRE=7d\nPORT=5001\nCORS_ORIGIN=*')
-    code_block(doc, '# 4. DB 초기화 (최초 1회)\npsql -U <user> -c "CREATE DATABASE graduate_network;"\npsql -U <user> -d graduate_network -f ../database/schema.sql\npsql -U <user> -d graduate_network -f ../database/seed.sql')
-    code_block(doc, '# 5. 서버 실행\nnpm run dev   # nodemon (자동 재시작)\n# 또는\nnode server.js')
-
-    add_note(doc, '로컬 개발 시 백엔드는 포트 5001을 사용합니다. api.js에서 localhost:5001로 자동 감지됩니다.')
-
-    h2(doc, '2.3 로컬 프론트엔드 실행')
-    code_block(doc, '# 루트 디렉토리에서\npython3 -m http.server 8080\n# 또는 VS Code Live Server 확장 사용\n# 브라우저: http://localhost:8080')
-
+    add_bullets(doc, ['Node.js 18 이상 (권장 22)', 'PostgreSQL 15', 'Git', 'Docker Desktop (통합 실행 시)'])
+    h2(doc, '2.2 로컬 백엔드')
+    code_block(doc, 'git clone https://github.com/jsyang9455/graduate-network-v2.git jjobb_v2\ncd jjobb_v2/backend\nnpm install\ncp .env.example .env      # DB_*, JWT_SECRET 수정, PORT=5050 (macOS AirPlay가 5000 점유)')
+    code_block(doc, '# DB 초기화 (최초 1회)\ncreatedb graduate_network\npsql -d graduate_network -f ../database/schema.sql\npsql -d graduate_network -f ../database/seed.sql\nnpm run migrate           # database/migrations/*.sql 순차 적용\n\n# 테스트 계정(@jjob.com) 로드\n../scripts/load-test-accounts.sh\n\nnpm run dev               # nodemon')
+    h2(doc, '2.3 로컬 프론트엔드')
+    code_block(doc, '# 저장소 루트\npython3 -m http.server 8080\n# 브라우저 콘솔에서 API 주소 지정 (5050 사용 시)\nlocalStorage.setItem("jjobb_api_base", "http://localhost:5050/api")')
+    add_note(doc, 'jjobb_api_base는 개발용 오버라이드로, localStorage에 허용되는 유일한 비토큰 키입니다.')
     h2(doc, '2.4 Docker Compose 전체 실행')
-    code_block(doc, 'cd graduate-network\ndocker-compose up -d\n# 확인\ndocker-compose ps')
-    add_bullets(doc, [
-        'frontend: http://localhost:80',
-        'backend:  http://localhost:5000',
-        'postgres: localhost:5432',
-    ])
-
+    code_block(doc, 'cp .env.example .env      # JWT_SECRET 필수 (없으면 compose가 실패)\ndocker compose up -d --build\ndocker compose ps\n# 프론트: http://localhost:8090  /  API: http://localhost:5000/api/health')
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 3장. 프로젝트 구조               ║
-    # ╚═══════════════════════════════════╝
+    # ── 3장 ──
     h1(doc, '3장. 프로젝트 구조')
-
-    h2(doc, '3.1 디렉토리 구조')
     code_block(doc,
-'''graduate-network/
-├── index.html              # 메인(랜딩) 페이지
-├── login.html              # 로그인
-├── register.html           # 회원가입
-├── dashboard.html          # 대시보드 (역할별 분기)
-├── jobs.html               # 채용 정보
-├── job-fair.html           # 취업박람회
-├── industry-visit.html     # 산업체 견학
-├── certification-support.html  # 자격증 지원
-├── counseling.html         # 진로 상담
-├── networking.html         # 동문 네트워킹
-├── profile.html            # 내 프로필
-├── career.html             # 경력 관리
-├── admin-users.html        # 관리자 - 회원 관리
-├── admin-jobs.html         # 관리자 - 채용공고 관리
-├── admin-board.html        # 관리자 - 게시판 관리
-├── admin-announcements.html # 관리자 - 공지사항 관리
-├── admin-codes.html        # 관리자 - 코드 관리
-├── help.html               # 사용자 도움말
-├── css/                    # 스타일시트
-│   ├── style.css           # 공통 스타일
-│   ├── auth.css            # 인증 페이지
-│   ├── dashboard.css       # 대시보드
-│   ├── jobs.css            # 채용 정보
-│   ├── counseling.css      # 진로 상담
-│   └── networking.css      # 네트워킹
-├── js/                     # 프론트엔드 스크립트
-│   ├── api.js              # API 유틸리티 (base URL, fetch wrapper)
-│   ├── auth.js             # 인증 관리 (AuthManager 클래스)
-│   ├── main.js             # 메인 페이지
-│   ├── login.js            # 로그인 로직
-│   ├── register.js         # 회원가입 로직
-│   ├── dashboard.js        # 대시보드
-│   ├── jobs.js             # 채용 정보
-│   ├── counseling.js       # 진로 상담
-│   ├── networking.js       # 네트워킹
-│   └── admin-users.js      # 관리자 회원관리
-├── images/                 # 이미지 에셋
-├── backend/                # 백엔드 (Node.js/Express)
-│   ├── server.js           # 엔트리포인트
-│   ├── package.json
-│   ├── Dockerfile
-│   ├── config/
-│   │   └── database.js     # PostgreSQL 커넥션 풀
-│   ├── middleware/
-│   │   └── auth.js         # JWT 검증 + 역할 체크
-│   ├── routes/             # API 라우터
-│   │   ├── auth.js
-│   │   ├── users.js
-│   │   ├── jobs.js
-│   │   ├── announcements.js
-│   │   ├── counseling.js
-│   │   ├── networking.js
-│   │   ├── posts.js
-│   │   ├── certificates.js
-│   │   └── majors.js
-│   └── scripts/
-│       ├── migrate.js
-│       └── seed.js
+'''jjobb_v2/
+├── *.html                  # index, login, register, dashboard, jobs, career,
+│                           # profile, counseling, counseling-journal, networking,
+│                           # community, job-fair, industry-visit, certification-support,
+│                           # applicant-detail, admin-*.html (6개) ...
+├── css/                    # style.css, theme.css(마지막 로드), 페이지별 css
+├── js/
+│   ├── api.js              # API_BASE_URL, fetch 래퍼, 파일 업로드, 날짜 포맷(KST)
+│   ├── auth.js             # 메모리 사용자 상태, /api/auth/me, 메뉴 권한 적용
+│   └── <page>.js
+├── images/                 # 로고(SVG) 등
+├── backend/
+│   ├── server.js           # 라우터 마운트, 기동 시 마이그레이션
+│   ├── middleware/         # auth.js, authorize.js(RBAC), schoolScope.js
+│   ├── modules/            # rbac, storage, documents(PDF/DOCX), notify,
+│   │                       # recommendations, audit.js
+│   ├── lib/                # roles, applicationStatus, companyApproval, httpErrors ...
+│   ├── routes/             # 23개 라우터 (6장)
+│   ├── scripts/            # migrate.js, apply-migrations.js, healthcheck.js
+│   └── tests/              # node:test 통합 테스트
 ├── database/
-│   ├── schema.sql          # 테이블 DDL
-│   ├── seed.sql            # 초기 데이터
-│   └── test-accounts.sql   # 테스트 계정
-├── scripts/                # 유틸리티 스크립트
-│   ├── capture-screenshots.js
-│   ├── generate-manual.py
-│   └── generate-dev-manual.py
-├── docker-compose.yml
-├── nginx.conf
-└── Dockerfile              # 프론트엔드 빌드용''')
-
+│   ├── schema.sql, seed.sql, test-accounts.sql, demo-seed.sql
+│   └── migrations/         # 002~003 (v1), 010~021 (v2)
+├── docs/                   # STATUS, 요구사항, 아키텍처, 데이터 모델, API, IA, QA
+├── scripts/                # aws-up.sh, load-test-accounts.sh, capture-screenshots.js,
+│                           # generate-manual.py, generate-dev-manual.py
+├── docker-compose.yml, Dockerfile, nginx.conf
+└── AGENTS.md               # 멀티에이전트 역할 규칙''')
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 4장. 데이터베이스 스키마          ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '4장. 데이터베이스 스키마')
-
-    h2(doc, '4.1 ERD 요약')
+    # ── 4장 ──
+    h1(doc, '4장. 데이터베이스 · 마이그레이션')
+    h2(doc, '4.1 v2 마이그레이션')
+    add_table(doc, ['파일', '내용'], [
+        ['010_v2_multischool', 'schools, departments, roles, menus, role_menu_permissions, user_roles, school_transfers, audit_logs, 주요 테이블 school_id'],
+        ['011_v2_sprint1_resumes', 'files, resumes, resume_items, resume_documents, counseling_documents'],
+        ['012_v2_sprint2_workflow', '지원 상태 워크플로, 알림'],
+        ['013_v2_sprint3_community_tenancy', '커뮤니티 학교 범위'],
+        ['014_v2_sprint4_recommendations_fieldtrips', 'resume_keywords, job_keywords, job_recommendations, recommendation_feedback, field_trips, field_trip_applications'],
+        ['015_v2_sprint5_community_extras', 'post_categories, post_scraps, post_reports'],
+        ['016_v2_sprint6_associated_com_trip', 'job_scraps, field_trip_reports'],
+        ['017 / 019_v2_company_approval', '기업 승인 상태·사유, 승인 정책과 공고 권한'],
+        ['018_v2_legacy_company_seed_repair', '레거시 기업 시드 보정'],
+        ['020_v2_school_logo_primary_admin', '학교 로고, 주 담당자'],
+        ['021_v2_brand_name_jjobb', '표시 이름 JJOBB 보정'],
+    ])
+    add_note(doc, '백엔드 기동 시 applyPendingMigrations가 미적용 파일을 순서대로 실행합니다. 수동 실행: npm run migrate')
+    add_note(doc, '이미 적용된 마이그레이션 파일은 수정하지 말고, 새 번호 파일로 보정합니다. DROP 금지, IF NOT EXISTS 사용.', 'warning')
+    h2(doc, '4.2 핵심 관계')
     add_bullets(doc, [
-        'users ← graduate_profiles (1:1)',
-        'users ← company_profiles (1:1)',
-        'users → jobs (1:N, company_id)',
-        'users ↔ jobs → job_applications (N:M)',
-        'users ↔ users → connections (M:M)',
-        'users → counseling_sessions (N:1 with counselor)',
-        'announcements → announcement_applications (1:N)',
+        'schools 1:N users (users.school_id) — 업무 테이블 대부분이 school_id 보유',
+        'users N:M roles (user_roles) → role_menu_permissions(menu, can_read/can_write/can_manage)',
+        'users(company) 1:N jobs → job_applications(resume_id 첨부) ← users(student)',
+        'users 1:N resumes 1:N resume_items, resume_documents(PDF)',
+        'counseling_sessions(student, counselor), counseling_journals(teacher, student)',
+        'field_trips 1:N field_trip_applications, field_trip_reports',
+        'posts → comments, post_reports, post_scraps / notifications(user_id)',
     ])
-
-    h2(doc, '4.2 테이블 상세')
-
-    add_db_table(doc, 'users', [
-        ('id',            'SERIAL PK',    'NOT NULL', '사용자 고유 ID'),
-        ('email',         'VARCHAR(255)', 'NOT NULL', '로그인 이메일 (UNIQUE)'),
-        ('password_hash', 'VARCHAR(255)', 'NOT NULL', 'bcrypt 해시(cost=10)'),
-        ('name',          'VARCHAR(100)', 'NOT NULL', '사용자 이름'),
-        ('user_type',     'VARCHAR(20)',  'NOT NULL', 'student / graduate / teacher / company / admin'),
-        ('phone',         'VARCHAR(20)',  'NULL',     '전화번호'),
-        ('school_name',   'VARCHAR(200)', 'NULL',     '학교명'),
-        ('is_active',     'BOOLEAN',      'DEFAULT TRUE', '계정 활성화 여부'),
-        ('created_at',    'TIMESTAMP',    'DEFAULT NOW()', '가입일'),
-        ('last_login',    'TIMESTAMP',    'NULL',     '마지막 로그인'),
-    ])
-
-    add_db_table(doc, 'graduate_profiles', [
-        ('user_id',           'INT FK→users',  'NOT NULL', '사용자 참조'),
-        ('graduation_year',   'INTEGER',        'NOT NULL', '졸업년도'),
-        ('major',             'VARCHAR(100)',   'NULL',     '전공'),
-        ('current_company',   'VARCHAR(200)',   'NULL',     '재직 회사'),
-        ('current_position',  'VARCHAR(100)',   'NULL',     '직위'),
-        ('skills',            'TEXT[]',         'NULL',     '스킬 배열'),
-        ('is_mentor',         'BOOLEAN',        'DEFAULT FALSE', '멘토 여부'),
-    ])
-
-    add_db_table(doc, 'jobs', [
-        ('id',            'SERIAL PK',   'NOT NULL', '공고 ID'),
-        ('company_id',    'INT FK→users','NOT NULL', '등록자(교사/기업) ID'),
-        ('title',         'VARCHAR(255)','NOT NULL', '채용 직무명'),
-        ('job_type',      'VARCHAR(50)', 'NULL',     'full-time / part-time / contract / internship'),
-        ('status',        'VARCHAR(20)', 'DEFAULT active', 'active / closed / draft'),
-        ('deadline',      'DATE',        'NULL',     '지원 마감일'),
-        ('views_count',   'INTEGER',     'DEFAULT 0','조회수'),
-    ])
-
-    add_db_table(doc, 'announcements', [
-        ('id',         'SERIAL PK',   'NOT NULL', '공지 ID'),
-        ('type',       'VARCHAR(50)', 'NOT NULL', 'job-fair / industry-visit / certification'),
-        ('title',      'VARCHAR(200)','NOT NULL', '제목'),
-        ('organizer',  'VARCHAR(100)','NULL',     '주최기관'),
-        ('event_date', 'DATE',        'NULL',     '행사일'),
-        ('deadline',   'DATE',        'NULL',     '신청 마감일'),
-        ('capacity',   'INTEGER',     'NULL',     '모집 인원'),
-        ('benefits',   'TEXT[]',      'NULL',     '혜택 배열'),
-        ('requirements','TEXT[]',     'NULL',     '준비사항 배열'),
-        ('image_url',  'VARCHAR(500)','NULL',     '대표 이미지 URL (선택)'),
-        ('detail_url', 'VARCHAR(500)','NULL',     '상세 페이지 URL (선택)'),
-        ('is_active',  'BOOLEAN',     'DEFAULT TRUE','활성 여부'),
-    ])
-
-    add_db_table(doc, 'announcement_applications', [
-        ('id',               'SERIAL PK',           'NOT NULL', '신청 ID'),
-        ('announcement_id',  'INT FK→announcements', 'NOT NULL', '공지 참조'),
-        ('user_id',          'INT FK→users',         'NULL',     '신청자 (NULL=비로그인)'),
-        ('applicant_name',   'VARCHAR(100)',          'NOT NULL', '신청자 이름'),
-        ('applicant_phone',  'VARCHAR(20)',           'NOT NULL', '연락처'),
-        ('applicant_email',  'VARCHAR(100)',          'NULL',     '이메일'),
-        ('status',           'VARCHAR(20)',           'DEFAULT pending', 'pending / approved / rejected'),
-    ])
-
-    add_db_table(doc, 'counseling_sessions', [
-        ('user_id',     'INT FK→users', 'NOT NULL', '학생 ID'),
-        ('counselor_id','INT FK→users', 'NULL',     '교사 ID'),
-        ('session_type','VARCHAR(50)',  'NULL',     '진로 / 취업 / 학업 / 기타'),
-        ('status',      'VARCHAR(20)',  'DEFAULT scheduled', 'scheduled / completed / cancelled'),
-        ('topic',       'TEXT',         'NULL',     '상담 내용'),
-        ('notes',       'TEXT',         'NULL',     '답변/교사 메모'),
-    ])
-
+    body(doc, '컬럼 상세는 docs/03-data-model.md를 참고합니다.')
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 5장. Backend API 레퍼런스        ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '5장. Backend API 레퍼런스')
+    # ── 5장 ──
+    h1(doc, '5장. 인증 · 인가')
+    h2(doc, '5.1 역할')
+    add_table(doc, ['역할 코드', '표시명', '비고'], [
+        ['system_admin (v1 admin)', '시스템 관리자', '전 학교 접근'],
+        ['school_admin', '학교 관리자', '소속 학교만 관리'],
+        ['teacher', '교사', '상담·일지·견학·신고 처리'],
+        ['student / graduate', '학생 / 졸업생', '본인 데이터'],
+        ['company', '기업', 'company_approval_status=approved일 때 공고·학생 정보 접근'],
+    ])
+    h2(doc, '5.2 미들웨어 체인')
+    code_block(doc, '''// routes 예시
+router.patch('/:id/company-approval',
+  auth,                                   // JWT 검증 → req.user
+  authorize('company_approval', 'write'), // RBAC 메뉴 권한 (modules/rbac)
+  schoolScope,                            // 학교 범위 (system_admin 제외)
+  handler);
 
-    h2(doc, '5.0 공통 사항')
-    body(doc, 'Base URL: http://localhost:5001/api  (로컬) | https://jjobb.kr/api  (운영)')
+// 리소스 단위 확인
+if (!assertSameSchool(req, row.school_id)) return forbidCrossSchool(res);''')
     add_bullets(doc, [
-        'Content-Type: application/json',
-        'Authorization: Bearer <JWT_TOKEN>  (인증 필요 엔드포인트)',
-        '성공: HTTP 200/201, 실패: 400 / 401 / 403 / 404 / 500',
+        '오류 형식: { error: "메시지", code, status } — UNAUTHENTICATED(401), FORBIDDEN(403), VALIDATION(400), NOT_FOUND(404), CONFLICT(409), COMPANY_NOT_APPROVED(403)',
+        '연락처 마스킹: 이메일·전화는 본인, 관리자, 같은 학교 교사만 원문 (users.js canSeeContact)',
+        '중복 가입·중복 지원은 409 CONFLICT',
     ])
-    code_block(doc, '# 헬스 체크\nGET /api/health\n→ {"status":"OK","message":"...","timestamp":"..."}')
-
-    h2(doc, '5.1 인증 (POST /api/auth)')
-    add_api_table(doc, [
-        ('POST',   '/api/auth/register',        '없음',      '회원가입'),
-        ('POST',   '/api/auth/login',           '없음',      '로그인 → JWT 반환'),
-        ('GET',    '/api/auth/me',              'JWT 필요',  '현재 유저 정보 조회'),
-        ('POST',   '/api/auth/change-password', 'JWT 필요',  '비밀번호 변경'),
-    ])
-    h3(doc, 'POST /api/auth/register  요청 바디')
-    code_block(doc, '{\n  "email": "user@example.com",\n  "password": "min6chars",\n  "name": "홍길동",\n  "user_type": "student",  // student|graduate|teacher|company|admin\n  "phone": "010-1234-5678",  // 선택\n  "school_name": "○○고등학교"  // 선택\n}')
-    h3(doc, 'POST /api/auth/login  요청/응답')
-    code_block(doc, '// 요청\n{"email":"user@example.com","password":"1234"}\n// 응답\n{"message":"Login successful","token":"eyJ...","user":{"id":1,"email":"...","name":"...","user_type":"..."}}')
-
-    h2(doc, '5.2 사용자 (GET /api/users)')
-    add_api_table(doc, [
-        ('GET',    '/api/users',              'admin',     '전체 회원 목록'),
-        ('GET',    '/api/users/:id',          'JWT 필요',  '특정 사용자 조회'),
-        ('PUT',    '/api/users/profile',      'JWT 필요',  '내 프로필 수정'),
-        ('PUT',    '/api/users/:id',          'admin',     '관리자 - 회원 수정'),
-        ('DELETE', '/api/users/:id',          'admin',     '관리자 - 회원 삭제'),
-        ('GET',    '/api/users/graduate-profile/:userId', 'JWT 필요', '졸업생 프로필 조회'),
-        ('PUT',    '/api/users/graduate-profile', 'JWT 필요', '졸업생 프로필 수정'),
-    ])
-
-    h2(doc, '5.3 채용공고 (GET /api/jobs)')
-    add_api_table(doc, [
-        ('GET',    '/api/jobs',                '없음',          '채용공고 목록 (필터: status, location 등)'),
-        ('GET',    '/api/jobs/:id',            '없음',          '채용공고 상세'),
-        ('POST',   '/api/jobs',                'teacher/admin', '채용공고 등록'),
-        ('PUT',    '/api/jobs/:id',            'teacher/admin', '채용공고 수정'),
-        ('DELETE', '/api/jobs/:id',            'admin',         '채용공고 삭제'),
-        ('POST',   '/api/jobs/:id/apply',      'JWT 필요',      '채용공고 지원'),
-        ('GET',    '/api/jobs/my/applications','JWT 필요',      '내 지원 내역'),
-    ])
-
-    h2(doc, '5.4 공지사항 (GET /api/announcements)')
-    add_api_table(doc, [
-        ('GET',    '/api/announcements/:type',           '없음',    '유형별 공지 목록 (job-fair|industry-visit|certification)'),
-        ('GET',    '/api/announcements/detail/:id',      '없음',    '공지 상세'),
-        ('POST',   '/api/announcements',                 'admin',   '공지 등록'),
-        ('PUT',    '/api/announcements/:id',             'admin',   '공지 수정'),
-        ('DELETE', '/api/announcements/:id',             'admin',   '공지 삭제'),
-        ('POST',   '/api/announcements/apply',           'JWT 권장','참가 신청'),
-        ('GET',    '/api/announcements/my-applications', 'JWT 필요','내 신청 내역'),
-        ('GET',    '/api/announcements/applications/all','admin',   '전체 신청 목록'),
-        ('PUT',    '/api/announcements/applications/:id/status','admin','신청 상태 변경'),
-    ])
-
-    h2(doc, '5.5 진로 상담 (GET /api/counseling)')
-    add_api_table(doc, [
-        ('GET',    '/api/counseling',    'JWT 필요',      '상담 목록 (역할별 필터)'),
-        ('POST',   '/api/counseling',    'JWT 필요',      '상담 신청'),
-        ('PUT',    '/api/counseling/:id','teacher/admin', '상담 승인/거절/답변'),
-        ('DELETE', '/api/counseling/:id','JWT 필요',      '상담 삭제'),
-    ])
-
-    h2(doc, '5.6 네트워킹 (GET /api/networking)')
-    add_api_table(doc, [
-        ('GET',  '/api/networking/connections',     'JWT 필요', '연결 목록'),
-        ('GET',  '/api/networking/requests',        'JWT 필요', '받은 요청 목록'),
-        ('POST', '/api/networking/connect/:userId', 'JWT 필요', '네트워크 연결 요청'),
-        ('PUT',  '/api/networking/requests/:id',    'JWT 필요', '요청 수락/거절'),
-        ('GET',  '/api/networking/mentors',         'JWT 필요', '멘토 목록'),
-    ])
-
-    h2(doc, '5.7 게시판/코드 관리')
-    add_api_table(doc, [
-        ('GET',    '/api/posts',          '없음',  '게시글 목록'),
-        ('POST',   '/api/posts',          'JWT',   '게시글 작성'),
-        ('PUT',    '/api/posts/:id',      'JWT',   '게시글 수정'),
-        ('DELETE', '/api/posts/:id',      'JWT',   '게시글 삭제'),
-        ('GET',    '/api/majors',         '없음',  '전공 목록'),
-        ('POST',   '/api/majors',         'admin', '전공 추가'),
-        ('PUT',    '/api/majors/:id',     'admin', '전공 수정'),
-        ('DELETE', '/api/majors/:id',     'admin', '전공 삭제'),
-    ])
-
-    add_page_break(doc)
-
-    # ╔═══════════════════════════════════╗
-    # ║ 6장. 인증 (JWT)                  ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '6장. 인증 (JWT)')
-
-    h2(doc, '6.1 토큰 생성')
-    code_block(doc, '// backend/routes/auth.js\njwt.sign(\n  { id: user.id, email: user.email, user_type: user.user_type },\n  process.env.JWT_SECRET,\n  { expiresIn: process.env.JWT_EXPIRE || "7d" }\n);')
-
-    h2(doc, '6.2 토큰 검증 미들웨어')
-    code_block(doc, '// backend/middleware/auth.js\nconst auth = async (req, res, next) => {\n  const token = req.header("Authorization")?.replace("Bearer ", "");\n  if (!token) return res.status(401).json({ error: "Authentication required" });\n  const decoded = jwt.verify(token, process.env.JWT_SECRET);\n  req.user = decoded;  // { id, email, user_type }\n  next();\n};')
-
-    h2(doc, '6.3 역할 기반 접근 제어')
-    code_block(doc, '// 사용 예시 (routes/*.js)\nrouter.post("/", auth, checkRole("teacher", "admin"), handler);\n\n// checkRole 구현\nconst checkRole = (...roles) => (req, res, next) => {\n  if (!roles.includes(req.user.user_type))\n    return res.status(403).json({ error: "Access denied" });\n  next();\n};')
-
+    h2(doc, '5.3 프론트 권한 적용')
     add_bullets(doc, [
-        'student: 본인 데이터 읽기/쓰기, 지원, 상담 신청',
-        'graduate: student와 동일 + 졸업생 프로필',
-        'teacher: 채용공고 등록, 상담 답변',
-        'admin: 모든 API 접근 가능',
+        'GET /api/me/permissions 결과로 메뉴 표시 제어',
+        'HTML 요소에 data-menu="jobs" data-menu-min="write" 지정 → 권한 없으면 숨김',
+        '서버 가드가 최종 판단 — 프론트 숨김은 UX일 뿐 보안 경계 아님',
     ])
+    h2(doc, '5.4 토큰 저장 규칙')
+    code_block(doc, '''// localStorage: token 만 (+ 개발용 jjobb_api_base)
+localStorage.setItem("token", token);
 
-    h2(doc, '6.4 프론트엔드 토큰 관리')
-    code_block(doc, '// js/api.js\nlocalStorage.setItem("token", token);\nlocalStorage.setItem("graduateNetwork_user", JSON.stringify(user));\n\n// API 호출 시 자동 첨부\nfetch(url, {\n  headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }\n});')
-
+// 사용자 정보는 메모리 — /api/auth/me 로 로드
+await auth.whenUserLoaded();
+const user = auth.getCurrentUser();''')
+    add_note(doc, '이력서, 학교코드, 공고, 사용자 객체를 localStorage에 저장하지 않습니다. auth.js는 로드 시 레거시 키(graduateNetwork_user 등)를 삭제합니다.', 'warning')
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 7장. 프론트엔드 구조             ║
-    # ╚═══════════════════════════════════╝
+    # ── 6장 ──
+    h1(doc, '6장. Backend API 레퍼런스')
+    body(doc, 'Base URL: /api (운영, Nginx 프록시) · http://localhost:5050/api (로컬). 전체 계약은 docs/04-api-design.md, docs/openapi.yaml.')
+    code_block(doc, 'GET /api/health  →  {"status":"OK", ...}')
+
+    h2(doc, '6.1 인증 · 나')
+    add_api_table(doc, [
+        ('POST', '/api/auth/register', '공개', '회원가입 (school_id, user_type, 비밀번호 8자 이상)'),
+        ('POST', '/api/auth/login', '공개', '로그인 → token'),
+        ('GET', '/api/auth/me', 'JWT', '현재 사용자'),
+        ('POST', '/api/auth/change-password', 'JWT', '비밀번호 변경'),
+        ('GET', '/api/me/permissions', 'JWT', '메뉴 권한 목록'),
+    ])
+    h2(doc, '6.2 학교 · 역할 · 사용자')
+    add_api_table(doc, [
+        ('GET', '/api/schools', '공개', '학교 목록 (가입 화면)'),
+        ('POST / PATCH', '/api/schools, /api/schools/:id', 'schools 권한', '학교 등록·수정, 주 담당자'),
+        ('GET / POST', '/api/schools/:id/logo', '조회 공개 / 관리자', '로고 (없으면 204)'),
+        ('GET / POST', '/api/schools/:id/departments', 'JWT', '학과'),
+        ('GET / PUT', '/api/roles/:code/permissions', 'schools manage', '권한 매트릭스'),
+        ('GET', '/api/users', 'users 권한', '회원 목록 (include_withdrawn은 관리자만)'),
+        ('GET', '/api/users/companies', 'company_approval read', '기업 승인 대상'),
+        ('PATCH', '/api/users/:id/company-approval', 'company_approval write', '승인/반려(사유 필수)'),
+        ('POST', '/api/users/:id/roles · /:id/transfer', '관리자', '역할 부여 · 전학 처리'),
+        ('PUT / GET', '/api/users/profile · /company-profile · /graduate-profile', 'JWT', '본인 프로필'),
+        ('POST', '/api/users/withdraw', 'JWT', '회원 탈퇴'),
+    ])
+    h2(doc, '6.3 채용 · 지원 · 이력서 · 파일')
+    add_api_table(doc, [
+        ('GET', '/api/jobs', 'JWT', '공고 목록 (학교 범위, 필터)'),
+        ('POST / PUT / DELETE', '/api/jobs, /api/jobs/:id', '승인된 기업 · 관리자', '공고 등록·수정·삭제'),
+        ('POST', '/api/jobs/:id/apply', '학생', '지원 (resume_id) — 중복 409'),
+        ('GET', '/api/jobs/:id/applicants', '기업 · 교사 · 관리자', '지원자 목록'),
+        ('PATCH', '/api/jobs/applications/:id/status', '기업 · 교사 · 관리자', '상태 전이 (아래 표)'),
+        ('GET', '/api/jobs/my/applications', '학생', '내 지원'),
+        ('POST / DELETE', '/api/jobs/:id/scrap', 'JWT', '공고 스크랩'),
+        ('GET / POST / PUT / DELETE', '/api/resumes[/:id]', '본인', '이력서 CRUD'),
+        ('POST', '/api/resumes/:id/primary · /:id/pdf', '본인', '대표 지정 · PDF 생성'),
+        ('GET', '/api/resumes/:id/preview', '본인 · 열람 권한자', '미리보기'),
+        ('POST / GET', '/api/files, /api/files/:id', 'JWT', '업로드 · 다운로드 (권한 확인)'),
+        ('GET / POST', '/api/recommendations/me · /recompute · /feedback', 'JWT', '추천 공고'),
+    ])
+    add_table(doc, ['현재 상태', '변경 가능'], [
+        ['pending (대기)', 'reviewed, rejected'],
+        ['reviewed (서류검토)', 'interviewed, accepted, rejected'],
+        ['interviewed (면접)', 'accepted, rejected'],
+        ['accepted / rejected', '없음 (종료)'],
+    ])
+    h2(doc, '6.4 상담 · 상담일지')
+    add_api_table(doc, [
+        ('GET', '/api/counseling/teachers · /available-slots', 'JWT', '같은 학교 교사 · 시간'),
+        ('GET / POST', '/api/counseling', 'JWT', '상담 목록 · 신청'),
+        ('PUT', '/api/counseling/:id', '담당 교사 · 관리자 (학생은 cancelled만)', '승인/거절/완료, 담당자 변경(같은 학교 교사만)'),
+        ('GET / POST / PUT / DELETE', '/api/counseling-journals[/:id]', '교사', '상담일지 CRUD (is_private, follow_up_at → 알림)'),
+        ('GET', '/api/counseling-journals/stats · /timeline/:studentId', '교사', '통계 · 학생 타임라인'),
+        ('POST', '/api/counseling-journals/:id/pdf · /:id/docx', '교사', '문서 출력'),
+    ])
+    h2(doc, '6.5 커뮤니티 · 견학 · 공지 · 알림 · 기타')
+    add_api_table(doc, [
+        ('GET / POST', '/api/posts', 'JWT', '게시글 (카테고리·태그·익명)'),
+        ('POST', '/api/posts/:id/comments · /like · /scrap', 'JWT', '댓글 · 좋아요 · 스크랩'),
+        ('POST', '/api/posts/:id/report', 'JWT', '신고'),
+        ('GET / POST / DELETE', '/api/posts/reports · /:id/blind', '교사 · 관리자', '신고 목록 · 블라인드'),
+        ('GET / POST / PUT', '/api/field-trips[/:id]', '조회 JWT / 등록 교사', '견학 (capacity, mode=fifo|approval, deadline)'),
+        ('POST', '/api/field-trips/:id/apply', '학생', '신청 (applicant_name, applicant_phone)'),
+        ('PATCH', '/api/field-trips/applications/:id · /:id/attendance', '교사', '승인 · 출석'),
+        ('GET / PUT', '/api/field-trips/:id/roster · /:id/report', '교사', '명단 · 결과 보고'),
+        ('GET / POST / PUT / DELETE', '/api/announcements', '조회 공개 / 관리', '박람회·견학·자격증 공지'),
+        ('GET', '/api/notifications', 'JWT', '알림 (created_at UTC → 프론트 KST 표시)'),
+        ('PATCH / POST', '/api/notifications/:id/read · /read-all', 'JWT', '읽음 처리'),
+        ('GET', '/api/notifications/providers', 'JWT', '알림톡/SMS 설정 상태 (미설정 시 NOT_CONFIGURED)'),
+        ('GET / POST', '/api/worknet/status · /sync · /logs', '관리자', '워크넷 (키 없으면 NOT_CONFIGURED)'),
+        ('GET', '/api/networking/*, /api/messages/*', 'JWT', '동문 네트워크 · 메시지'),
+        ('GET', '/api/audit-logs', '관리자', '감사 로그'),
+        ('GET / POST / PUT / DELETE', '/api/majors, /api/education-programs, /api/certificates, /api/stats', '권한별', '코드 · 교육 · 자격증 · 통계'),
+    ])
+    add_page_break(doc)
+
+    # ── 7장 ──
     h1(doc, '7장. 프론트엔드 구조')
+    h2(doc, '7.1 js/api.js')
+    code_block(doc, '''const API_BASE_URL = (() => {
+  const override = localStorage.getItem('jjobb_api_base');  // 개발용, localhost에서만 적용
+  if (override && isLocal) return override;
+  // localhost → http://localhost:5000/api, 그 외 → /api (Nginx)
+})();
 
-    h2(doc, '7.1 API 유틸리티 (js/api.js)')
-    body(doc, 'API_BASE_URL은 hostname을 감지하여 자동 설정됩니다:')
-    code_block(doc, '// js/api.js\nconst API_BASE_URL = \n  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"\n  ? "http://localhost:5001/api"\n  : "/api";  // 운영: Nginx 프록시 경유')
-    add_note(doc, 'HTML 파일 내에 API URL을 하드코딩하지 마세요. 반드시 api.js의 API_BASE_URL 변수를 사용하세요.', 'warning')
-
-    h2(doc, '7.2 인증 클래스 (js/auth.js)')
-    body(doc, 'AuthManager 클래스가 로그인 상태 관리를 담당합니다:')
+formatLocalDate(value)      // YYYY-MM-DD (로컬)
+formatLocalDateTime(value)  // YYYY-MM-DD HH:mm (Asia/Seoul)''')
+    add_note(doc, 'HTML/JS에 API 주소를 하드코딩하지 말고 API_BASE_URL과 api 래퍼를 사용합니다.', 'warning')
+    h2(doc, '7.2 js/auth.js')
     add_bullets(doc, [
-        'isLoggedIn(): localStorage의 token 여부로 판단',
-        'getCurrentUser(): graduateNetwork_user 파싱 반환',
-        'login(userData, token): localStorage에 저장',
-        'logout(): localStorage 초기화 + 로그인 페이지 이동',
-        'checkAuth(): 페이지 로드 시 JWT 유효성 검증',
+        '사용자 객체는 메모리에만 보관, /api/auth/me 로 로드 (응답 전에는 JWT 디코드 값으로 임시 표시)',
+        'auth.ready / auth.whenUserLoaded(): 사용자 로드 완료 대기',
+        'logout(): token 삭제 후 로그인 페이지 이동',
+        '로그인 필요 페이지는 returnUrl과 함께 login.html로 이동',
     ])
-
-    h2(doc, '7.3 페이지별 역할 접근 제어')
-    code_block(doc, '// 각 페이지 JS에서 역할 체크 예시\nconst user = auth.getCurrentUser();\nif (!user || user.user_type !== "admin") {\n  window.location.href = "/login.html";\n  return;\n}')
-
-    h2(doc, '7.4 신규 HTML 페이지 추가 시 체크리스트')
+    h2(doc, '7.3 관리자 화면')
+    body(doc, 'admin-*.html 6개 페이지는 동일한 사이드바(대시보드 · 회원 관리 · 권한 매트릭스 · 채용공고 관리 · 게시판 관리 · 코드 관리 · 공지사항 관리)를 사용하며, 현재 페이지 항목에 active 클래스를 지정합니다. 메뉴 항목에는 data-menu / data-menu-min을 지정합니다.')
+    h2(doc, '7.4 신규 페이지 체크리스트')
     add_bullets(doc, [
-        '헤더에 api.js, auth.js 스크립트 포함',
-        'API 호출 시 API_BASE_URL 변수 사용 (localhost:5001 하드코딩 금지)',
-        '역할 체크 로직 추가 (관리자 전용 페이지 등)',
-        'Nginx 컨테이너 재빌드 필요: docker-compose build --no-cache frontend',
+        'css/style.css → 페이지 css → css/theme.css(마지막) 순서로 로드',
+        'js/api.js, js/auth.js 포함, 메뉴에 data-menu 권한 지정',
+        '업무 데이터는 API로만 조회 — localStorage 폴백 금지',
+        '모바일(375px) 확인 및 브라우저 검증 후 docs/05-frontend-ia.md 갱신',
+        '배포 후 캐시 문제 시 강력 새로고침 안내 (Ctrl+Shift+R)',
     ])
-
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 8장. 배포 (Docker / AWS)         ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '8장. 배포 (Docker / AWS)')
-
-    h2(doc, '8.1 Docker Compose 서비스 구성')
-    tbl = doc.add_table(rows=4, cols=5)
-    tbl.style = 'Light Shading Accent 1'
-    for ci, h in enumerate(['서비스', '컨테이너명', '이미지', '포트', '역할']):
-        tbl.cell(0, ci).text = h
-        tbl.cell(0, ci).paragraphs[0].runs[0].font.bold = True
-    svc_data = [
-        ('postgres',  'graduate-network-db',       'postgres:15-alpine', '5432:5432', 'PostgreSQL DB'),
-        ('backend',   'graduate-network-backend',  'custom(Dockerfile)',  '5000:5000', 'Express API'),
-        ('frontend',  'graduate-network-frontend', 'nginx:1.25-alpine',  '80:80',     'Nginx + 정적파일'),
-    ]
-    for ri, row in enumerate(svc_data, 1):
-        for ci, val in enumerate(row):
-            tbl.cell(ri, ci).text = val
-            tbl.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(9.5)
-    doc.add_paragraph()
-
-    h2(doc, '8.2 AWS EC2 최초 배포')
-    code_block(doc, '# SSH 접속\nssh -i your-key.pem ubuntu@<EC2_IP>')
-    code_block(doc, '# Docker 설치 (Ubuntu 22.04)\nsudo apt update && sudo apt install -y docker.io docker-compose\nsudo usermod -aG docker ubuntu && newgrp docker')
-    code_block(doc, '# 저장소 클론\ncd /home/ubuntu\ngit clone https://github.com/jsyang9455/graduate-network.git\ncd graduate-network')
-    code_block(doc, '# 빌드 및 실행\ndocker-compose build --no-cache\ndocker-compose up -d\n# 확인\ndocker-compose ps\ndocker-compose logs -f backend')
-
-    h2(doc, '8.3 코드 변경 후 재배포')
-    add_api_table(doc, [
-        ('변경 유형',            '명령어',                                                        '', ''),
+    # ── 8장 ──
+    h1(doc, '8장. 테스트')
+    code_block(doc, 'cd backend\nnpm test        # node:test 통합 테스트 (114개, 실제 DB 사용)')
+    add_bullets(doc, [
+        '테스트는 학교 A/B를 만들어 타교 데이터 접근이 403/404인지 검증 (멀티스쿨 격리)',
+        'REQ-xxx와 테스트 매핑: docs/08-test-strategy.md',
+        'QA 보고서: docs/qa/comprehensive-test-report-2026-11-09.md',
+        '매뉴얼 스크린샷: node scripts/capture-screenshots.js (API_URL, CHROME_PATH, MANUAL_PASSWORD 환경변수)',
+        '매뉴얼 생성: python3 scripts/generate-manual.py / generate-dev-manual.py (python-docx 필요)',
     ])
-    # 별도 표로 처리
-    deploy_tbl = doc.add_table(rows=5, cols=2)
-    deploy_tbl.style = 'Light Shading Accent 1'
-    deploy_tbl.cell(0, 0).text = '변경 유형'
-    deploy_tbl.cell(0, 1).text = '명령어'
-    deploy_tbl.cell(0, 0).paragraphs[0].runs[0].font.bold = True
-    deploy_tbl.cell(0, 1).paragraphs[0].runs[0].font.bold = True
-    deploy_rows = [
-        ('HTML/CSS/JS 변경',    'git pull && docker-compose build --no-cache frontend && docker-compose up -d frontend'),
-        ('백엔드 JS 변경',      'git pull && docker-compose build --no-cache backend && docker-compose up -d backend'),
-        ('DB 스키마 변경',      'git pull && docker-compose exec postgres psql -U postgres graduate_network -f /migration.sql'),
-        ('전체 재빌드',         'git pull && docker-compose build --no-cache && docker-compose up -d'),
-    ]
-    for ri, (change, cmd) in enumerate(deploy_rows, 1):
-        deploy_tbl.cell(ri, 0).text = change
-        deploy_tbl.cell(ri, 1).text = cmd
-        for ci in range(2):
-            deploy_tbl.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(9.5)
-    doc.add_paragraph()
-
-    add_note(doc, 'HTML/CSS/JS 파일 변경 후 git pull만으로는 반영되지 않습니다. 반드시 docker-compose build --no-cache frontend 실행 후 up -d 해야 합니다.', 'warning')
-
-    h2(doc, '8.4 DB 마이그레이션')
-    code_block(doc, '# AWS에서 마이그레이션 SQL 실행\ndocker-compose exec postgres psql -U postgres -d graduate_network \\\n  -c "ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url VARCHAR(500);"')
-    add_note(doc, '기존 데이터 보존을 위해 항상 IF NOT EXISTS / IF NOT EXISTS 구문 사용. DROP 절대 금지.')
-
-    h2(doc, '8.5 컨테이너 관리 명령어')
-    code_block(doc, '# 로그 확인\ndocker-compose logs -f backend\ndocker-compose logs -f frontend\n\n# 컨테이너 접속\ndocker-compose exec backend sh\ndocker-compose exec postgres psql -U postgres -d graduate_network\n\n# 재시작\ndocker-compose restart backend\n\n# 전체 중지\ndocker-compose down\n\n# 볼륨 포함 초기화 (DB 데이터 삭제)\ndocker-compose down -v')
-
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 9장. 환경 변수                   ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '9장. 환경 변수')
-
-    h2(doc, '9.1 backend/.env (로컬 개발)')
-    code_block(doc, 'NODE_ENV=development\nPORT=5001\n\n# PostgreSQL\nDB_HOST=localhost\nDB_PORT=5432\nDB_NAME=graduate_network\nDB_USER=<pg_username>\nDB_PASSWORD=<pg_password>\n\n# JWT\nJWT_SECRET=<임의의_긴_문자열_32자_이상>\nJWT_EXPIRE=7d\n\n# CORS\nCORS_ORIGIN=*')
-
-    h2(doc, '9.2 docker-compose.yml (운영)')
-    code_block(doc, '# backend 서비스 environment\nNODE_ENV: production\nPORT: 5000\nDB_HOST: postgres           # 컨테이너 서비스명\nDB_PORT: 5432\nDB_NAME: graduate_network\nDB_USER: postgres\nDB_PASSWORD: postgres\nJWT_SECRET: graduate_network_secret_key_2026_jeonju_tech\nJWT_EXPIRE: 7d\nCORS_ORIGIN: "*"')
-
-    add_note(doc, '운영 환경에서는 JWT_SECRET을 충분히 복잡한 임의 값으로 변경하고, DB_PASSWORD도 강력한 값으로 변경하세요.', 'warning')
-
+    # ── 9장 ──
+    h1(doc, '9장. 배포 (Docker / AWS)')
+    h2(doc, '9.1 서비스 구성')
+    add_table(doc, ['서비스', '컨테이너', '포트(호스트:컨테이너)', '비고'], [
+        ['postgres', 'graduate-network-db', '5432:5432', 'postgres_data 볼륨, 최초 schema+seed+010'],
+        ['backend', 'graduate-network-backend', '5000:5000', '기동 시 마이그레이션, backend_uploads 볼륨, ./database 마운트'],
+        ['frontend', 'graduate-network-frontend', '${FRONTEND_PORT:-8090}:80', 'Nginx, 소스·nginx.conf 바인드 마운트'],
+    ])
+    h2(doc, '9.2 EC2 최초 배포')
+    code_block(doc, 'git clone https://github.com/jsyang9455/graduate-network-v2.git jjobb_v2\ncd jjobb_v2\ncp .env.example .env     # JWT_SECRET, DB_PASSWORD 설정 (커밋 금지)\n./scripts/aws-up.sh      # 빌드·기동·헬스체크 (비운영은 테스트 계정 자동 로드)\n# 운영: DEPLOY_ENV=production 또는 --no-test-accounts')
+    h2(doc, '9.3 코드 변경 후 재배포')
+    code_block(doc, 'cd jjobb_v2\ngit pull origin main\n./scripts/aws-up.sh\n# 또는\ndocker compose up -d --build\ndocker compose ps\ncurl -s http://127.0.0.1:8090/api/health')
+    add_bullets(doc, [
+        'HTML/CSS/JS: 소스가 바인드 마운트되어 git pull 즉시 반영 (브라우저 강력 새로고침)',
+        'nginx.conf 변경: docker compose restart frontend',
+        '백엔드 변경: docker compose up -d --build backend (마이그레이션 자동 적용)',
+        '로그: docker compose logs -f backend',
+    ])
+    add_note(doc, 'docker compose down -v 는 DB 볼륨까지 삭제합니다. 운영에서 사용 금지.', 'danger')
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 10장. Nginx 설정                 ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '10장. Nginx 설정')
-
-    h2(doc, '10.1 nginx.conf 핵심 설정')
-    code_block(doc, '# /api/ 요청 → 백엔드 프록시\nlocation /api/ {\n  proxy_pass http://backend:5000/api/;\n  proxy_set_header Host $host;\n  proxy_set_header X-Real-IP $remote_addr;\n}\n\n# SPA 폴백 없음 (다중 HTML 파일 구조)\nlocation / {\n  try_files $uri $uri/ =404;\n}\n\n# JS/CSS 캐시 비활성화\nlocation ~* \\.(js|css)$ {\n  expires -1;\n  add_header Cache-Control "no-store, no-cache";\n}\n\n# 이미지 1년 캐시\nlocation ~* \\.(jpg|jpeg|png|gif|ico)$ {\n  expires 1y;\n  add_header Cache-Control "public, immutable";\n}')
-
-    add_note(doc, 'Docker 내부 네트워크에서 backend는 컨테이너명(backend)으로 참조됩니다. proxy_pass에 localhost:5000 사용 불가.')
-
+    # ── 10장 ──
+    h1(doc, '10장. 환경 변수 · Nginx')
+    h2(doc, '10.1 환경 변수 (.env / backend/.env)')
+    add_table(doc, ['변수', '설명'], [
+        ['JWT_SECRET', '필수. 32자 이상 임의 문자열 (compose는 미설정 시 실패)'],
+        ['JWT_EXPIRE', '토큰 만료 (기본 7d)'],
+        ['DB_HOST / DB_PORT / DB_NAME / DB_USER / DB_PASSWORD', 'PostgreSQL 접속 (compose 내부 DB_HOST=postgres)'],
+        ['PORT', '백엔드 포트 (컨테이너 5000, 로컬 macOS 5050)'],
+        ['FRONTEND_PORT', 'Nginx 호스트 포트 (기본 8090)'],
+        ['STORAGE_DRIVER / STORAGE_LOCAL_DIR', 'local | s3, 로컬 저장 경로'],
+        ['S3_BUCKET / S3_ENDPOINT / AWS_*', 'S3 사용 시'],
+        ['DEPLOY_ENV / LOAD_TEST_ACCOUNTS', 'aws-up.sh 테스트 계정 로드 제어'],
+        ['워크넷·알림톡 키', '미설정 시 NOT_CONFIGURED 응답 (가짜 성공 금지)'],
+    ])
+    add_note(doc, '.env 파일은 커밋하지 않습니다. 예시는 .env.example, backend/.env.example.', 'warning')
+    h2(doc, '10.2 nginx.conf')
+    add_bullets(doc, [
+        'location /api/ → proxy_pass http://backend:5000/api/ (컨테이너 서비스명 사용)',
+        '정적 파일 try_files, 민감 경로(.env, .git, backend 등) 접근 차단',
+        'JS/CSS 캐시 비활성화로 배포 즉시 반영',
+    ])
     add_page_break(doc)
 
-    # ╔═══════════════════════════════════╗
-    # ║ 부록. 마이그레이션/트러블슈팅    ║
-    # ╚═══════════════════════════════════╝
-    h1(doc, '부록. 마이그레이션 및 트러블슈팅')
-
-    h2(doc, 'A. 안전한 마이그레이션 패턴')
-    code_block(doc, '-- 새 테이블 추가 (안전)\nCREATE TABLE IF NOT EXISTS new_table (...);\n\n-- 컬럼 추가 (안전)\nDO $$ BEGIN\n  IF NOT EXISTS (\n    SELECT 1 FROM information_schema.columns\n    WHERE table_name=\'table\' AND column_name=\'col\'\n  ) THEN\n    ALTER TABLE table ADD COLUMN col VARCHAR(100);\n  END IF;\nEND $$;\n\n-- 절대 사용 금지 (데이터 손실)\nDROP TABLE table;\nDROP COLUMN col;')
-
-    h2(doc, 'B. 자주 발생하는 개발 오류')
-
-    issues = [
-        ('HTML 변경이 운영 서버에 반영 안 됨',
-         ['git pull 만으로는 부족합니다.',
-          'docker-compose build --no-cache frontend 실행',
-          'docker-compose up -d frontend 실행']),
-        ('CORS 오류 (Access-Control-Allow-Origin)',
-         ['HTML 파일에서 localhost:5001 하드코딩 확인',
-          'api.js의 API_BASE_URL 변수를 반드시 사용할 것',
-          'docker-compose.yml의 CORS_ORIGIN 값 확인']),
-        ('401 Unauthorized',
-         ['JWT 토큰 만료 여부 확인 (기본 7일)',
-          'localStorage의 token 값 확인 (개발자도구 → Application)',
-          'JWT_SECRET이 .env와 docker-compose.yml에서 일치하는지 확인']),
-        ('DB 컬럼 누락 오류 (column does not exist)',
-         ['AWS DB에 마이그레이션 SQL이 실행되지 않은 상태',
-          'docker-compose exec postgres psql 로 수동 ALTER TABLE 실행',
-          '로컬 DB와 AWS DB 스키마 불일치 점검']),
-        ('Docker 빌드 후에도 구버전 파일',
-         ['docker system prune 으로 캐시 제거',
-          'docker-compose build --no-cache 옵션 확인']),
-    ]
-    for title_text, steps in issues:
+    # ── 부록 ──
+    h1(doc, '부록')
+    h2(doc, 'A. 트러블슈팅')
+    for title_text, steps in [
+        ('로컬에서 API 연결 실패 (macOS)', ['AirPlay 수신기가 5000 포트 점유 → PORT=5050',
+                                       'localStorage.jjobb_api_base = "http://localhost:5050/api"']),
+        ('compose 기동 실패: Set JWT_SECRET', ['저장소 루트 .env에 JWT_SECRET 설정']),
+        ('nginx 502 /api/*', ['backend 컨테이너 상태·로그 확인 (마이그레이션 실패 여부)',
+                             './database 마운트 확인']),
+        ('column does not exist', ['npm run migrate 또는 백엔드 재기동으로 마이그레이션 적용']),
+        ('403 FORBIDDEN / COMPANY_NOT_APPROVED', ['권한 매트릭스와 사용자 역할 확인', '기업은 승인 상태 확인']),
+        ('화면이 예전 버전', ['강력 새로고침 (Ctrl+Shift+R / Cmd+Shift+R)']),
+    ]:
         p = doc.add_paragraph()
-        p.add_run(f'■ {title_text}').font.bold = True
-        p.runs[0].font.size = Pt(11)
+        r = p.add_run(f'■ {title_text}')
+        r.font.bold = True
+        r.font.size = Pt(11)
         add_bullets(doc, steps)
-        doc.add_paragraph()
 
-    h2(doc, 'C. 유용한 진단 명령어')
-    code_block(doc, '# 서버 상태 확인\ncurl http://localhost:5001/api/health\n\n# DB 직접 접속 (로컬)\nexport PATH="/Applications/Postgres.app/Contents/Versions/latest/bin:$PATH"\npsql -U <user> -d graduate_network\n\n# 테이블 목록\n\\dt\n\n# 컬럼 확인\n\\d users\n\n# 사용자 확인\nSELECT id, email, user_type, is_active FROM users LIMIT 10;\n\n# Docker 로그\ndocker-compose logs -f --tail=100 backend\n\n# 컨테이너 상태\ndocker-compose ps')
+    h2(doc, 'B. 테스트 계정 (로컬 · 테스트 서버)')
+    add_table(doc, ['역할', '이메일', '비밀번호'], [
+        ['학생', 'student@jjob.com', 'password123'],
+        ['졸업생', 'graduate@jjob.com', 'password123'],
+        ['교사', 'teacher@jjob.com', 'password123'],
+        ['기업', 'company@jjob.com', 'password123'],
+        ['관리자', 'admin@jjob.com', 'password123'],
+    ], size=10)
+    add_note(doc, 'scripts/load-test-accounts.sh 로 생성됩니다. 운영 서버에는 로드하지 마세요.', 'warning')
 
-    h2(doc, 'D. 테스트 계정 (로컬 개발)')
-    tbl2 = doc.add_table(rows=4, cols=3)
-    tbl2.style = 'Light Shading Accent 1'
-    for ci, h in enumerate(['역할', '이메일', '비밀번호']):
-        tbl2.cell(0, ci).text = h
-        tbl2.cell(0, ci).paragraphs[0].runs[0].font.bold = True
-    test_accounts = [
-        ('관리자 (admin)',  'admin@jeonjutech.edu',   'manual123'),
-        ('교사 (teacher)', 'teacher.kim@example.com', 'manual123'),
-        ('학생 (student)', 'jung.yuna@example.com',  'manual123'),
-    ]
-    for ri, (role, email, pw) in enumerate(test_accounts, 1):
-        for ci, val in enumerate([role, email, pw]):
-            tbl2.cell(ri, ci).text = val
-            tbl2.cell(ri, ci).paragraphs[0].runs[0].font.size = Pt(10)
+    h2(doc, 'C. 개발 규칙 (AGENTS.md 요약)')
+    add_bullets(doc, [
+        '작업 전 docs/STATUS.md와 docs/00-vision-and-scope.md 확인, OUT-of-scope 구현 금지',
+        '한 세션 = 한 역할 (Frontend / Backend / API / QA ...)',
+        '모든 업무 API는 school_id 범위 + 메뉴 권한',
+        'API 계약 변경 시 docs/04-api-design.md, openapi.yaml 동시 갱신',
+        '완료 시 REQ-xxx 인용, 관련 docs 갱신, STATUS % 갱신',
+    ])
+
     doc.add_paragraph()
-
-    add_note(doc, '위 계정들은 로컬 개발/테스트 전용입니다. 운영 서버(jjobb.kr)에서는 실제 비밀번호로 변경하세요.', 'warning')
-
-    # 하단
-    doc.add_paragraph()
-    footer = doc.add_paragraph('전북지역 졸업생 네트워크 플랫폼  |  개발자 매뉴얼 v2.0  |  2026년 2월 26일')
+    footer = doc.add_paragraph(f'JJOBB 전북 직업계고 졸업생 취업 네트워크  |  개발자 매뉴얼 {VERSION}  |  {DATE}')
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer.runs[0].font.color.rgb = GRAY
     footer.runs[0].font.size = Pt(9)

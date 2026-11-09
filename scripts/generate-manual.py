@@ -1,109 +1,35 @@
 """
-전북지역 졸업생 네트워크 - 사용자 매뉴얼 DOCX 생성
+JJOBB 전북 직업계고 졸업생 취업 네트워크 - 사용자 매뉴얼 DOCX 생성 (v2)
 실행: python3 scripts/generate-manual.py
-전제조건: manual-screenshots/ 폴더에 스크린샷이 있어야 함
+전제조건: node scripts/capture-screenshots.js 로 manual-screenshots/ 생성
 """
 
-import json
 import os
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.style import WD_STYLE_TYPE
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCREENSHOT_DIR = os.path.join(BASE_DIR, 'manual-screenshots')
 OUTPUT_FILE = os.path.join(BASE_DIR, '전북지역_졸업생네트워크_사용자매뉴얼.docx')
 
-BRAND_BLUE  = RGBColor(0x1e, 0x40, 0xaf)   # #1e40af
-BRAND_LIGHT = RGBColor(0xdb, 0xe9, 0xfe)   # #dbe9fe
-GRAY        = RGBColor(0x6b, 0x72, 0x80)   # #6b7280
-WHITE       = RGBColor(0xFF, 0xFF, 0xFF)
+VERSION = 'v2.1'
+DATE = '2026년 11월 9일'
 
-
-def add_page_break(doc):
-    doc.add_page_break()
-
-
-def set_heading_style(paragraph, level, text, color=None):
-    """제목 스타일 적용"""
-    run = paragraph.runs[0] if paragraph.runs else paragraph.add_run(text)
-    run.font.bold = True
-    if color:
-        run.font.color.rgb = color
-    if level == 0:
-        run.font.size = Pt(22)
-    elif level == 1:
-        run.font.size = Pt(16)
-    elif level == 2:
-        run.font.size = Pt(13)
-    paragraph.paragraph_format.space_before = Pt(12)
-    paragraph.paragraph_format.space_after = Pt(6)
-
-
-def add_screenshot(doc, img_path, caption, width=Inches(5.5)):
-    """스크린샷 이미지 + 캡션 삽입"""
-    if img_path and os.path.exists(img_path):
-        try:
-            para = doc.add_paragraph()
-            para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = para.add_run()
-            run.add_picture(img_path, width=width)
-        except Exception as e:
-            p = doc.add_paragraph(f'[이미지 로드 실패: {e}]')
-            p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    else:
-        p = doc.add_paragraph(f'[스크린샷 없음: {os.path.basename(img_path) if img_path else ""}]')
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.runs[0].font.color.rgb = GRAY
-
-    cap = doc.add_paragraph(caption)
-    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    cap.runs[0].font.size = Pt(9)
-    cap.runs[0].font.italic = True
-    cap.runs[0].font.color.rgb = GRAY
-    doc.add_paragraph()  # 여백
-
-
-def add_info_box(doc, text, bg_type='info'):
-    """안내 박스 텍스트 삽입"""
-    prefix = '💡 ' if bg_type == 'info' else '⚠️ '
-    p = doc.add_paragraph()
-    run = p.add_run(f'{prefix}{text}')
-    run.font.size = Pt(10)
-    run.font.color.rgb = RGBColor(0x1e, 0x56, 0xa0) if bg_type == 'info' else RGBColor(0x92, 0x40, 0x0e)
-    p.paragraph_format.left_indent = Cm(1)
-    p.paragraph_format.space_before = Pt(4)
-    p.paragraph_format.space_after = Pt(4)
-
-
-def add_steps(doc, steps):
-    """순서 있는 단계 목록"""
-    for i, step in enumerate(steps, 1):
-        p = doc.add_paragraph(f'{i}. {step}', style='List Number')
-        p.paragraph_format.left_indent = Cm(0.5)
-        p.runs[0].font.size = Pt(10.5)
-
-
-def add_bullets(doc, items):
-    """글머리 기호 목록"""
-    for item in items:
-        p = doc.add_paragraph(item, style='List Bullet')
-        p.paragraph_format.left_indent = Cm(0.5)
-        p.runs[0].font.size = Pt(10.5)
+BRAND_NAVY = RGBColor(0x0f, 0x2b, 0x4c)
+BRAND_GREEN = RGBColor(0x00, 0x8a, 0x5a)
+DARK = RGBColor(0x1f, 0x29, 0x37)
+GRAY = RGBColor(0x6b, 0x72, 0x80)
 
 
 def img(name):
-    """스크린샷 파일 경로 반환"""
     path = os.path.join(SCREENSHOT_DIR, f'{name}.png')
     return path if os.path.exists(path) else None
 
 
 def h1(doc, text):
     p = doc.add_heading(text, level=1)
-    p.runs[0].font.color.rgb = BRAND_BLUE
+    p.runs[0].font.color.rgb = BRAND_NAVY
     p.runs[0].font.size = Pt(16)
     p.paragraph_format.space_before = Pt(16)
     return p
@@ -111,7 +37,7 @@ def h1(doc, text):
 
 def h2(doc, text):
     p = doc.add_heading(text, level=2)
-    p.runs[0].font.color.rgb = RGBColor(0x1f, 0x29, 0x37)
+    p.runs[0].font.color.rgb = DARK
     p.runs[0].font.size = Pt(13)
     p.paragraph_format.space_before = Pt(10)
     return p
@@ -123,369 +49,381 @@ def body(doc, text):
     return p
 
 
-# ──────────────────────────────────────────────────────────────────
-# 메인
-# ──────────────────────────────────────────────────────────────────
+def shot(doc, name, caption, width=Inches(5.8)):
+    path = img(name)
+    if path:
+        para = doc.add_paragraph()
+        para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        para.add_run().add_picture(path, width=width)
+    else:
+        p = doc.add_paragraph(f'[스크린샷 없음: {name}]')
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.runs[0].font.color.rgb = GRAY
+    cap = doc.add_paragraph(caption)
+    cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    cap.runs[0].font.size = Pt(9)
+    cap.runs[0].font.italic = True
+    cap.runs[0].font.color.rgb = GRAY
+
+
+def steps(doc, items):
+    for i, item in enumerate(items, 1):
+        p = doc.add_paragraph(f'{i}. {item}')
+        p.paragraph_format.left_indent = Cm(0.5)
+        p.paragraph_format.space_after = Pt(2)
+        p.runs[0].font.size = Pt(10.5)
+
+
+def bullets(doc, items):
+    for item in items:
+        p = doc.add_paragraph(item, style='List Bullet')
+        p.runs[0].font.size = Pt(10.5)
+
+
+def note(doc, text, warn=False):
+    p = doc.add_paragraph()
+    run = p.add_run(('⚠️ ' if warn else '💡 ') + text)
+    run.font.size = Pt(10)
+    run.font.color.rgb = RGBColor(0x92, 0x40, 0x0e) if warn else BRAND_NAVY
+    p.paragraph_format.left_indent = Cm(0.8)
+    p.paragraph_format.space_before = Pt(4)
+    p.paragraph_format.space_after = Pt(6)
+
+
+def table(doc, header, rows):
+    t = doc.add_table(rows=1, cols=len(header))
+    t.style = 'Light Grid Accent 1'
+    for i, h in enumerate(header):
+        cell = t.rows[0].cells[i]
+        cell.text = h
+        cell.paragraphs[0].runs[0].font.bold = True
+        cell.paragraphs[0].runs[0].font.size = Pt(10)
+    for row in rows:
+        cells = t.add_row().cells
+        for i, v in enumerate(row):
+            cells[i].text = v
+            cells[i].paragraphs[0].runs[0].font.size = Pt(10)
+    doc.add_paragraph()
+
 
 def build_manual():
     doc = Document()
-
-    # 페이지 여백 설정
     for section in doc.sections:
-        section.top_margin    = Cm(2.5)
-        section.bottom_margin = Cm(2.5)
-        section.left_margin   = Cm(3.0)
-        section.right_margin  = Cm(2.5)
+        section.top_margin = Cm(2.2)
+        section.bottom_margin = Cm(2.2)
+        section.left_margin = Cm(2.5)
+        section.right_margin = Cm(2.5)
 
-    # ── 표지 ─────────────────────────────────────────────────────
+    # ── 표지 ──
     doc.add_paragraph()
+    for text, size, color in [
+        ('JJOBB', 30, BRAND_NAVY),
+        ('전북 직업계고 졸업생 취업 네트워크', 18, BRAND_NAVY),
+        ('사 용 자 매 뉴 얼', 16, DARK),
+    ]:
+        p = doc.add_heading(text, level=0)
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        p.runs[0].font.size = Pt(size)
+        p.runs[0].font.color.rgb = color
     doc.add_paragraph()
+    shot(doc, '01_main', '메인 화면', width=Inches(5.2))
+    p = doc.add_paragraph(f'버전 {VERSION}  |  {DATE}')
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.runs[0].font.color.rgb = GRAY
+    doc.add_page_break()
 
-    title = doc.add_heading('전북지역', level=0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    title.runs[0].font.color.rgb = BRAND_BLUE
-    title.runs[0].font.size = Pt(24)
-
-    sub = doc.add_heading('졸업생 네트워크 플랫폼', level=0)
-    sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    sub.runs[0].font.color.rgb = BRAND_BLUE
-    sub.runs[0].font.size = Pt(22)
-
-    desc = doc.add_heading('사 용 자 매 뉴 얼', level=0)
-    desc.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    desc.runs[0].font.color.rgb = RGBColor(0x1f, 0x29, 0x37)
-    desc.runs[0].font.size = Pt(18)
-
-    doc.add_paragraph()
-    doc.add_paragraph()
-
-    add_screenshot(doc, img('01_main'), '메인 화면', width=Inches(4.5))
-
-    doc.add_paragraph()
-    ver_p = doc.add_paragraph('버전 v2.0  |  2026년 2월 26일  |  IT팀')
-    ver_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    ver_p.runs[0].font.color.rgb = GRAY
-    ver_p.runs[0].font.size = Pt(10)
-
-    add_page_break(doc)
-
-    # ── 목차 ─────────────────────────────────────────────────────
+    # ── 목차 ──
     h1(doc, '목   차')
-    toc_items = [
-        ('1장', '시작하기', '로그인 · 회원가입'),
-        ('2장', '학생 기능', '대시보드 · 채용정보 · 취업박람회 · 산업체견학 · 자격증지원 · 진로상담 · 동문네트워킹 · 프로필 · 경력관리'),
-        ('3장', '교사 기능', '대시보드 · 채용공고관리 · 지원자관리 · 진로상담관리'),
-        ('4장', '관리자 기능', '회원관리 · 채용공고관리 · 게시판관리 · 공지사항관리 · 코드관리'),
+    toc = [
+        ('1장', '시작하기', '서비스 소개 · 회원 유형 · 회원가입 · 로그인'),
+        ('2장', '학생 · 졸업생', '대시보드 · 채용 정보 · 이력서 · 프로필 · 진로 상담 · JJOBB 밴드 · 커뮤니티 · 박람회 · 견학 · 자격증'),
+        ('3장', '교사', '대시보드 · 상담 관리 · 상담일지 · 견학 운영 · 게시글 관리'),
+        ('4장', '기업', '가입 승인 · 공고 등록 · 지원자 관리 · 기업 정보'),
+        ('5장', '관리자', '회원 관리 · 기업 승인 · 권한 매트릭스 · 채용공고 · 게시판 · 코드 · 공지사항'),
+        ('부록', '모바일 · 개인정보 · 문제 해결', ''),
     ]
-    for num, title_text, detail in toc_items:
+    for num, title, detail in toc:
         p = doc.add_paragraph()
-        r1 = p.add_run(f'{num}  {title_text}')
-        r1.font.bold = True
-        r1.font.size = Pt(11)
-        r2 = p.add_run(f'\n      {detail}')
-        r2.font.size = Pt(9.5)
-        r2.font.color.rgb = GRAY
-        p.paragraph_format.space_after = Pt(6)
+        r = p.add_run(f'{num}  {title}')
+        r.font.bold = True
+        r.font.size = Pt(11)
+        if detail:
+            r2 = p.add_run(f'\n      {detail}')
+            r2.font.size = Pt(9.5)
+            r2.font.color.rgb = GRAY
+    doc.add_page_break()
 
-    add_page_break(doc)
-
-    # ╔═══════════════════════════════════════════╗
-    # ║   1장: 시작하기                           ║
-    # ╚═══════════════════════════════════════════╝
+    # ── 1장 ──
     h1(doc, '1장. 시작하기')
-
-    # 로그인
-    h2(doc, '1.1 로그인')
-    body(doc, '등록된 이메일과 비밀번호를 입력하여 서비스에 접속합니다.')
-    add_screenshot(doc, img('02_login'), '▲ 로그인 화면')
-    add_steps(doc, [
-        '웹 브라우저에서 jjobb.kr 접속',
-        '"로그인" 버튼 클릭',
-        '이메일 · 비밀번호 입력',
-        '"로그인" 버튼 클릭 → 대시보드 이동',
+    h2(doc, '1.1 서비스 소개')
+    body(doc, 'JJOBB는 전북 지역 직업계고 재학생·졸업생, 교사, 지역 기업을 잇는 취업 지원 플랫폼입니다. '
+              '여러 학교가 함께 사용하며, 모든 데이터는 소속 학교 단위로 분리되어 다른 학교 사용자에게 보이지 않습니다.')
+    h2(doc, '1.2 회원 유형')
+    table(doc, ['유형', '주요 기능'], [
+        ['재학생 · 졸업생', '채용 정보 조회·지원, 이력서 작성·PDF, 진로 상담, JJOBB 밴드, 커뮤니티, 견학·박람회 신청'],
+        ['교사', '상담 승인·답변, 상담일지(PDF/DOCX), 견학 운영, 게시글 신고 처리, 같은 학교 지원 현황 확인'],
+        ['기업', '관리자 승인 후 채용 공고 등록·수정, 지원자 이력서 확인, 지원 상태 변경'],
+        ['학교 관리자 · 시스템 관리자', '회원·기업 승인, 권한 매트릭스, 채용공고·게시판·코드·공지사항 관리'],
     ])
-    add_info_box(doc, 'Mac(macOS) 사용자 주의: 이메일 입력 시 첫 글자가 자동으로 대문자로 변환될 수 있습니다. 이메일은 반드시 소문자로 입력해주세요.', 'warning')
 
-    # 회원가입
-    h2(doc, '1.2 회원가입')
-    body(doc, '재학생·졸업생은 아래 절차로 계정을 생성합니다.')
-    add_screenshot(doc, img('03_register'), '▲ 회원가입 화면')
-    add_steps(doc, [
-        '메인 페이지에서 "회원가입" 버튼 클릭',
-        '이름, 이메일, 비밀번호(6자 이상), 전화번호, 학교, 사용자 유형, 졸업년도·전공 입력',
-        '"가입하기" 클릭 → 서버에 저장 후 로그인 페이지 이동',
+    h2(doc, '1.3 회원가입')
+    shot(doc, '03_register', '▲ 회원가입 화면')
+    steps(doc, [
+        '메인 화면 오른쪽 위 "회원가입" 클릭',
+        '회원 유형 선택: 재학생 / 졸업생 / 교사 / 기업',
+        '소속 학교 선택 (관리자가 등록한 학교 목록)',
+        '이름, 이메일, 비밀번호(8자 이상)와 비밀번호 확인 입력',
+        '재학생·졸업생은 졸업(예정)연도, 기업은 회사명 입력',
+        '"가입하기" 클릭 → 자동 로그인 후 대시보드로 이동',
     ])
-    add_info_box(doc, '가입 정보는 서버 DB에 저장되므로 어떤 기기에서도 동일 계정으로 로그인할 수 있습니다.')
+    note(doc, '기업 회원은 가입 직후 "승인 대기" 상태입니다. 관리자가 승인해야 공고 등록과 학생 정보 조회가 가능합니다.')
+    note(doc, '관리자 계정은 회원가입으로 만들 수 없습니다. 시스템 관리자가 지정합니다.', warn=True)
 
-    add_page_break(doc)
+    h2(doc, '1.4 로그인 · 로그아웃')
+    shot(doc, '02_login', '▲ 로그인 화면')
+    steps(doc, [
+        '"로그인" 클릭 → 이메일·비밀번호 입력 → "로그인"',
+        '회원 유형과 권한에 맞는 메뉴가 왼쪽에 표시됩니다',
+        '오른쪽 위 "로그아웃"으로 종료',
+    ])
+    note(doc, '로그인하지 않은 상태에서 대시보드 주소로 들어가면 로그인 화면으로 이동하고, 로그인 후 원래 화면으로 돌아갑니다.')
+    doc.add_page_break()
 
-    # ╔═══════════════════════════════════════════╗
-    # ║   2장: 학생 기능                          ║
-    # ╚═══════════════════════════════════════════╝
-    h1(doc, '2장. 학생 기능')
-
-    # 대시보드
+    # ── 2장 ──
+    h1(doc, '2장. 학생 · 졸업생')
     h2(doc, '2.1 대시보드')
-    body(doc, '로그인 후 첫 화면입니다. 신규 채용공고, 지원 현황, 최근 소식, 교육 프로그램을 한눈에 확인합니다.')
-    add_screenshot(doc, img('04_student_dashboard'), '▲ 학생 대시보드')
-
-    # 채용정보
-    h2(doc, '2.2 채용 정보')
-    body(doc, '기업별 채용공고를 검색하고 지원할 수 있습니다.')
-    add_screenshot(doc, img('05_student_jobs'), '▲ 채용 정보 목록')
-    add_steps(doc, [
-        '메뉴 → "채용 정보" 클릭',
-        '키워드·지역·고용형태·경력 필터로 공고 검색',
-        '원하는 공고 클릭 → 상세 정보 확인',
-        '"지원하기" 버튼 클릭 → 지원 완료',
+    shot(doc, '04_student_dashboard', '▲ 학생 대시보드')
+    bullets(doc, [
+        '신규 채용공고 · 지원 현황 · 네트워크 · 새 메시지 요약',
+        '알림: 지원 상태 변경, 상담 답변, 견학 승인 등 (한국 시간 표시)',
+        '추천 채용공고: 전공·희망 직무 기반 추천과 추천 사유',
+        '최근 소식 · 평생교육 프로그램',
     ])
 
-    # 취업박람회
-    h2(doc, '2.3 취업박람회')
-    body(doc, '지역 기업이 참여하는 취업박람회 정보를 확인하고 참가 신청을 합니다.')
-    add_screenshot(doc, img('06_student_jobfair'), '▲ 취업박람회 목록')
-    add_steps(doc, [
-        '메뉴 → "취업박람회" 클릭',
-        '박람회 카드에서 일정·장소·참가비 확인',
-        '"참가 신청" 버튼 클릭',
-        '이름·연락처·이메일·메시지 입력 후 "신청 확인"',
+    h2(doc, '2.2 채용 정보 · 지원')
+    shot(doc, '05_student_jobs', '▲ 채용 정보 목록')
+    steps(doc, [
+        '상단 메뉴 "채용 정보" 클릭 — 소속 학교에 공개된 공고만 표시',
+        '회사명·공고명 검색, 고용 형태(정규직/계약직/파트타임/인턴)·모집 상태 필터 후 "검색"',
+        '공고 제목 클릭 → 상세 정보(근무지, 급여, 마감일·D-day, 주요 업무)',
+        '"지원하기" → 첨부할 이력서 선택(대표 이력서 기본) → 지원 완료',
     ])
-    add_info_box(doc, '로그인 상태에서는 이름과 이메일이 자동으로 입력됩니다.')
-
-    # 산업체 견학
-    h2(doc, '2.4 산업체 견학')
-    body(doc, '지역 기업 현장 견학 프로그램을 신청합니다.')
-    add_screenshot(doc, img('07_student_industryvisit'), '▲ 산업체 견학 목록')
-    add_steps(doc, [
-        '메뉴 → "산업체 견학" 클릭',
-        '견학 기업 카드에서 모집인원·혜택 확인',
-        '"견학 신청" 버튼 클릭 후 정보 입력 → 신청 완료',
+    shot(doc, '06_student_job_detail', '▲ 채용 공고 상세')
+    body(doc, '지원 상태는 기업이 변경하며, 변경될 때마다 알림으로 안내됩니다.')
+    table(doc, ['상태', '의미'], [
+        ['대기', '지원 접수'], ['서류검토', '기업이 이력서 검토 중'], ['면접', '면접 진행 단계'],
+        ['합격 / 불합격', '최종 결과'],
     ])
+    note(doc, '같은 공고에는 한 번만 지원할 수 있습니다. 이력서가 없으면 지원 전에 이력서 작성 안내가 표시됩니다.')
 
-    # 자격증 지원
-    h2(doc, '2.5 자격증 지원')
-    body(doc, '자격증 취득 지원 프로그램(수강료 지원, 무료 강의 등)을 신청합니다.')
-    add_screenshot(doc, img('08_student_certification'), '▲ 자격증 지원 목록')
-    add_steps(doc, [
-        '메뉴 → "자격증 지원" 클릭',
-        '유형별 필터(기사/기능사/IT 등)로 검색',
-        '"지원 신청" 버튼 클릭 후 신청 정보 입력',
+    h2(doc, '2.3 이력서 · 경력 관리')
+    shot(doc, '07_student_career', '▲ 이력서·경력 관리')
+    steps(doc, [
+        '왼쪽 메뉴 "경력 관리" 클릭',
+        '"새 이력서" → 제목, 자기소개, 학력·경력·자격증·활동 항목 입력 → 저장',
+        '여러 이력서를 만들고 하나를 "대표 이력서"로 지정',
+        '"미리보기"로 확인 후 "PDF 다운로드" (한글 지원)',
     ])
+    note(doc, '이력서는 본인과, 지원한 공고의 기업·같은 학교 교사만 볼 수 있습니다.')
 
-    # 진로 상담
-    h2(doc, '2.6 진로 상담')
-    body(doc, '담당 교사에게 진로·취업 관련 상담을 신청하고 답변을 받습니다.')
-    add_screenshot(doc, img('09_student_counseling'), '▲ 진로 상담 신청')
-    add_steps(doc, [
-        '메뉴 → "진로 상담" 클릭',
-        '"상담 신청하기" 버튼 클릭',
-        '상담 유형 선택(진로/취업/학업/기타), 제목·내용 입력',
-        '"신청하기" 클릭',
-        '교사 승인 후 "승인됨" 상태에서 답변 확인',
+    h2(doc, '2.4 내 프로필')
+    shot(doc, '08_student_profile', '▲ 내 프로필')
+    steps(doc, ['왼쪽 메뉴 "내 프로필" → "수정"', '연락처, 전공, 희망 직무, 자기소개 등 수정 → "저장"'])
+    note(doc, '내 이메일·전화번호는 본인, 관리자, 같은 학교 교사에게만 보입니다. 다른 학생이나 기업에게는 표시되지 않습니다.')
+
+    h2(doc, '2.5 진로 상담')
+    shot(doc, '09_student_counseling', '▲ 진로 상담')
+    steps(doc, [
+        '상단 메뉴 "진로 상담" → "상담 신청" 탭',
+        '상담 유형, 상담교사(같은 학교 교사), 제목, 내용 입력 → 신청',
+        '"내 상담" 탭에서 진행 상태와 교사 답변 확인',
+        '필요하면 대기 중인 상담을 취소',
     ])
-    doc.add_paragraph('상담 상태 안내:')
-    add_bullets(doc, [
-        '🟡 대기중 – 교사 처리 전',
-        '🟢 승인됨 – 답변 작성 완료',
-        '🔴 거절됨 – 거절 사유 확인',
-    ])
+    note(doc, '상담 승인·완료 처리는 담당 교사만 할 수 있습니다. 담당 교사는 같은 학교 교사로만 변경할 수 있습니다.')
 
-    add_page_break(doc)
+    h2(doc, '2.6 JJOBB 밴드 (동문 네트워킹)')
+    shot(doc, '10_student_networking', '▲ JJOBB 밴드')
+    bullets(doc, ['같은 학교 졸업생을 이름·회사·직무로 검색', '선배에게 메시지 보내기 · 멘토링 연결'])
 
-    # 동문 네트워킹
-    h2(doc, '2.7 동문 네트워킹')
-    body(doc, '재학생·졸업생과 네트워크를 형성하고 메시지를 주고받습니다.')
-    add_screenshot(doc, img('10_student_networking'), '▲ 동문 네트워킹')
-    add_steps(doc, [
-        '메뉴 → "동문 네트워킹" 클릭',
-        '이름·졸업년도·회사·직무로 동문 검색',
-        '"네트워크 추가" 클릭 → 연결 요청',
-        '연결된 동문에게 "메시지 보내기" 가능',
+    h2(doc, '2.7 커뮤니티')
+    shot(doc, '11_student_community', '▲ 커뮤니티')
+    bullets(doc, [
+        '카테고리(취업 Q&A, 소식 등)와 태그로 글 작성·검색, 익명 작성 가능',
+        '댓글 · 좋아요 · 스크랩',
+        '부적절한 글은 사유와 함께 "신고" → 교사가 확인 후 블라인드 처리',
     ])
 
-    # 내 프로필
-    h2(doc, '2.8 내 프로필')
-    body(doc, '전화번호, 자기소개, 관심 분야, SNS 링크 등 프로필 정보를 수정합니다.')
-    add_screenshot(doc, img('11_student_profile'), '▲ 내 프로필')
-    add_steps(doc, [
-        '메뉴 → "내 프로필" → "프로필 수정"',
-        '원하는 항목 수정 후 "저장"',
+    h2(doc, '2.8 취업 박람회 · 산업체 견학 · 자격증 지원')
+    shot(doc, '13_student_industryvisit', '▲ 산업체 견학')
+    steps(doc, [
+        '왼쪽 메뉴 "공지사항" 아래 해당 메뉴 클릭',
+        '일정·장소·모집 인원·혜택 확인 후 "신청" → 이름·연락처 입력',
+        '견학은 선착순(즉시 확정) 또는 교사 승인 방식이며, 정원이 차면 신청이 마감됩니다',
     ])
+    shot(doc, '12_student_jobfair', '▲ 취업 박람회', width=Inches(4.8))
+    shot(doc, '14_student_certification', '▲ 자격증 지원', width=Inches(4.8))
+    doc.add_page_break()
 
-    # 경력 관리
-    h2(doc, '2.9 경력 관리')
-    body(doc, '경력·자격증·교육 이력·포트폴리오를 등록하여 채용 지원 시 자동으로 활용됩니다.')
-    add_screenshot(doc, img('12_student_career'), '▲ 경력 관리')
-    add_steps(doc, [
-        '메뉴 → "경력 관리" 클릭',
-        '탭 선택: 경력 / 자격증 / 교육 / 포트폴리오',
-        '"추가" 버튼 클릭 → 정보 입력 → "저장"',
-    ])
-
-    add_page_break(doc)
-
-    # ╔═══════════════════════════════════════════╗
-    # ║   3장: 교사 기능                          ║
-    # ╚═══════════════════════════════════════════╝
-    h1(doc, '3장. 교사 기능')
-    body(doc, '교사 계정으로 로그인하면 학생 상담 관리 및 채용공고 등록·관리 기능이 제공됩니다.')
-
-    # 교사 대시보드
+    # ── 3장 ──
+    h1(doc, '3장. 교사')
     h2(doc, '3.1 교사 대시보드')
-    add_screenshot(doc, img('13_teacher_dashboard'), '▲ 교사 대시보드')
-    add_bullets(doc, [
-        '내 채용공고 목록 확인',
-        '최근 지원자 목록 조회',
-        '대기 중인 상담 요청 확인',
-        '최근 소식 · 교육 프로그램 확인',
+    shot(doc, '15_teacher_dashboard', '▲ 교사 대시보드')
+    bullets(doc, ['상담 신청 내역과 대기 건수', '최근 상담일지', '최근 소식 · 교육 프로그램'])
+
+    h2(doc, '3.2 진로 상담 관리')
+    shot(doc, '16_teacher_counseling', '▲ 진로 상담 관리')
+    steps(doc, [
+        '"진로 상담" → 나에게 배정된 상담 목록 확인',
+        '상담 선택 → "승인" 또는 "거절", 답변(메모) 작성',
+        '상담 후 "완료" 처리',
     ])
 
-    # 채용공고 등록
-    h2(doc, '3.2 채용공고 등록 및 관리')
-    add_steps(doc, [
-        '대시보드 → "공고 등록" 클릭',
-        '회사명, 직무명, 근무지역, 급여, 고용형태, 경력/학력, 직무설명, 자격요건, 복리후생, 마감일 입력',
-        '"등록하기" 클릭',
-        '수정/삭제: 내 채용공고 목록에서 수정·삭제 버튼 사용',
+    h2(doc, '3.3 상담일지')
+    shot(doc, '17_teacher_journal', '▲ 상담일지')
+    steps(doc, [
+        '왼쪽 메뉴 "상담일지" → "새 일지"',
+        '학생, 상담일, 상담 유형(진학·취업 등), 제목, 내용, 후속 조치·후속 일정 입력',
+        '필요하면 "비공개" 지정 후 저장 — 후속 일정이 있으면 학생에게 알림이 생성됩니다',
+        '학생별 타임라인과 유형별 통계 확인',
+        '"PDF" 또는 "DOCX"로 출력',
     ])
-    add_info_box(doc, '채용공고를 삭제하면 해당 공고의 지원자 정보도 함께 삭제됩니다.', 'warning')
+    note(doc, '상담일지는 같은 학교 안에서만 조회되며, 다른 학교에서는 보이지 않습니다.')
 
-    # 진로 상담 관리
-    h2(doc, '3.3 진로 상담 관리')
-    add_screenshot(doc, img('14_teacher_counseling'), '▲ 교사 진로 상담 관리')
-    add_steps(doc, [
-        '메뉴 → "진로 상담" 클릭',
-        '대기 중인 상담 요청 선택',
-        '"승인" (답변 작성) 또는 "거절" (사유 작성) 선택',
-        '"저장" 클릭 → 학생에게 결과 전달',
+    h2(doc, '3.4 견학 운영 · 게시글 관리 · 지원 현황')
+    bullets(doc, [
+        '산업체 견학: 견학 등록(정원, 선착순/승인 방식, 마감일), 신청자 승인, 명단 확인',
+        '커뮤니티: 같은 학교 신고 목록 확인 → 블라인드 처리',
+        '채용: 같은 학교 공고의 지원자와 이력서 확인',
     ])
+    doc.add_page_break()
 
-    add_page_break(doc)
-
-    # ╔═══════════════════════════════════════════╗
-    # ║   4장: 관리자 기능                        ║
-    # ╚═══════════════════════════════════════════╝
-    h1(doc, '4장. 관리자 기능')
-    body(doc, '관리자 계정으로 로그인하면 시스템 전체 데이터를 관리하는 메뉴가 제공됩니다.')
-
-    # 관리자 대시보드
-    h2(doc, '4.1 관리자 대시보드')
-    add_screenshot(doc, img('15_admin_dashboard'), '▲ 관리자 대시보드')
-    add_bullets(doc, [
-        '전체 사용자 수 · 활성 채용공고 수 · 상담 건수 통계',
-        '최근 소식 및 교육 프로그램 현황',
+    # ── 4장 ──
+    h1(doc, '4장. 기업')
+    h2(doc, '4.1 가입과 승인')
+    steps(doc, [
+        '회원가입에서 "기업" 선택 → 소속(협약) 학교, 회사명 입력',
+        '가입 후 대시보드와 기업 정보 화면에 "승인 대기" 안내 표시',
+        '관리자가 승인하면 공고 등록·지원자 관리 기능이 열립니다',
     ])
+    note(doc, '승인 대기 중에는 공고를 등록할 수 없고, 학생 목록·연락처도 조회할 수 없습니다. 반려되면 반려 사유가 안내됩니다.', warn=True)
 
-    # 회원 관리
-    h2(doc, '4.2 회원 관리')
-    body(doc, '전체 회원 정보를 조회, 수정, 삭제합니다.')
-    add_screenshot(doc, img('16_admin_users'), '▲ 회원 관리')
-    add_steps(doc, [
-        '메뉴 → "회원 관리" 클릭',
-        '유형별 필터(전체/학생/졸업생/교사/기업/관리자) 및 이름·이메일 검색',
-        '"수정" 클릭 → 이름, 이메일, 전화번호, 유형, 학교, 졸업년도 수정 → "저장"',
-        '"삭제" 클릭 → 확인 → 해당 회원 완전 삭제',
-    ])
-    add_info_box(doc, '회원을 삭제하면 해당 회원의 모든 데이터(상담·지원 정보)가 함께 삭제됩니다.', 'warning')
+    h2(doc, '4.2 기업 대시보드')
+    shot(doc, '18_company_dashboard', '▲ 기업 대시보드')
+    bullets(doc, ['활성 채용공고 · 총 지원자 · 조회수 · 채용 완료 요약', '내 채용공고 목록(보기·수정)', '최근 지원자'])
 
-    # 채용공고 관리
-    h2(doc, '4.3 채용공고 관리')
-    body(doc, '전체 채용공고를 등록, 수정, 삭제, 만료 처리합니다.')
-    add_screenshot(doc, img('17_admin_jobs'), '▲ 채용공고 관리')
-    add_steps(doc, [
-        '메뉴 → "채용공고 관리" 클릭',
-        '상태별 필터: 전체 / 활성 / 마감 / 만료',
-        '"공고 등록" 버튼으로 신규 공고 등록',
-        '공고 선택 → "수정" 또는 "삭제"',
-        '마감일 지난 공고 → "만료" 처리 후 학생 목록에서 제외',
+    h2(doc, '4.3 채용 공고 등록 · 수정')
+    shot(doc, '19_company_job_create', '▲ 채용 공고 등록')
+    steps(doc, [
+        '왼쪽 메뉴 "공고 등록"',
+        '공고명, 고용 형태, 경력, 근무지, 급여, 채용 인원, 마감일, 주요 업무·자격 요건 입력 → 등록',
+        '대시보드 "내 채용공고"에서 "수정"으로 내용 변경',
     ])
 
-    # 게시판 관리
-    h2(doc, '4.4 게시판 관리 (최근 소식 · 교육 프로그램)')
-    body(doc, '대시보드에 표시되는 최근 소식과 평생교육 프로그램을 관리합니다.')
-    add_screenshot(doc, img('18_admin_board'), '▲ 게시판 관리')
-    add_steps(doc, [
-        '메뉴 → "게시판 관리" 클릭',
-        '"최근 소식" 탭: "소식 등록" → 제목·내용 입력 → "등록"',
-        '"평생교육프로그램" 탭: "프로그램 등록" → 프로그램명·설명·기간·수강료 입력 → "등록"',
-        '목록에서 "수정" / "삭제" 버튼으로 관리',
+    h2(doc, '4.4 지원자 관리')
+    steps(doc, [
+        '대시보드 "최근 지원자" 또는 공고 "보기" → 지원자 선택',
+        '첨부 이력서 확인·PDF 다운로드',
+        '상태 변경: 대기 → 서류검토 → (면접) → 합격. 불합격은 진행 중 어느 단계에서나 가능하며, 합격·불합격 후에는 변경할 수 없습니다',
+        '상태를 바꾸면 학생에게 알림이 전송됩니다',
     ])
 
-    add_page_break(doc)
+    h2(doc, '4.5 기업 정보')
+    shot(doc, '20_company_profile', '▲ 기업 정보')
+    body(doc, '회사명, 업종, 규모, 홈페이지, 주소, 소개를 입력하면 공고 상세에 표시됩니다.')
+    doc.add_page_break()
 
-    # 공지사항 관리
-    h2(doc, '4.5 공지사항 관리 (취업박람회 · 산업체견학 · 자격증지원)')
-    body(doc, '학생들이 조회·신청하는 취업박람회, 산업체 견학, 자격증 지원 정보를 등록·관리합니다.')
-    add_screenshot(doc, img('19_admin_announcements'), '▲ 공지사항 관리')
-    add_steps(doc, [
-        '메뉴 → "공지사항 관리" 클릭',
-        '"새 공지사항 등록" 클릭',
-        '유형 선택: 취업박람회 / 산업체견학 / 자격증지원',
-        '제목, 주최기관, 행사일, 장소, 마감일, 모집인원, 참가비, 혜택, 참가조건, 연락처 입력',
-        '(선택) 이미지 URL · 상세 URL 입력',
-        '"저장" 클릭 → 학생 페이지에 즉시 반영',
+    # ── 5장 ──
+    h1(doc, '5장. 관리자')
+    body(doc, '관리자 화면의 왼쪽 메뉴는 모든 관리자 화면에서 동일합니다: 대시보드 · 회원 관리 · 권한 매트릭스 · '
+              '채용공고 관리 · 게시판 관리 · 코드 관리 · 공지사항 관리. 학교 관리자는 소속 학교 데이터만 관리합니다.')
+    h2(doc, '5.1 관리자 대시보드')
+    shot(doc, '21_admin_dashboard', '▲ 관리자 대시보드')
+
+    h2(doc, '5.2 회원 관리')
+    shot(doc, '22_admin_users', '▲ 회원 관리')
+    steps(doc, [
+        '"활성 회원" 탭: 이름·이메일 검색, 회원 유형 필터',
+        '회원 선택 → 기본 정보, 상담교사 지정, 학력·직업 정보 수정 → 저장',
+        '"탈퇴 회원" 탭: 탈퇴 회원과 탈퇴 사유 조회 (관리자 전용)',
     ])
-    doc.add_paragraph('수정 / 삭제:')
-    add_steps(doc, [
-        '목록에서 "수정" 클릭 → 내용 변경 → "저장"',
-        '"삭제" 클릭 → 확인 → 신청 내역도 함께 삭제',
+
+    h2(doc, '5.3 기업 승인')
+    shot(doc, '23_admin_company_approval', '▲ 기업 승인')
+    steps(doc, [
+        '회원 관리 → "기업 승인" 탭 → 승인 상태(대기/승인/반려) 조회',
+        '"승인" 클릭 → 즉시 공고 등록 가능',
+        '"반려" 클릭 → 반려 사유 입력(필수)',
     ])
-    add_info_box(doc, '등록된 공지사항은 학생 메뉴(취업박람회/산업체견학/자격증지원 페이지)에 즉시 반영됩니다.')
-    add_info_box(doc, '공지사항을 삭제하면 해당 공지의 신청 내역도 함께 삭제됩니다.', 'warning')
+    note(doc, '승인·반려 이력은 감사 로그에 기록됩니다.')
 
-    # 코드 관리
-    h2(doc, '4.6 코드 관리 (학교 · 전공)')
-    body(doc, '회원가입 시 선택 항목으로 표시되는 학교, 전공 정보를 관리합니다.')
-    add_screenshot(doc, img('20_admin_codes'), '▲ 코드 관리')
-    add_steps(doc, [
-        '메뉴 → "코드 관리" 클릭',
-        '"학교 추가": 학교명 입력 → 저장 → 회원가입 선택 항목에 자동 추가',
-        '목록에서 "수정" / "삭제" 버튼으로 관리',
+    h2(doc, '5.4 권한 매트릭스')
+    shot(doc, '24_admin_permissions', '▲ 권한 매트릭스')
+    body(doc, '역할(학생·졸업생·교사·기업·학교 관리자 등)별로 메뉴의 조회·작성·관리 권한을 설정합니다. '
+              '설정한 권한은 화면 메뉴와 서버 API에 동시에 적용됩니다.')
+
+    h2(doc, '5.5 채용공고 관리')
+    shot(doc, '25_admin_jobs', '▲ 채용공고 관리')
+    bullets(doc, ['공고 검색·상태 필터(진행중/마감/만료)', '공고 등록·수정·만료·삭제', '공고별 지원자 목록'])
+
+    h2(doc, '5.6 게시판 관리')
+    shot(doc, '26_admin_board', '▲ 게시판 관리')
+    bullets(doc, ['최근 소식 등록·수정·삭제', '평생교육 프로그램 등록·수정·삭제'])
+
+    h2(doc, '5.7 코드 관리 (학교 · 학과)')
+    shot(doc, '27_admin_codes', '▲ 코드 관리')
+    steps(doc, [
+        '학교 추가: 학교 코드, 학교명, 지역, 주 담당자(학교 관리자) 지정',
+        '학교 로고 업로드 — 해당 학교 사용자의 헤더와 대시보드에 표시 (없으면 JJOBB 기본 로고)',
+        '학과(전공) 코드 관리',
     ])
-    add_info_box(doc, '해당 학교로 등록된 회원이 있는 경우 먼저 회원의 학교 정보를 변경해야 합니다.', 'warning')
+    note(doc, '소속 회원이 있는 학교는 삭제 대신 비활성화를 권장합니다.', warn=True)
 
-    add_page_break(doc)
+    h2(doc, '5.8 공지사항 관리 (취업 박람회 · 산업체 견학 · 자격증 지원)')
+    shot(doc, '28_admin_announcements', '▲ 공지사항 관리')
+    steps(doc, [
+        '"새 공지사항 등록" → 유형 선택(취업박람회/산업체견학/자격증지원)',
+        '제목, 주최, 일정, 장소, 마감일, 모집 인원, 혜택, 연락처 입력 → 저장',
+        '학생 화면에 즉시 반영, 목록에서 수정·삭제',
+    ])
+    doc.add_page_break()
 
-    # ── 문제 해결 ──────────────────────────────────────────────────
-    h1(doc, '부록. 문제 해결 및 문의')
+    # ── 부록 ──
+    h1(doc, '부록')
+    h2(doc, 'A. 모바일 사용')
+    shot(doc, '29_mobile_jobs', '▲ 모바일 화면 (375px)', width=Inches(2.6))
+    body(doc, '휴대폰에서는 오른쪽 위 메뉴 버튼(☰)으로 메뉴를 엽니다. Chrome, Safari, Edge를 지원합니다.')
 
-    h2(doc, 'A. 자주 발생하는 문제')
+    h2(doc, 'B. 개인정보와 데이터 보호')
+    bullets(doc, [
+        '모든 데이터는 학교별로 분리되어 다른 학교 사용자에게 보이지 않습니다',
+        '브라우저에는 로그인 토큰만 저장하며, 이력서·개인정보는 서버에만 보관합니다',
+        '공용 PC에서는 사용 후 반드시 로그아웃하세요',
+        '워크넷(고용24) 공고 연동과 알림톡·문자 발송은 학교 계정 준비 후 제공 예정이며, 현재는 사이트 내 알림으로 안내합니다',
+    ])
+
+    h2(doc, 'C. 문제 해결')
     problems = [
-        ('로그인이 안 될 때',
-         ['이메일·비밀번호를 정확히 입력했는지 확인',
-          'Mac: 이메일 첫 글자 자동 대문자 → 소문자로 직접 입력',
-          '브라우저 캐시 삭제 (Ctrl+Shift+R) 후 재시도',
-          '다른 브라우저(Chrome, Edge)로 시도']),
-        ('화면 데이터가 표시되지 않을 때',
-         ['페이지 새로고침 (F5 또는 Ctrl+R)',
-          '브라우저 강제 새로고침 (Ctrl+Shift+R)',
-          '인터넷 연결 상태 확인']),
-        ('회원가입 후 로그인이 안 될 때',
-         ['가입 완료 메시지 확인 (오류 메시지가 있었다면 재가입 필요)',
-          '가입 시 입력한 이메일·비밀번호로 로그인 시도',
-          '관리자에게 계정 확인 요청']),
+        ('로그인이 안 될 때', ['이메일·비밀번호 확인 (Mac은 이메일 첫 글자 자동 대문자에 주의)',
+                          '기업 회원은 승인 여부 확인', '관리자에게 계정 확인 요청']),
+        ('화면이 예전 모습이거나 메뉴가 이상할 때', ['강력 새로고침: Windows Ctrl+Shift+R, Mac Cmd+Shift+R',
+                                       '로그아웃 후 다시 로그인']),
+        ('메뉴가 보이지 않을 때', ['회원 유형·권한에 따라 메뉴가 다르게 표시됩니다',
+                           '필요한 권한은 학교 관리자에게 요청']),
+        ('"이미 지원한 공고" / "이미 가입된 이메일"', ['같은 공고 중복 지원, 같은 이메일 중복 가입은 할 수 없습니다']),
     ]
-    for title_text, steps in problems:
+    for title, items in problems:
         p = doc.add_paragraph()
-        p.add_run(f'■ {title_text}').font.bold = True
-        p.runs[0].font.size = Pt(11)
-        add_steps(doc, steps)
-        doc.add_paragraph()
-
-    h2(doc, 'B. 문의처')
-    add_bullets(doc, [
-        '이메일: admin@jjobb.kr',
-        '사이트: https://jjobb.kr',
-        '지원 시간: 평일 09:00 – 18:00',
-    ])
+        r = p.add_run(f'■ {title}')
+        r.font.bold = True
+        r.font.size = Pt(11)
+        steps(doc, items)
 
     doc.add_paragraph()
-    footer = doc.add_paragraph('전북지역 졸업생 네트워크 플랫폼  |  v2.0  |  2026년 2월 26일')
+    footer = doc.add_paragraph(f'JJOBB 전북 직업계고 졸업생 취업 네트워크  |  사용자 매뉴얼 {VERSION}  |  {DATE}')
     footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
     footer.runs[0].font.color.rgb = GRAY
     footer.runs[0].font.size = Pt(9)
 
-    # ── 저장 ──────────────────────────────────────────────────────
     doc.save(OUTPUT_FILE)
     print(f'✅ DOCX 저장 완료: {OUTPUT_FILE}')
 
