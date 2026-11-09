@@ -29,6 +29,17 @@ function formatLocalDate(value) {
   }).format(d);
 }
 
+function formatLocalDateTime(value) {
+  if (!value) return '';
+  const d = new Date(String(value));
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 16);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(d).map((p) => [p.type, p.value]));
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}
+
 // API Helper Functions
 const api = {
   baseURL: API_BASE_URL,

@@ -430,7 +430,7 @@ async function loadInAppNotifications() {
             <div class="news-item" ${n.link ? `style="cursor:pointer;" onclick="location.href='${n.link}'"` : ''}>
                 <h4>${n.title || '알림'}</h4>
                 <p>${n.message || ''}</p>
-                <span style="font-size:0.8rem;color:#6b7280;">${n.created_at ? String(n.created_at).substring(0, 16) : ''}${n.is_read ? '' : ' · 새 알림'}</span>
+                <span style="font-size:0.8rem;color:#6b7280;">${formatLocalDateTime(n.created_at)}${n.is_read ? '' : ' · 새 알림'}</span>
             </div>
         `).join('');
     } catch (e) {

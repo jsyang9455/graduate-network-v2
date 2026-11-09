@@ -167,7 +167,7 @@ D1–D13을 백엔드(`counseling.js`, `users.js`, `schools.js`, `auth.js`, `job
 
 재검증용 계정: `qa.verify.*.1794186606882@example.com` (비밀번호 `QaVerify123!`), 중단된 1차 재검증 `qa.verify+<역할>+1794185040236@example.com` (user 270–279).
 
-추가 확인: 프로필 희망 직무 저장 의심 건은 JS로 입력·저장해 `/auth/me`에 반영됨을 확인 — 결함 아님(브라우저 입력 도구 문제). 신규 관찰(낮음, 미수정): 대시보드 알림 시간이 UTC 원문으로 표시됨 → frontend 후속.
+추가 확인: 프로필 희망 직무 저장 의심 건은 JS로 입력·저장해 `/auth/me`에 반영됨을 확인 — 결함 아님(브라우저 입력 도구 문제). 신규 관찰(낮음): 대시보드 알림 시간이 UTC 원문으로 표시됨 → `js/api.js` `formatLocalDateTime()`(Asia/Seoul) 추가, `js/dashboard.js` 알림 목록 적용으로 수정 (UTC 00:11 → 09:11 표시 확인).
 
 ## 7. 핸드오프
 
