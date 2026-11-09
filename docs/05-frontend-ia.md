@@ -131,4 +131,5 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 - **D9 REQ-JOB-001:** 마감일·지원일·상담일 표시/폼 값을 `formatLocalDate()`로(`dashboard.js`, `jobs.js`, `admin-jobs.html`, `counseling-journal.js`, `counseling.js`).
 - **D10 REQ-JOB-006:** 기업 대시보드 총 지원자/조회수 `Number()` 합산.
 - **D11:** `auth.updateAuthUI()`가 `#userMenu` 유무와 관계없이 `#userName`을 채움 → 대시보드·채용 헤더에 사용자 이름(JWT로 즉시, `/me` 후 갱신).
+- **박람회·자격증 목록 + 전국 지역 (2026-11-09, REQ-IAM-003):** `job-fair.html`·`certification-support.html`이 토큰 없이 `/api/announcements/:type`을 호출해 서버가 비로그인으로 보고 `school_id IS NULL` 공지만 반환 → 관리자가 등록한(학교 지정) 공지가 안 보였음. 로그인 시 `Authorization` 헤더 전송으로 수정. 공용 `js/regions.js`(시/도 17 + 시/군/구 229, 온라인): `admin-announcements.html` 장소를 시/도·시/군/구·상세 장소로 입력(저장 형식 `"시/도 시/군/구 상세"`), `job-fair.html` 지역 필터를 시/도 → 시/군/구 2단계로 교체(기존 자유 입력 장소는 이름으로 추정 매칭). 수정 화면 날짜는 `formatLocalDate`로 채움(ISO 문자열이라 비던 문제).
 - **관리자 사이드바 통일 (REQ-IAM-008):** `admin-*.html` 6개 화면의 왼쪽 메뉴가 화면마다 달랐음(권한 매트릭스·공지사항 관리 누락, `data-menu` 없음). 모두 대시보드 `#adminMenuSection`과 같은 7개 항목·순서·`data-menu`/`data-menu-min`으로 통일 — 대시보드, 회원 관리, 권한 매트릭스, 채용공고 관리, 게시판 관리, 코드 관리, 공지사항 관리. 새 관리자 화면 추가 시 6개 파일의 메뉴를 함께 수정.

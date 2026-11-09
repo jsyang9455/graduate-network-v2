@@ -122,14 +122,11 @@
         </div>
 
         <div class="filter-section">
-            <select id="regionFilter">
+            <select id="regionFilter" aria-label="시/도">
                 <option value="">전체 지역</option>
-                <option value="전주">전주</option>
-                <option value="서울">서울</option>
-                <option value="경기">경기</option>
-                <option value="부산">부산</option>
-                <option value="대전">대전</option>
-                <option value="온라인">온라인</option>
+            </select>
+            <select id="districtFilter" aria-label="시/군/구" disabled>
+                <option value="">전체 시/군/구</option>
             </select>
             
             <select id="statusFilter">
@@ -213,6 +210,7 @@
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/nav.js"></script>
+    <script src="js/regions.js"></script>
     <script>
         let announcements = [];
 
@@ -232,7 +230,10 @@
             const countEl = document.getElementById('announcementCount');
             if (countEl) countEl.textContent = '로딩 중...';
             try {
-                const res = await fetch(API_BASE + '/announcements/job-fair');
+                const token = api.getToken();
+                const res = await fetch(API_BASE + '/announcements/job-fair', {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
                 if (!res.ok) throw new Error('서버 응답 오류: ' + res.status);
                 const data = await res.json();
                 announcements = data.announcements || [];
@@ -359,10 +360,17 @@
         // 필터 설정
         function setupFilters() {
             const regionFilter = document.getElementById('regionFilter');
+            const districtFilter = document.getElementById('districtFilter');
             const statusFilter = document.getElementById('statusFilter');
             const searchInput = document.getElementById('searchInput');
 
-            [regionFilter, statusFilter, searchInput].forEach(el => {
+            fillRegionSelect(regionFilter, { placeholder: '전체 지역' });
+            fillDistrictSelect(districtFilter, '', { placeholder: '전체 시/군/구' });
+            regionFilter.addEventListener('change', () => {
+                fillDistrictSelect(districtFilter, regionFilter.value, { placeholder: '전체 시/군/구' });
+            });
+
+            [regionFilter, districtFilter, statusFilter, searchInput].forEach(el => {
                 el.addEventListener('change', applyFilters);
                 el.addEventListener('input', applyFilters);
             });
@@ -370,17 +378,15 @@
 
         // 필터 적용
         function applyFilters() {
-            const region = document.getElementById('regionFilter').value.toLowerCase();
+            const region = document.getElementById('regionFilter').value;
+            const district = document.getElementById('districtFilter').value;
             const status = document.getElementById('statusFilter').value;
             const search = document.getElementById('searchInput').value.toLowerCase();
 
             let filtered = announcements;
 
-            // 지역 필터
             if (region) {
-                filtered = filtered.filter(item => 
-                    item.location && item.location.toLowerCase().includes(region)
-                );
+                filtered = filtered.filter(item => locationMatchesRegion(item.location, region, district));
             }
 
             // 상태 필터

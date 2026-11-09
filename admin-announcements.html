@@ -378,8 +378,19 @@
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>장소</label>
-                        <input type="text" id="location">
+                        <label for="locationRegion">지역 (시/도)</label>
+                        <select id="locationRegion"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="locationDistrict">시/군/구</label>
+                        <select id="locationDistrict" disabled></select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="location">상세 장소</label>
+                        <input type="text" id="location" placeholder="예: 전북대학교 삼성문화회관">
                     </div>
                     <div class="form-group">
                         <label>신청마감일</label>
@@ -472,6 +483,7 @@
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/nav.js"></script>
+    <script src="js/regions.js"></script>
     <script>
         let currentType = 'job-fair';
         let announcements = [];
@@ -486,7 +498,25 @@
             checkAdminAuth();
             loadAnnouncements();
             setupArrayInputs();
+            setupRegionInputs();
         });
+
+        function setupRegionInputs() {
+            const regionSelect = document.getElementById('locationRegion');
+            fillRegionSelect(regionSelect);
+            fillDistrictSelect(document.getElementById('locationDistrict'), '');
+            regionSelect.addEventListener('change', () => {
+                fillDistrictSelect(document.getElementById('locationDistrict'), regionSelect.value);
+            });
+        }
+
+        function setLocationInputs(location) {
+            const { region, district, detail } = splitLocation(location);
+            document.getElementById('locationRegion').value = region;
+            fillDistrictSelect(document.getElementById('locationDistrict'), region);
+            document.getElementById('locationDistrict').value = district;
+            document.getElementById('location').value = detail;
+        }
 
         function checkAdminAuth() {
             const user = auth.getCurrentUser();
@@ -576,6 +606,7 @@
             editingId = null;
             document.getElementById('modalTitle').textContent = '공지사항 등록';
             document.getElementById('announcementForm').reset();
+            setLocationInputs('');
             document.getElementById('announcementType').value = currentType;
             benefits = [];
             requirements = [];
@@ -595,10 +626,10 @@
             document.getElementById('title').value = item.title || '';
             document.getElementById('organizer').value = item.organizer || '';
             document.getElementById('description').value = item.description || '';
-            document.getElementById('event_date').value = item.event_date || '';
+            document.getElementById('event_date').value = formatLocalDate(item.event_date);
             document.getElementById('event_time').value = item.event_time || '';
-            document.getElementById('location').value = item.location || '';
-            document.getElementById('deadline').value = item.deadline || '';
+            setLocationInputs(item.location);
+            document.getElementById('deadline').value = formatLocalDate(item.deadline);
             document.getElementById('capacity').value = item.capacity || '';
             document.getElementById('current_applicants').value = item.current_applicants || 0;
             document.getElementById('fee').value = item.fee || '';
@@ -701,7 +732,11 @@
                 description: document.getElementById('description').value,
                 event_date: document.getElementById('event_date').value || null,
                 event_time: document.getElementById('event_time').value,
-                location: document.getElementById('location').value,
+                location: joinLocation(
+                    document.getElementById('locationRegion').value,
+                    document.getElementById('locationDistrict').value,
+                    document.getElementById('location').value
+                ),
                 deadline: document.getElementById('deadline').value || null,
                 capacity: parseInt(document.getElementById('capacity').value) || null,
                 current_applicants: parseInt(document.getElementById('current_applicants').value) || 0,

@@ -234,7 +234,10 @@
 
         async function loadAnnouncements() {
             try {
-                const res = await fetch(API_BASE + '/announcements/certification');
+                const token = api.getToken();
+                const res = await fetch(API_BASE + '/announcements/certification', {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                });
                 if (!res.ok) throw new Error('서버 오류: ' + res.status);
                 const response = await res.json();
                 announcements = response.announcements || [];
