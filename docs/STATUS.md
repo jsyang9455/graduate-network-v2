@@ -17,6 +17,7 @@
 - **로고 워드마크 (2026-10-28):** 헤더 로고를 아이콘 없는 네이버식 그린 워드마크 `images/logo-wordmark.svg`(SVG path, 폰트 비의존)로 교체 — 20개 HTML + `js/nav.js` + `js/school-brand.js` 기본값. 환영 배너(다크)에서는 흰색 처리. 브라우저 검증: index, student dashboard. 이후 로고 축소(SVG 여백 제거, 헤더 20px) + 네이버 N식 단독 심볼 `images/logo-symbol.svg`를 28개 페이지 파비콘으로 적용
 - **로고 전문직 톤 리디자인 (2026-10-29):** "유아틱하다" 피드백 반영 — 둥근 그라데이션 소문자 로고(시안 1·2·4 테스트) 대신 네이비 심볼(흰 J + 그린 포인트) + 대문자 JJOBB 워드마크 `images/logo-jjobb.svg`를 전 페이지·`js/nav.js`·`js/school-brand.js`에 적용. 메인은 HTML 슬로건 "전북 직업계고 졸업생 취업 네트워크"(모바일 숨김). 파비콘 `logo-symbol.svg`도 같은 심볼로 교체. 브라우저 검증: index, student dashboard
 - **종합 테스트 (2026-11-09, QA):** 계정 생성부터 전 흐름 — 자동 101/101, API 시나리오 214/226 (실패 8, SKIP 4), 브라우저 24/36 (실패 11, SKIP 1). 핵심 흐름·학교 간 격리 정상. 높음 2건(상담 담당자 타교 변경, 승인 대기 기업 학생 PII 열람) 포함 D1–D13 **같은 날 수정·재검증 완료** — `npm test` 114/114, API 재검증 64/64, 브라우저 D5–D11 통과. 보고서: [docs/qa/comprehensive-test-report-2026-11-09.md](qa/comprehensive-test-report-2026-11-09.md)
+- **관리자 사이드바 통일 (2026-11-09, REQ-IAM-008):** `admin-*.html` 6개 화면 왼쪽 메뉴를 같은 7개 항목으로 통일(화면마다 권한 매트릭스·공지사항 관리 누락). 브라우저 검증: admin 계정으로 6개 화면 모두 동일 메뉴·현재 화면만 강조
 - **브랜드 표기 JJOB → JJOBB (2026-10-28):** 표시 이름 오타 수정 — `021_v2_brand_name_jjobb.sql`(users.name `JJOBB채용담당`/`JJOBB관리자`, company_name `JJOBB채용`, 교육 강사명), 시드 `database/test-accounts.sql`·`create-test-accounts.sql`·`database/demo-seed.sql`, `TEST-ACCOUNTS.md`. 로그인 이메일 `@jjob.com`은 유지. 적용된 `018`은 이력 보존 위해 미수정(021이 덮어씀). 로컬 migrate 적용, `npm test` 101/101, 대시보드 추천 공고 표기 확인
 
 ```

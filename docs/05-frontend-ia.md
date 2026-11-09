@@ -131,3 +131,4 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 - **D9 REQ-JOB-001:** 마감일·지원일·상담일 표시/폼 값을 `formatLocalDate()`로(`dashboard.js`, `jobs.js`, `admin-jobs.html`, `counseling-journal.js`, `counseling.js`).
 - **D10 REQ-JOB-006:** 기업 대시보드 총 지원자/조회수 `Number()` 합산.
 - **D11:** `auth.updateAuthUI()`가 `#userMenu` 유무와 관계없이 `#userName`을 채움 → 대시보드·채용 헤더에 사용자 이름(JWT로 즉시, `/me` 후 갱신).
+- **관리자 사이드바 통일 (REQ-IAM-008):** `admin-*.html` 6개 화면의 왼쪽 메뉴가 화면마다 달랐음(권한 매트릭스·공지사항 관리 누락, `data-menu` 없음). 모두 대시보드 `#adminMenuSection`과 같은 7개 항목·순서·`data-menu`/`data-menu-min`으로 통일 — 대시보드, 회원 관리, 권한 매트릭스, 채용공고 관리, 게시판 관리, 코드 관리, 공지사항 관리. 새 관리자 화면 추가 시 6개 파일의 메뉴를 함께 수정.
