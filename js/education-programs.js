@@ -3,9 +3,9 @@ let currentUser = null;
 let programs = [];
 let editingProgramId = null;
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     auth.requireAuth();
-    currentUser = auth.getCurrentUser();
+    currentUser = await auth.whenUserLoaded();
 
     if (currentUser) {
         document.getElementById('userName').textContent = currentUser.name;

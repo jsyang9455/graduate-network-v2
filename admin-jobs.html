@@ -288,7 +288,7 @@
                 const statusText = { 'active': '진행중', 'closed': '마감', 'expired': '만료' };
                 const statusClass = { 'active': 'success', 'closed': 'warning', 'expired': 'danger' };
                 const applicantCount = job.applications_count || job.applicants || 0;
-                const deadline = job.deadline ? job.deadline.substring(0, 10) : '상시채용';
+                const deadline = job.deadline ? formatLocalDate(job.deadline) : '상시채용';
                 const company = job.company_name || job.company || job.companyName || '-';
                 const title = job.title || job.position || job.jobTitle || '-';
 
@@ -442,7 +442,7 @@
             document.getElementById('jobLocation').value = job.location || '';
             document.getElementById('jobRecruitCount').value = job.headcount || job.recruitCount || '';
             document.getElementById('jobSalary').value = job.salary_range || job.salary || '';
-            document.getElementById('jobDeadline').value = job.deadline ? job.deadline.substring(0, 10) : '';
+            document.getElementById('jobDeadline').value = job.deadline ? formatLocalDate(job.deadline) : '';
             document.getElementById('jobStatus').value = job.status || 'active';
 
             document.getElementById('jobModal').style.display = 'flex';

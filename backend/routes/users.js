@@ -7,7 +7,36 @@ const { schoolScope, assertSameSchool, forbidCrossSchool } = require('../middlew
 const { isSystemAdmin, isStaffAdmin } = require('../lib/roles');
 const { sendError } = require('../lib/httpErrors');
 const { writeAudit, requestIp } = require('../modules/audit');
-const { APPROVAL_STATUSES } = require('../lib/companyApproval');
+const { APPROVAL_STATUSES, isCompanyActor, loadCompanyApproval } = require('../lib/companyApproval');
+
+/** REQ-JOB-007 / REQ-NFR-003: unapproved companies cannot browse member directory. */
+async function assertCompanyApprovedForDirectory(res, user) {
+  if (!isCompanyActor(user)) return true;
+  const profile = await loadCompanyApproval(user.id);
+  if (profile && profile.approval_status === 'approved') return true;
+  sendError(res, 403, 'COMPANY_NOT_APPROVED', '학교 승인 후 회원 정보를 조회할 수 있습니다.');
+  return false;
+}
+
+/**
+ * REQ-NFR-003: email/phone only for self, staff admins, and same-school teachers.
+ * Teacher email stays visible as a counseling contact (same as GET /api/counseling/teachers).
+ */
+function canSeeContact(req, target) {
+  if (Number(target.id) === Number(req.user.id)) return true;
+  if (isStaffAdmin(req.user)) return true;
+  if (req.user.user_type === 'teacher' && assertSameSchool(req, target.school_id)) return true;
+  return false;
+}
+
+function redactContact(req, target) {
+  if (canSeeContact(req, target)) return target;
+  return {
+    ...target,
+    email: target.user_type === 'teacher' ? target.email : null,
+    phone: null,
+  };
+}
 
 function canReadUser(req, target) {
   if (Number(target.id) === Number(req.user.id)) return true;
@@ -190,6 +219,8 @@ router.get('/:id', auth, schoolScope, async (req, res) => {
   try {
     const { id } = req.params;
 
+    if (Number(id) !== Number(req.user.id) && !(await assertCompanyApprovedForDirectory(res, req.user))) return;
+
     const colCheckResult = await query(
       `SELECT column_name FROM information_schema.columns 
        WHERE table_name = 'users' AND column_name IN ('major','desired_job','school_name','school_id','graduation_year','department_name')`
@@ -220,7 +251,7 @@ router.get('/:id', auth, schoolScope, async (req, res) => {
       return forbidCrossSchool(res);
     }
 
-    res.json({ user: result.rows[0] });
+    res.json({ user: redactContact(req, result.rows[0]) });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });
@@ -481,7 +512,12 @@ router.get('/', auth, schoolScope, async (req, res) => {
       limit = 20 
     } = req.query;
 
+    if (!(await assertCompanyApprovedForDirectory(res, req.user))) return;
+
     const showWithdrawn = include_withdrawn === 'true';
+    if (showWithdrawn && !isStaffAdmin(req.user)) {
+      return sendError(res, 403, 'FORBIDDEN', '탈퇴 회원 조회는 관리자만 가능합니다');
+    }
 
     // users 테이블에 실제 존재하는 컬럼만 SELECT (AWS DB가 구버전일 수 있음)
     const colCheckResult = await query(
@@ -628,7 +664,7 @@ router.get('/', auth, schoolScope, async (req, res) => {
     const totalCount = parseInt(countResult.rows[0].count);
 
     res.json({
-      users: result.rows,
+      users: result.rows.map((row) => redactContact(req, row)),
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),

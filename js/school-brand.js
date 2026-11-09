@@ -1,10 +1,10 @@
 /**
  * School-scoped branding for header / dashboard (REQ-IAM-009, REQ-PLT-004).
  * Prefer user.school from GET /api/auth/me; fall back to GET /api/schools/:id.
- * JWT only in localStorage — school payload may be cached on the user object after /me.
+ * JWT only in localStorage — school payload is kept on the in-memory auth.user after /me.
  */
 (function (global) {
-  const DEFAULT_LOGO = 'images/logo-wordmark.svg';
+  const DEFAULT_LOGO = 'images/logo-jjobb.svg';
 
   function resolveLogoUrl(school) {
     if (!school) return null;
@@ -134,9 +134,9 @@
         const res = await global.api.schools.get(u.school_id);
         const school = res.school;
         const merged = { ...u, school, school_name: school?.name || u.school_name };
-        try {
-          localStorage.setItem(global.auth?.storageKey || 'graduateNetwork_user', JSON.stringify(merged));
-        } catch (_) { /* ignore */ }
+        if (global.auth && global.auth.setUser && !u._partial) {
+          global.auth.setUser({ school, school_name: merged.school_name });
+        }
         applyFromUser(merged);
         return school;
       } catch (err) {
@@ -154,7 +154,7 @@
     try {
       const response = await global.api.auth.getCurrentUser();
       if (response.user) {
-        localStorage.setItem(global.auth.storageKey, JSON.stringify(response.user));
+        if (global.auth.setUser) global.auth.setUser(response.user);
         applyFromUser(response.user);
         return response.user;
       }
@@ -172,9 +172,11 @@
     DEFAULT_LOGO,
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     if (global.auth && global.auth.isLoggedIn()) {
-      const user = global.auth.getCurrentUser();
+      const user = global.auth.whenUserLoaded
+        ? await global.auth.whenUserLoaded()
+        : global.auth.getCurrentUser();
       if (user && (user.school || user.school_id || user.school_name)) {
         apply(user);
       }

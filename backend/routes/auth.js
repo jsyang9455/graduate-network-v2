@@ -174,7 +174,7 @@ router.post('/register', [
     if (existingUser.rows.length > 0) {
       const found = existingUser.rows[0];
       if (found.is_active) {
-        return res.status(400).json({ error: 'Email already registered', code: 'CONFLICT' });
+        return sendError(res, 409, 'CONFLICT', 'Email already registered');
       }
       const password_hash = await bcrypt.hash(password, 10);
 

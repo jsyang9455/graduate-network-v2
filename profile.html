@@ -13,7 +13,7 @@
     <header id="mainHeader">
         <nav>
             <div class="logo">
-                <img src="images/logo-wordmark.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="89" height="20">
+                <img src="images/logo-jjobb.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="126" height="32">
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.html">대시보드</a></li>
@@ -392,7 +392,7 @@
                 const response = await api.get('/auth/me');
                 if (response && response.user) {
                     currentUserData = response.user;
-                    localStorage.setItem('graduateNetwork_user', JSON.stringify(currentUserData));
+                    auth.setUser(currentUserData);
                     return currentUserData;
                 }
             } catch (e) {
@@ -483,7 +483,7 @@
             if (!user) return;
 
             await loadMajorsForEdit();
-            document.getElementById('editProfileModal').style.display = 'block';
+            document.getElementById('editProfileModal').style.display = 'flex';
 
             document.getElementById('editName').value = user.name || '';
             document.getElementById('editEmail').value = user.email || '';
@@ -521,7 +521,7 @@
         function openWithdrawModal() {
             document.getElementById('withdrawReason').value = '';
             document.getElementById('withdrawConfirmText').value = '';
-            document.getElementById('withdrawModal').style.display = 'block';
+            document.getElementById('withdrawModal').style.display = 'flex';
         }
 
         function closeWithdrawModal() {
@@ -578,7 +578,7 @@
                 const response = await api.put('/users/profile', updateData);
                 if (response && response.user) {
                     const updatedUser = Object.assign({}, user, response.user);
-                    localStorage.setItem('graduateNetwork_user', JSON.stringify(updatedUser));
+                    auth.setUser(updatedUser);
                     currentUserData = updatedUser;
                 }
 

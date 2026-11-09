@@ -1,7 +1,7 @@
 // Counseling page functionality
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Hide student-only menus for company users and redirect
-    const user = auth.getCurrentUser();
+    const user = await auth.whenUserLoaded();
     if (user && user.user_type === 'company') {
         alert('기업 계정은 진로 상담 서비스를 이용할 수 없습니다.');
         window.location.href = 'dashboard.html';
@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set minimum date to today
     const counselingDate = document.getElementById('counselingDate');
     if (counselingDate) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = formatLocalDate(new Date());
         counselingDate.min = today;
     }
     

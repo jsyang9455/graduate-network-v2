@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 158 40" role="img" aria-label="JJOBB">
+  <title>JJOBB</title>
+  <rect width="40" height="40" rx="9" fill="#0f2b4c"/>
+  <path d="M22 10.5V23.8a4.8 4.8 0 0 1-9.6 0" fill="none" stroke="#fff" stroke-width="5"/>
+  <rect x="27" y="8.5" width="5.5" height="5.5" rx="1" fill="#00a86b"/>
+  <g fill="none" stroke="#0f2b4c" stroke-width="5.6" transform="translate(52 0)">
+    <path d="M13.3 8V24.8a4.4 4.4 0 0 1-8.8 0"/>
+    <path d="M33.3 8V24.8a4.4 4.4 0 0 1-8.8 0"/>
+    <circle cx="51.6" cy="20" r="9.2"/>
+    <path d="M69.9 8V32M69.9 10.8H76.4a4.6 4.6 0 0 1 0 9.2H69.9M69.9 20H77.4a4.6 4.6 0 0 1 0 9.2H69.9"/>
+    <path d="M91.1 8V32M91.1 10.8H97.6a4.6 4.6 0 0 1 0 9.2H91.1M91.1 20H98.6a4.6 4.6 0 0 1 0 9.2H91.1"/>
+  </g>
+</svg>

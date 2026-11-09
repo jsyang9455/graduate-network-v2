@@ -16,6 +16,19 @@ const API_BASE_URL = (() => {
   return '/api';
 })();
 
+// DATE columns come back as UTC midnight of the KST date (e.g. '2026-12-30T15:00:00Z'
+// for 2026-12-31), so slicing the ISO string shows the previous day. Format in KST.
+function formatLocalDate(value) {
+  if (!value) return '';
+  const s = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
+}
+
 // API Helper Functions
 const api = {
   baseURL: API_BASE_URL,

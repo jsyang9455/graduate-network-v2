@@ -23,7 +23,7 @@
 
 | Method | Path | Auth | v2 |
 |--------|------|------|----|
-| POST | `/register` | 공개 | `school_id` 필수(학생/**졸업생**/교사/**기업**). 학생·졸업생은 `graduation_year` 필수(재학생=예정). 비밀번호 **최소 8자**. 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert(`approval_status=pending`) + `user_roles(company)` |
+| POST | `/register` | 공개 | `school_id` 필수(학생/**졸업생**/교사/**기업**). 학생·졸업생은 `graduation_year` 필수(재학생=예정). 비밀번호 **최소 8자**. 공개 가입 `user_type`: `student`/`graduate`/`teacher`/`company`만. **admin/school_admin/system_admin 거절**. 기업 가입 시 `company_name` 등 → `company_profiles` upsert(`approval_status=pending`) + `user_roles(company)`. 활성 회원 이메일 중복 → **409 `CONFLICT`** (`error: 'Email already registered'`, 2026-11-09 D13: 400→409) |
 | POST | `/login` | 공개 | JWT에 `school_id`, `role` |
 | GET | `/me` | 토큰 | 권한 목록 포함. `user.school` `{ id, name, logo_url, … }` additive. `js/api.js` 로컬토큰 skip **삭제** |
 | POST | `/change-password` | 토큰 | 새 비밀번호 **최소 8자**. v1 `auth` 미들웨어 누락 → **반드시 보호** |
@@ -35,10 +35,12 @@
 | GET | `/stats` | 학교 범위 |
 | POST | `/withdraw` | 유지 + 감사 |
 | GET/PUT | `/profile` | PII 암호화 |
-| GET | `/:id` | 범위 밖 404 |
-| GET | `/` | school_admin 소속만 |
+| GET | `/:id` | 타교 403. 미승인 기업(`approval_status≠approved`)은 본인 외 **403 `COMPANY_NOT_APPROVED`** (REQ-JOB-007). 연락처 최소화(아래) |
+| GET | `/` | 비 system_admin은 소속 학교 + 기업만. 미승인 기업 **403 `COMPANY_NOT_APPROVED`**. `include_withdrawn=true`는 school_admin/system_admin만(그 외 **403 `FORBIDDEN`**). 연락처 최소화(아래) |
 | PUT/DELETE/PATCH restore | `/:id` | 매트릭스 |
 | GET/PUT | `/graduate-profile...` | 유지 |
+
+연락처 최소화 (REQ-NFR-003, 2026-11-09 D2): `GET /api/users`, `GET /api/users/:id` 응답의 `email`, `phone`은 **본인 / school_admin·system_admin / 대상과 같은 학교 교사**에게만 값이 채워진다. 그 외(학생·졸업생·기업·타교 교사)에게는 키는 유지하되 `null`. 예외: 대상이 교사이면 `email`은 유지(상담 연락처, `GET /api/counseling/teachers`와 동일), `phone`은 `null`.
 
 ### Jobs `/api/jobs`
 
@@ -47,7 +49,7 @@
 | GET | `/` | `source=internal\|worknet\|all`, **동일 `school_id`만** (null-school 공고 전역 노출 금지). system_admin은 전체 |
 | POST | `/` | 가드 | 기업(`user_type=company`)은 `company_profiles.approval_status=approved` 필수. 아니면 **403 `COMPANY_NOT_APPROVED`**. 교사/school_admin/system_admin 대행 등록은 승인 검사 생략 |
 | GET/PUT/DELETE | `/:id` | 가드 | 미승인 기업의 PUT/DELETE도 `COMPANY_NOT_APPROVED` |
-| POST | `/:id/apply` | `resume_id` 수용 (소유 이력서만). 없으면 대표 이력서 자동 첨부 |
+| POST | `/:id/apply` | `resume_id` 수용 (소유 이력서만). 없으면 대표 이력서 자동 첨부. 중복 지원 → **409 `CONFLICT`** (`error: 'Already applied to this job'`, 2026-11-09 D13: 400→409) |
 | GET | `/:id/applicants` | 기업/관리 |
 | GET | `/my/applications` | 워크플로우 상태 |
 | POST | `/admin/sync-counts` | 유지 |
@@ -62,6 +64,11 @@
 ### Counseling
 
 - `/api/counseling` 예약 유지 + school_id. `GET /teachers`, sessions list/get/update는 소속 학교 범위. 타교 403.
+- `PUT /api/counseling/:id` (REQ-CNS-006, REQ-IAM-009, 2026-11-09 D1/D3/D4):
+  - `counselor_id` 변경 시 POST와 동일 검증: 활성 `user_type=teacher`가 아니면 **404 `NOT_FOUND`**, 세션 `school_id`와 다른 학교면 **403 `FORBIDDEN`**.
+  - 담당 교사는 세션과 **같은 학교**일 때만 접근(타교로 배정된 교사 403).
+  - `status`, `notes` 변경은 **담당 교사 / 같은 학교 school_admin / system_admin**만. 신청자(학생)는 `status: "cancelled"`만 가능하고 `notes` 작성 불가 → 그 외 **403 `FORBIDDEN`**. 신청자는 `counselor_id`(검증 통과 시)·`session_date`·`duration_minutes` 수정 가능.
+  - 담당이 아닌 같은 학교 교사는 PUT 403.
 - `/api/counseling-journals` → 문서 생성 액션 추가
 
 ### 기타 유지
@@ -78,7 +85,7 @@
 |--------|------|------|-----|
 | GET/POST | `/api/schools` | system 관리 / school 읽기 | IAM-001. **POST 시 `primary_admin` 필수** (`{ user_id }` 또는 `{ email, name, password }`). 응답 `logo_url`, `primary_admin_user_id` |
 | GET/PATCH | `/api/schools/:id` | system / 해당 school_admin | IAM-001. 단건에 `primary_admin` 요약 |
-| POST/GET | `/api/schools/:id/logo` | write / **공개 GET** | PLT-004 학교 로고 업로드·`<img>` 스트림 |
+| POST/GET | `/api/schools/:id/logo` | write / **공개 GET** | PLT-004 학교 로고 업로드·`<img>` 스트림. GET: 로고 미등록 또는 저장소 파일 유실 시 **204 No Content**(본문 없음), 학교 없음 404. 클라이언트는 `user.school.logo_url`이 `null`이면 요청하지 않고, 204/`<img>` error 시 기본 로고로 폴백 |
 | GET/POST | `/api/schools/:id/departments` | school 쓰기 | IAM-002 |
 | GET | `/api/me/permissions` | 로그인 | IAM-008 |
 | GET/PUT | `/api/roles/:code/permissions` | system 관리 (`schools` manage) | IAM-008 — 기업 승인(`company_approval`) 등 역할별 부여/회수 |

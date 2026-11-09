@@ -50,6 +50,7 @@ paths:
       responses:
         '201': { description: created }
         '400': { description: VALIDATION }
+        '409': { description: 'CONFLICT — email already registered' }
   /api/auth/me:
     get:
       tags: [Auth]
@@ -114,6 +115,47 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '201': { description: created }
+  /api/schools/{id}/logo:
+    get:
+      tags: [Schools]
+      summary: Public logo stream for <img> (REQ-PLT-004)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: image binary }
+        '204': { description: No logo registered or stored blob missing (no body) }
+        '404': { description: NOT_FOUND — school does not exist }
+  /api/users:
+    get:
+      tags: [IAM]
+      security: [{ bearerAuth: [] }]
+      summary: >-
+        School-scoped member search. Unapproved company → 403 COMPANY_NOT_APPROVED.
+        include_withdrawn=true requires school_admin/system_admin (else 403 FORBIDDEN).
+        email/phone null for non-privileged callers (REQ-NFR-003)
+      responses:
+        '200': { description: '{ users: [], pagination }' }
+        '403': { description: FORBIDDEN | COMPANY_NOT_APPROVED }
+  /api/counseling/{id}:
+    put:
+      tags: [Counseling]
+      security: [{ bearerAuth: [] }]
+      summary: >-
+        Update session (REQ-CNS-006). counselor_id must be an active teacher of the session's school
+        (404 / 403). status & notes only by assigned same-school counselor, school_admin, system_admin;
+        owner may only set status=cancelled.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: '{ session }' }
+        '403': { description: FORBIDDEN }
+        '404': { description: NOT_FOUND }
   /api/me/permissions:
     get:
       tags: [IAM]
@@ -132,7 +174,10 @@ paths:
     get:
       tags: [IAM]
       security: [{ bearerAuth: [] }]
-      summary: Cross-school access returns 403
+      summary: >-
+        Cross-school access returns 403. Unapproved company → 403 COMPANY_NOT_APPROVED (except self).
+        email/phone are null unless caller is self, school_admin/system_admin, or same-school teacher
+        (teacher targets keep email) (REQ-NFR-003)
       parameters:
         - in: path
           name: id
@@ -140,7 +185,7 @@ paths:
           schema: { type: integer }
       responses:
         '200': { description: user }
-        '403': { description: FORBIDDEN }
+        '403': { description: FORBIDDEN | COMPANY_NOT_APPROVED }
   /api/resumes:
     get:
       tags: [Resumes]
@@ -208,6 +253,7 @@ paths:
       summary: Apply; accepts resume_id (REQ-JOB-005)
       responses:
         '201': { description: application }
+        '409': { description: 'CONFLICT — already applied' }
   /api/jobs/applications/{id}/status:
     patch:
       tags: [Jobs]

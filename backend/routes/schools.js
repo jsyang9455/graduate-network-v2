@@ -302,14 +302,18 @@ router.get('/:id/logo', async (req, res) => {
       `SELECT id, logo_file_id FROM schools WHERE id = $1`,
       [schoolId]
     );
-    if (!school.rows.length || !school.rows[0].logo_file_id) {
-      return sendError(res, 404, 'NOT_FOUND', '학교 로고가 없습니다');
+    if (!school.rows.length) {
+      return sendError(res, 404, 'NOT_FOUND', '학교를 찾을 수 없습니다');
+    }
+    // No logo (or dangling logo reference) → 204 so <img> falls back without a console 404 (REQ-PLT-004).
+    if (!school.rows[0].logo_file_id) {
+      return res.status(204).end();
     }
     const file = await query(`SELECT * FROM files WHERE id = $1 AND kind = 'school_logo'`, [
       school.rows[0].logo_file_id,
     ]);
     if (!file.rows.length) {
-      return sendError(res, 404, 'NOT_FOUND', '학교 로고 파일을 찾을 수 없습니다');
+      return res.status(204).end();
     }
     const meta = file.rows[0];
     const buffer = await getStorage().get(meta.bucket_key);
@@ -320,8 +324,9 @@ router.get('/:id/logo', async (req, res) => {
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.send(buffer);
   } catch (error) {
-    if (error.code === 'ENOENT') {
-      return sendError(res, 404, 'NOT_FOUND', '저장된 로고를 찾을 수 없습니다');
+    if (error.code === 'ENOENT' || error.code === 'NoSuchKey' || error.name === 'NoSuchKey') {
+      console.warn(`School ${req.params.id} logo blob missing; responding 204`);
+      return res.status(204).end();
     }
     console.error('Get school logo error:', error);
     return sendError(res, 500, 'INTERNAL', 'Failed to get school logo');

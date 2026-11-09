@@ -4,119 +4,84 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>예�소 ?�인</title>
+    <title>저장소 확인 (개발용)</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            color: #333;
-        }
-        pre {
-            background: #f8f8f8;
-            padding: 15px;
-            border-radius: 4px;
-            overflow-x: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-        }
-        button {
-            background: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        .danger {
-            background: #f44336;
-        }
-        .danger:hover {
-            background: #da190b;
-        }
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1 { color: #333; }
+        pre { background: #f8f8f8; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
+        button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        .danger { background: #f44336; }
+        .note { font-size: 0.9rem; color: #64748b; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>LocalStorage ?�인 ?�구</h1>
-        
-        <h2>?�록???�용??목록</h2>
-        <pre id="usersData">Loading...</pre>
-        
-        <h2>?�재 로그인?�보</h2>
-        <pre id="currentUser">Loading...</pre>
-        
-        <h2>?�큰</h2>
-        <pre id="token">Loading...</pre>
-        
+        <h1>LocalStorage 확인 도구 (개발용)</h1>
+        <p class="note">REQ-PLT-001: 허용 키는 <code>token</code>(JWT)과 개발용 <code>jjobb_api_base</code>뿐입니다.
+            사용자 정보는 <code>GET /api/auth/me</code>에서 매 페이지 로드 시 메모리로 불러옵니다.</p>
+
+        <h2>저장된 키</h2>
+        <pre id="keys">Loading...</pre>
+
+        <h2>허용되지 않은 키</h2>
+        <pre id="violations">Loading...</pre>
+
+        <h2>JWT 페이로드 (디코드)</h2>
+        <pre id="payload">Loading...</pre>
+
+        <h2>GET /api/auth/me</h2>
+        <pre id="me">Loading...</pre>
+
         <div>
-            <button onclick="refreshData()">?�로고침</button>
-            <button onclick="clearStorage()" class="danger">예�소 초기??/button>
-            <button onclick="testLogin()">?�스??로그인/button>
+            <button onclick="refreshData()">새로고침</button>
+            <button onclick="removeViolations()" class="danger">허용되지 않은 키 삭제</button>
         </div>
     </div>
 
+    <script src="js/api.js"></script>
     <script>
-        function refreshData() {
-            // Get users
-            const users = localStorage.getItem('graduateNetwork_users');
-            document.getElementById('usersData').textContent = users ? JSON.stringify(JSON.parse(users), null, 2) : '?�록???�용???�음';
-            
-            // Get current user
-            const currentUser = localStorage.getItem('graduateNetwork_user');
-            document.getElementById('currentUser').textContent = currentUser || '로그?�하지 ?�음';
-            
-            // Get token
+        const ALLOWED = ['token', 'jjobb_api_base'];
+
+        function decodePayload(token) {
+            try {
+                let b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+                while (b64.length % 4) b64 += '=';
+                const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+                return JSON.parse(new TextDecoder().decode(bytes));
+            } catch (_) {
+                return null;
+            }
+        }
+
+        async function refreshData() {
+            const keys = Object.keys(localStorage);
+            document.getElementById('keys').textContent = JSON.stringify(keys, null, 2);
+            const bad = keys.filter((k) => !ALLOWED.includes(k));
+            document.getElementById('violations').textContent = bad.length ? JSON.stringify(bad, null, 2) : '없음';
+
             const token = localStorage.getItem('token');
-            document.getElementById('token').textContent = token || '?�큰 ?�음';
-        }
+            document.getElementById('payload').textContent = token
+                ? JSON.stringify(decodePayload(token), null, 2)
+                : '토큰 없음 (로그아웃 상태)';
 
-        function clearStorage() {
-            if (confirm('모든 로컬 ?�이?��? ??��?�시겠습?�까?')) {
-                localStorage.clear();
-                alert('예�소가 초기?�되?�습?�다.');
-                refreshData();
+            const meEl = document.getElementById('me');
+            if (!token) { meEl.textContent = '-'; return; }
+            try {
+                const data = await api.auth.getCurrentUser();
+                meEl.textContent = JSON.stringify(data.user, null, 2);
+            } catch (e) {
+                meEl.textContent = '조회 실패: ' + e.message;
             }
         }
 
-        function testLogin() {
-            const users = JSON.parse(localStorage.getItem('graduateNetwork_users') || '[]');
-            console.log('?�체 ?�용??', users);
-            
-            const testEmail = 'aa@aa.com';
-            const testPassword = prompt('비밀번호�?입력하세요');
-            
-            console.log('검?예 email =', testEmail, 'password =', testPassword);
-            
-            const foundUser = users.find(u => {
-                console.log('비교:', u.email, '===', testEmail, '&&', u.password, '===', testPassword);
-                return u.email === testEmail && u.password === testPassword;
-            });
-            
-            if (foundUser) {
-                alert('?�용??찾음: ' + JSON.stringify(foundUser, null, 2));
-                console.log('찾�? ?�용??', foundUser);
-            } else {
-                alert('?�용?��? 찾을 ???�습?�다.\n\n?�록???�용??목록:\n' + JSON.stringify(users, null, 2));
-                console.log('?�용?��? 찾을 ???�음');
-            }
+        function removeViolations() {
+            Object.keys(localStorage)
+                .filter((k) => !ALLOWED.includes(k))
+                .forEach((k) => localStorage.removeItem(k));
+            refreshData();
         }
 
-        // Initial load
         refreshData();
     </script>
 </body>

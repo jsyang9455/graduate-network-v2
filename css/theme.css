@@ -58,7 +58,25 @@ body > header:not(.content-header) nav {
 
 .logo img,
 .logo-img {
-    height: 20px;
+    height: 32px;
+    max-width: none;
+}
+
+.logo:has(.logo-tagline) {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+}
+
+.logo-tagline {
+    padding-left: 0.875rem;
+    border-left: 1px solid var(--border-strong);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--text-light);
+    white-space: nowrap;
+    letter-spacing: -0.01em;
 }
 
 /* School logos are authored light-on-dark; keep them legible on the white bar */
@@ -755,14 +773,14 @@ td .btn-sm.btn-warning {
     border-radius: 10px;
 }
 
-.welcome-section .school-brand-logo[src$="logo-wordmark.svg"] {
-    background: none;
+.welcome-section .school-brand-logo[src$="logo-jjobb.svg"] {
+    background: #fff;
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
-    filter: brightness(0) invert(1);
     width: auto;
-    height: 28px;
-    padding: 0;
+    height: 40px;
+    padding: 6px 10px;
+    border-radius: 8px;
 }
 
 /* Stat tiles */
@@ -1823,7 +1841,11 @@ footer {
 
     .logo img,
     .logo-img {
-        height: 18px;
+        height: 28px;
+    }
+
+    .logo-tagline {
+        display: none;
     }
 
     .nav-toggle {
@@ -1832,9 +1854,50 @@ footer {
         color: var(--text-dark);
     }
 
+    /* REQ-PLT-007: header backdrop-filter makes it the containing block of the fixed
+       .nav-drawer, so the closed (translated) drawer would widen the page. */
+    header#mainHeader,
+    body > header:not(.content-header) {
+        overflow-x: clip;
+    }
+
+    /* Header is its own stacking context; lift it above .nav-backdrop (1001) while open. */
+    body.nav-open header#mainHeader,
+    body.nav-open > header:not(.content-header) {
+        z-index: 1002;
+    }
+
     .nav-drawer {
         background: #fff;
         box-shadow: -8px 0 28px rgba(23, 23, 25, 0.12);
+    }
+
+    body:not(.nav-open) .nav-drawer {
+        visibility: hidden;
+        transition: transform 0.28s ease, visibility 0s linear 0.28s;
+    }
+
+    .job-posting-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .job-posting-info {
+        min-width: 0;
+    }
+
+    .job-posting-meta {
+        flex-wrap: wrap;
+        gap: 0.35rem 1rem;
+    }
+
+    .job-posting-actions {
+        flex-wrap: wrap;
+    }
+
+    .job-posting-actions .btn {
+        flex: 1 1 auto;
     }
 
     .nav-drawer-title {

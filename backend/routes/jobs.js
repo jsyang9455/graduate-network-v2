@@ -537,7 +537,7 @@ router.post('/:id/apply', auth, async (req, res) => {
     );
 
     if (existing.rows.length > 0) {
-      return res.status(400).json({ error: 'Already applied to this job' });
+      return sendError(res, 409, 'CONFLICT', 'Already applied to this job');
     }
 
     const jobCheck = await query(

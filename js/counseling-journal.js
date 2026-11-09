@@ -44,13 +44,13 @@ async function fetchJournals() {
 
 async function initJournalPage() {
     // 로그인 체크
-    const userStr = localStorage.getItem('graduateNetwork_user');
-    if (!userStr) {
+    const user = auth.isLoggedIn() ? await auth.whenUserLoaded() : null;
+    if (!user) {
         alert('로그인이 필요합니다.');
         window.location.href = 'login.html';
         return;
     }
-    currentUser = JSON.parse(userStr);
+    currentUser = user;
 
     // 교사 계정이지만 상담교사로 지정되지 않은 경우 차단
     if (currentUser.user_type === 'teacher' && !currentUser.is_counselor) {
@@ -176,7 +176,7 @@ function openJournalModal(id) {
 
         document.getElementById('journalModalTitle').textContent = '상담일지 수정';
         document.getElementById('journalId').value = j.id;
-        document.getElementById('journalDate').value = (j.counseling_date || '').substring(0, 10);
+        document.getElementById('journalDate').value = formatLocalDate(j.counseling_date);
         document.getElementById('journalType').value = j.type || '';
         document.getElementById('journalStudentName').value = j.student_name || '';
         document.getElementById('journalStudentId').value = j.student_id || '';
@@ -184,10 +184,10 @@ function openJournalModal(id) {
         document.getElementById('journalContent').value = j.content || '';
         document.getElementById('journalFollowUp').value = j.follow_up || '';
         document.getElementById('journalActionTaken').value = j.action_taken || '';
-        document.getElementById('journalFollowUpAt').value = (j.follow_up_at || '').substring(0, 10);
+        document.getElementById('journalFollowUpAt').value = formatLocalDate(j.follow_up_at);
         document.getElementById('journalPrivate').checked = !!j.is_private;
     } else {
-        document.getElementById('journalDate').value = new Date().toISOString().slice(0, 10);
+        document.getElementById('journalDate').value = formatLocalDate(new Date());
     }
 
     document.getElementById('journalModal').classList.add('open');

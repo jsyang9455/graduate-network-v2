@@ -70,11 +70,11 @@ function normalizeJob(j) {
         location:    j.location        || '',
         salary:      j.salary_range    || '',
         jobType:     j.job_type        || '',
-        deadline:    j.deadline ? String(j.deadline).substring(0,10) : '',
+        deadline:    j.deadline ? formatLocalDate(j.deadline) : '',
         recruitCount:j.headcount       || '',
         status:      j.status          || 'active',
-        views:       j.views_count     || 0,
-        applicants:  j.applications_count || 0,
+        views:       Number(j.views_count) || 0,
+        applicants:  Number(j.applications_count) || 0,
         company_id:  j.company_id,
     };
 }
@@ -526,7 +526,7 @@ async function setupJobEditForm() {
             if (el('location')) el('location').value = job.location || '';
             if (el('salary'))   el('salary').value   = job.salary_range || '';
             if (el('experience')) el('experience').value = job.experience_level || '';
-            if (el('deadline')) el('deadline').value = (job.deadline || '').slice(0, 10);
+            if (el('deadline')) el('deadline').value = formatLocalDate(job.deadline);
             if (el('headcount')) el('headcount').value = job.headcount || '';
             if (el('status'))   el('status').value   = job.status || 'active';
         } catch (e) {

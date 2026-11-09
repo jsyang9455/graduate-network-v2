@@ -1,6 +1,6 @@
 # STATUS — jjobb_v2 (living)
 
-최종 갱신: 2026-09-16  
+최종 갱신: 2026-11-09  
 현재 단계: **Sprint 7+ / 학교 테넌트 UX·브랜딩 + DX 데모 시드**  
 전체 P0 구현: **약 72%** (Wave 1–Sprint 6 + Sprint 7 + 기업 승인 + 정책 Q1–Q7 + **STB**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
 
@@ -15,6 +15,8 @@
 - **RBAC 메뉴 fix (2026-10-20):** `js/auth.js` — `job-create`/`job-edit`/`company-profile` 사이드바 링크는 `jobs:write` 필요, `company-profile`은 추가로 company 또는 staff admin만. 이전에는 `jobs:read`만으로 학생·졸업생에게 노출됨. 브라우저 검증: student/graduate 둘 다 숨김, company/admin 둘 다 표시, teacher 공고 등록만 표시
 - **디자인 리프레시 v2 (2026-10-20, 원티드 레퍼런스):** 신규 `css/theme.css`(28개 페이지 마지막 로드) + `css/style.css` 토큰 교체, 흰 헤더·hairline 카드·플랫 버튼. 랜딩 3장 배너 캐러셀, 로그인 비주얼, 채용 목록 카드/모달 재작성. 기존 버그 동시 수정: `displayJobs`가 헤더·필터까지 지우던 문제(`#jobsList`에만 렌더), 검색 버튼·유형/상태 필터 미연결, 유형 필터 값이 한글이라 DB 코드(`full-time`)와 불일치. 브라우저 검증: index/login/student 대시보드/jobs(student·company·admin, 390px 모바일)/admin-jobs. `npm test` 101/101. 상세: [docs/05-frontend-ia.md](05-frontend-ia.md) §3. 미해결: 데모 시드 `requirements`에 리터럴 `\n` 표시(database 역할), 기업 계정에도 공고 `지원하기` 버튼 노출(기존 동작, 정책 확인 필요)
 - **로고 워드마크 (2026-10-28):** 헤더 로고를 아이콘 없는 네이버식 그린 워드마크 `images/logo-wordmark.svg`(SVG path, 폰트 비의존)로 교체 — 20개 HTML + `js/nav.js` + `js/school-brand.js` 기본값. 환영 배너(다크)에서는 흰색 처리. 브라우저 검증: index, student dashboard. 이후 로고 축소(SVG 여백 제거, 헤더 20px) + 네이버 N식 단독 심볼 `images/logo-symbol.svg`를 28개 페이지 파비콘으로 적용
+- **로고 전문직 톤 리디자인 (2026-10-29):** "유아틱하다" 피드백 반영 — 둥근 그라데이션 소문자 로고(시안 1·2·4 테스트) 대신 네이비 심볼(흰 J + 그린 포인트) + 대문자 JJOBB 워드마크 `images/logo-jjobb.svg`를 전 페이지·`js/nav.js`·`js/school-brand.js`에 적용. 메인은 HTML 슬로건 "전북 직업계고 졸업생 취업 네트워크"(모바일 숨김). 파비콘 `logo-symbol.svg`도 같은 심볼로 교체. 브라우저 검증: index, student dashboard
+- **종합 테스트 (2026-11-09, QA):** 계정 생성부터 전 흐름 — 자동 101/101, API 시나리오 214/226 (실패 8, SKIP 4), 브라우저 24/36 (실패 11, SKIP 1). 핵심 흐름·학교 간 격리 정상. 높음 2건(상담 담당자 타교 변경, 승인 대기 기업 학생 PII 열람) 포함 D1–D13 **같은 날 수정·재검증 완료** — `npm test` 114/114, API 재검증 64/64, 브라우저 D5–D11 통과. 보고서: [docs/qa/comprehensive-test-report-2026-11-09.md](qa/comprehensive-test-report-2026-11-09.md)
 - **브랜드 표기 JJOB → JJOBB (2026-10-28):** 표시 이름 오타 수정 — `021_v2_brand_name_jjobb.sql`(users.name `JJOBB채용담당`/`JJOBB관리자`, company_name `JJOBB채용`, 교육 강사명), 시드 `database/test-accounts.sql`·`create-test-accounts.sql`·`database/demo-seed.sql`, `TEST-ACCOUNTS.md`. 로그인 이메일 `@jjob.com`은 유지. 적용된 `018`은 이력 보존 위해 미수정(021이 덮어씀). 로컬 migrate 적용, `npm test` 101/101, 대시보드 추천 공고 표기 확인
 
 ```
@@ -67,7 +69,7 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | Sprint 5 | COM P0·B-LS·persona smoke | backend + api + frontend + qa | 85 | done-ish |
 | Sprint 6 | REC-002·COM-002·스크랩 UI·사후보고 | backend + api + frontend + qa | 85 | done-ish (브라우저 DoD → Sprint7) |
 | Sprint 7 | QA hardening · NFR-010 · UAT | qa (+ nfr) | 90 | done-ish |
-| 4 | 테스트·UAT·보안 | qa | 97 | in-progress (정책 Q1–Q7 + persona E2E) |
+| 4 | 테스트·UAT·보안 | qa | 98 | in-progress (정책 Q1–Q7 + persona E2E; 2026-11-09 종합 테스트 D1–D13 수정·재검증 완료) |
 | 5 | 이관·교육·오픈 | architect | 0 | todo |
 
 ## Workstreams
@@ -94,13 +96,13 @@ Architect가 확인 후 `ready` / `blocked`로 바꾼다. **게이트 전 실연
 | ID | 내용 | 영향 | Owner |
 |----|------|------|-------|
 | B-GATE | 학교 측 워크넷 키·알림톡 계정 미확인 | Sprint 2/4 실연동·P0 잔여 | architect |
-
 해소: **B-PORT** — 프론트 `js/api.js` 로컬 API를 **5000**으로 통일. `localStorage.jjobb_api_base`로 5050 오버라이드.  
 해소: **B-LS career/admin-jobs** — API만.  
 해소: **B-LS company_profile_*** — `GET/PUT /api/users/company-profile` + `setup-test-profile.html` API 전환.  
 해소: **REQ-NFR-010** — compose JWT 평문 제거 (Sprint 7).  
 해소: **기업 공개 가입 공백** — `register.html` 기업 유형 + `/api/auth/register` school/role/profile (2026-09-15).  
-해소: **기업 승인 플래그(P1)** — REQ-JOB-007 (2026-09-15).
+해소: **기업 승인 플래그(P1)** — REQ-JOB-007 (2026-09-15).  
+해소: **B-QA1–3 (2026-11-09)** — 상담 담당자 검증·학생 자가 승인 차단(REQ-IAM-009/CNS-006), 승인 대기 기업 차단·연락처 마스킹(REQ-JOB-007/NFR-003), localStorage 토큰 전용·375px 폭·관리자 메뉴(REQ-PLT-001/007, IAM-008). 재검증: [보고서 §6](qa/comprehensive-test-report-2026-11-09.md).
 
 로컬 백엔드: 기본 `PORT=5000`. macOS AirPlay가 5000을 쓰면 `PORT=5050 npm start` 후  
 `localStorage.setItem('jjobb_api_base','http://localhost:5050/api')`.

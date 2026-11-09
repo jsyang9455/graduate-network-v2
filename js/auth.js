@@ -1,14 +1,36 @@
 // Authentication Management
+// REQ-PLT-001: localStorage holds only the JWT ('token'). The user record lives in
+// memory (this.user), loaded from GET /api/auth/me on every page load.
+const LEGACY_USER_KEYS = ['graduateNetwork_user', 'graduateNetwork_users'];
+
+function decodeJwtPayload(token) {
+    if (!token || typeof token !== 'string') return null;
+    const parts = token.split('.');
+    if (parts.length < 2) return null;
+    try {
+        let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        return JSON.parse(new TextDecoder().decode(bytes));
+    } catch (_) {
+        return null;
+    }
+}
+
 class AuthManager {
     constructor() {
-        this.storageKey = 'graduateNetwork_user';
         this.tokenKey = 'token';
+        this.user = null;
         this.permissions = null;
         this._permissionsPromise = null;
+        this._readyPromise = null;
         this.init();
     }
 
     init() {
+        try {
+            LEGACY_USER_KEYS.forEach((k) => localStorage.removeItem(k));
+        } catch (_) { /* ignore */ }
         if (this.isLoggedIn()) {
             document.documentElement.classList.add('rbac-pending');
         }
@@ -16,37 +38,80 @@ class AuthManager {
         this.checkAuth();
     }
 
-    async checkAuth() {
-        const token = localStorage.getItem(this.tokenKey);
-        if (token) {
+    /** Resolves with the full /me user (or token payload if /me is unreachable, null if logged out). */
+    whenUserLoaded() {
+        if (!this._readyPromise) this.checkAuth();
+        return this._readyPromise;
+    }
+
+    get ready() {
+        return this.whenUserLoaded();
+    }
+
+    checkAuth() {
+        if (!this.isLoggedIn()) {
+            this._readyPromise = Promise.resolve(null);
+            return this._readyPromise;
+        }
+        this._readyPromise = (async () => {
             try {
                 const response = await api.auth.getCurrentUser();
                 if (response.user) {
-                    localStorage.setItem(this.storageKey, JSON.stringify(response.user));
+                    this.user = { ...response.user };
                     this.updateAuthUI();
-                    await this.applyPermissionMenus();
-                    if (window.SchoolBrand) {
-                        window.SchoolBrand.applyFromUser(response.user);
-                    }
+                    this.applyPermissionMenus().then(() => {
+                        if (window.SchoolBrand) window.SchoolBrand.applyFromUser(this.user);
+                    });
+                    return this.user;
                 }
             } catch (error) {
-                if (error.message && (error.message.includes('Invalid token') || error.message.includes('Unauthorized') || error.message.includes('Authentication required') || error.message.includes('UNAUTHENTICATED'))) {
-                    localStorage.removeItem(this.storageKey);
-                    localStorage.removeItem(this.tokenKey);
-                    document.documentElement.classList.remove('rbac-pending');
-                    this.updateAuthUI();
+                if (error && (error.status === 401 || error.code === 'UNAUTHENTICATED')) {
+                    this.clearSession();
+                    return null;
                 }
+                console.warn('auth /me failed', error);
             }
-        }
+            return this.getCurrentUser();
+        })();
+        return this._readyPromise;
+    }
+
+    clearSession() {
+        this.user = null;
+        this.permissions = null;
+        this._permissionsPromise = null;
+        try {
+            localStorage.removeItem(this.tokenKey);
+            LEGACY_USER_KEYS.forEach((k) => localStorage.removeItem(k));
+        } catch (_) { /* ignore */ }
+        document.documentElement.classList.remove('rbac-pending');
+        this.updateAuthUI();
     }
 
     isLoggedIn() {
         return localStorage.getItem(this.tokenKey) !== null;
     }
 
+    /** Full user after /me; before that, the minimal JWT payload (id, email, name, user_type, role, school_id). */
     getCurrentUser() {
-        const userStr = localStorage.getItem(this.storageKey);
-        return userStr ? JSON.parse(userStr) : null;
+        if (this.user) return this.user;
+        const payload = decodeJwtPayload(localStorage.getItem(this.tokenKey));
+        if (!payload || !payload.id) return null;
+        return {
+            id: payload.id,
+            email: payload.email,
+            name: payload.name,
+            user_type: payload.user_type,
+            role: payload.role,
+            school_id: payload.school_id ?? null,
+            _partial: true,
+        };
+    }
+
+    /** Merge fresh fields into the in-memory user (never persisted). */
+    setUser(user) {
+        if (!user) return;
+        this.user = { ...(this.user || {}), ...user };
     }
 
     isStaffAdmin(user = this.getCurrentUser()) {
@@ -61,8 +126,9 @@ class AuthManager {
     }
 
     login(userData, token) {
-        localStorage.setItem(this.storageKey, JSON.stringify(userData));
         localStorage.setItem(this.tokenKey, token);
+        this.user = userData ? { ...userData } : null;
+        this._readyPromise = Promise.resolve(this.getCurrentUser());
         this.permissions = null;
         this._permissionsPromise = null;
         document.documentElement.classList.add('rbac-pending');
@@ -75,8 +141,7 @@ class AuthManager {
     }
 
     logout() {
-        localStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.tokenKey);
+        this.clearSession();
         window.location.href = 'index.html';
     }
 
@@ -186,7 +251,8 @@ class AuthManager {
         });
 
         if (adminMenuSection) {
-            const canAdmin = this.hasMenuAction('schools', 'write')
+            // Admin pages guard with requireStaffAdmin(); teachers with e.g. field_trips:write stay out.
+            const canAdmin = this.isStaffAdmin(user) && (this.hasMenuAction('schools', 'write')
                 || this.hasMenuAction('schools', 'manage')
                 || this.hasMenuAction('users', 'write')
                 || this.hasMenuAction('users', 'manage')
@@ -194,7 +260,8 @@ class AuthManager {
                 || this.hasMenuAction('company_approval', 'write')
                 || this.hasMenuAction('jobs', 'manage')
                 || this.hasMenuAction('community', 'manage')
-                || this.hasMenuAction('stats', 'read');
+                || this.hasMenuAction('stats', 'read'));
+            adminMenuSection.classList.remove('rbac-pending');
             adminMenuSection.style.display = canAdmin ? 'block' : 'none';
         }
 
@@ -220,10 +287,8 @@ class AuthManager {
 
         if (user) {
             if (authButtons) authButtons.style.display = 'none';
-            if (userMenu) {
-                userMenu.style.display = 'flex';
-                if (userName) userName.textContent = user.name;
-            }
+            if (userMenu) userMenu.style.display = 'flex';
+            if (userName && user.name) userName.textContent = user.name;
             // Do NOT reveal adminMenuSection here — wait for applyPermissionMenus.
         } else {
             if (authButtons) authButtons.style.display = 'flex';

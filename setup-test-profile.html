@@ -142,13 +142,13 @@
             const removed = [];
             for (let i = localStorage.length - 1; i >= 0; i--) {
                 const key = localStorage.key(i);
-                if (key && key.startsWith('company_profile_')) {
+                if (key && (key.startsWith('company_profile_') || key === 'graduateNetwork_user' || key === 'graduateNetwork_users')) {
                     localStorage.removeItem(key);
                     removed.push(key);
                 }
             }
             if (!silent) {
-                showResult(true, `<h3>레거시 키 삭제</h3><p>${removed.length ? removed.join(', ') : '삭제할 company_profile_* 키 없음'}</p>`);
+                showResult(true, `<h3>레거시 키 삭제</h3><p>${removed.length ? removed.join(', ') : '삭제할 레거시 키 없음 (company_profile_*, graduateNetwork_user)'}</p>`);
             }
         }
 

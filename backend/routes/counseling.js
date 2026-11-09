@@ -16,21 +16,55 @@ async function ensureIsCounselorColumn() {
 }
 ensureIsCounselorColumn();
 
+const OWNER_ALLOWED_STATUSES = ['cancelled'];
+
+function isOwner(req, session) {
+  return Number(session.user_id) === Number(req.user.id);
+}
+
+function isAssignedCounselor(req, session) {
+  if (session.counselor_id == null || Number(session.counselor_id) !== Number(req.user.id)) return false;
+  return session.school_id == null || assertSameSchool(req, session.school_id);
+}
+
+/** REQ-CNS-006: status/notes are managed by the assigned counselor or staff admins of the session's school. */
+function canManageSession(req, session) {
+  if (isSystemAdmin(req.user)) return true;
+  if (isAssignedCounselor(req, session)) return true;
+  return isStaffAdmin(req.user) && assertSameSchool(req, session.school_id);
+}
+
 function canAccessSession(req, session) {
   if (!session) return false;
   if (isSystemAdmin(req.user)) return true;
-  if (Number(session.user_id) === Number(req.user.id)) return true;
-  if (session.counselor_id != null && Number(session.counselor_id) === Number(req.user.id)) return true;
+  if (isOwner(req, session)) return true;
+  if (isAssignedCounselor(req, session)) return true;
   if ((isStaffAdmin(req.user) || req.user.user_type === 'teacher') && assertSameSchool(req, session.school_id)) {
     return true;
   }
   return false;
 }
 
+/** Same rule as POST: active teacher, same school as the session (REQ-IAM-009). */
+async function validateCounselorForSession(res, counselorId, schoolId) {
+  const counselor = await query(
+    `SELECT id, school_id, name FROM users WHERE id = $1 AND user_type = 'teacher' AND is_active = true`,
+    [counselorId]
+  );
+  if (!counselor.rows.length) {
+    sendError(res, 404, 'NOT_FOUND', '상담교사를 찾을 수 없습니다');
+    return false;
+  }
+  if (schoolId != null && Number(counselor.rows[0].school_id) !== Number(schoolId)) {
+    forbidCrossSchool(res);
+    return false;
+  }
+  return true;
+}
+
 function denySession(res, session, req) {
   if (session && session.school_id != null && !isSystemAdmin(req.user) && !assertSameSchool(req, session.school_id)
-      && Number(session.user_id) !== Number(req.user.id)
-      && Number(session.counselor_id) !== Number(req.user.id)) {
+      && Number(session.user_id) !== Number(req.user.id)) {
     return forbidCrossSchool(res);
   }
   return sendError(res, 404, 'NOT_FOUND', 'Session not found');
@@ -278,6 +312,24 @@ router.put('/:id', auth, async (req, res) => {
     const session = sessionCheck.rows[0];
     if (!canAccessSession(req, session)) {
       return denySession(res, session, req);
+    }
+
+    const manager = canManageSession(req, session);
+    if (!manager && !isOwner(req, session)) {
+      return sendError(res, 403, 'FORBIDDEN', '담당 상담교사 또는 학교 관리자만 수정할 수 있습니다');
+    }
+    if (!manager) {
+      if (status != null && !OWNER_ALLOWED_STATUSES.includes(status)) {
+        return sendError(res, 403, 'FORBIDDEN', '신청자는 상담을 취소만 할 수 있습니다');
+      }
+      if (notes != null) {
+        return sendError(res, 403, 'FORBIDDEN', '상담 메모는 담당 상담교사만 작성할 수 있습니다');
+      }
+    }
+
+    if (counselor_id != null && Number(counselor_id) !== Number(session.counselor_id)) {
+      const schoolId = session.school_id != null ? session.school_id : (req.user.school_id || null);
+      if (!(await validateCounselorForSession(res, counselor_id, schoolId))) return;
     }
 
     const result = await query(

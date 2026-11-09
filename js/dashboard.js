@@ -1,12 +1,16 @@
 // Dashboard functionality
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     // Check authentication
     if (!auth.requireAuth()) {
         return;
     }
 
-    // Display user name and customize dashboard based on user type
-    const user = auth.getCurrentUser();
+    // Full /me user (is_counselor, school) — falls back to the JWT payload if /me is unreachable
+    const user = await auth.whenUserLoaded();
+    if (!user) {
+        window.location.href = 'login.html';
+        return;
+    }
     
     // Update welcome message
     const welcomeMessage = document.getElementById('welcomeMessage');
@@ -26,9 +30,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Show appropriate dashboard based on user type
-    console.log('Current user:', user);
-    console.log('User type:', user ? user.user_type : 'none');
-
     if (window.SchoolBrand) {
         SchoolBrand.apply(user);
     }
@@ -464,7 +465,7 @@ async function loadRecommendedJobs() {
         }
 
         recommendedJobsContainer.innerHTML = items.map(job => {
-            const deadline = job.deadline ? String(job.deadline).substring(0, 10) : '상시채용';
+            const deadline = job.deadline ? formatLocalDate(job.deadline) : '상시채용';
             const salary = job.salary_range || '협의';
             const desc = (job.description || '');
             const shortDesc = desc.length > 80 ? desc.substring(0, 80) + '...' : desc;
@@ -549,8 +550,8 @@ async function loadCompanyStats() {
         const myJobs = (data.jobs || []).filter(j => String(j.company_id) === String(user.id));
 
         const activeJobs = myJobs.filter(j => j.status === 'active').length;
-        const totalApplicants = myJobs.reduce((sum, j) => sum + (j.applications_count || 0), 0);
-        const totalViews = myJobs.reduce((sum, j) => sum + (j.views_count || 0), 0);
+        const totalApplicants = myJobs.reduce((sum, j) => sum + (Number(j.applications_count) || 0), 0);
+        const totalViews = myJobs.reduce((sum, j) => sum + (Number(j.views_count) || 0), 0);
 
         const activeJobCount = document.getElementById('activeJobCount');
         const totalApplicantsEl = document.getElementById('totalApplicants');
@@ -588,7 +589,7 @@ async function loadJobPostings() {
         jobPostingsList.innerHTML = jobs.map(job => {
             const statusLabel = job.status === 'active' ? '모집중' : job.status === 'closed' ? '마감완료' : '기간만료';
             const title = job.title || '제목 없음';
-            const deadline = job.deadline ? String(job.deadline).substring(0, 10) : '-';
+            const deadline = job.deadline ? formatLocalDate(job.deadline) : '-';
             return `
             <div class="job-posting-item">
                 <div class="job-posting-info">
@@ -609,8 +610,8 @@ async function loadJobPostings() {
 
         // Update stats
         const activeJobs = jobs.filter(j => j.status === 'active').length;
-        const totalApplicants = jobs.reduce((sum, j) => sum + (j.applications_count || 0), 0);
-        const totalViews = jobs.reduce((sum, j) => sum + (j.views_count || 0), 0);
+        const totalApplicants = jobs.reduce((sum, j) => sum + (Number(j.applications_count) || 0), 0);
+        const totalViews = jobs.reduce((sum, j) => sum + (Number(j.views_count) || 0), 0);
 
         if (document.getElementById('activeJobCount')) {
             document.getElementById('activeJobCount').textContent = activeJobs;
@@ -671,7 +672,7 @@ async function loadRecentApplicants() {
                     name: a.name,
                     position: job.title,
                     status: a.application_status,
-                    appliedDate: a.applied_at ? String(a.applied_at).substring(0, 10) : '',
+                    appliedDate: a.applied_at ? formatLocalDate(a.applied_at) : '',
                     resumeUrl: a.resume_url,
                 });
             });
@@ -1008,7 +1009,7 @@ async function loadTeacherCounselingJournal() {
             return;
         }
         container.innerHTML = journals.slice(0, 3).map(j => {
-            const dateStr = (j.counseling_date || j.counselingDate || '-').substring(0, 10);
+            const dateStr = (formatLocalDate(j.counseling_date || j.counselingDate) || '-');
             const studentName = j.student_name || j.studentName || '-';
             return `
             <div class="applicant-item" style="cursor:pointer;" onclick="window.location.href='counseling-journal.html'">
