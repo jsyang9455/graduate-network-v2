@@ -220,9 +220,28 @@
             gap: 0.5rem;
         }
 
-        .tag-remove {
-            cursor: pointer;
+        /* dashboard.css의 .tag-remove(position:absolute)가 칩 밖으로 밀어내므로 재정의 */
+        .tag-item .tag-remove {
+            position: static;
+            transform: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 1.25rem;
+            height: 1.25rem;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            background: transparent;
             color: #ef4444;
+            font-size: 1rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .tag-item .tag-remove:hover,
+        .tag-item .tag-remove:focus-visible {
+            background: #fee2e2;
         }
 
         @media (max-width: 768px) {
@@ -694,17 +713,16 @@
         }
 
         function updateArrayDisplay() {
-            document.getElementById('benefitsList').innerHTML = benefits.map((item, i) => 
-                `<span class="tag-item">${item} <span class="tag-remove" onclick="removeBenefit(${i})">×</span></span>`
-            ).join('');
+            const chip = (item, onRemove) =>
+                `<span class="tag-item">${escapeChipText(item)} <button type="button" class="tag-remove" onclick="${onRemove}" aria-label="${escapeChipText(item)} 삭제" title="삭제">×</button></span>`;
 
-            document.getElementById('requirementsList').innerHTML = requirements.map((item, i) => 
-                `<span class="tag-item">${item} <span class="tag-remove" onclick="removeRequirement(${i})">×</span></span>`
-            ).join('');
+            document.getElementById('benefitsList').innerHTML = benefits.map((item, i) => chip(item, `removeBenefit(${i})`)).join('');
+            document.getElementById('requirementsList').innerHTML = requirements.map((item, i) => chip(item, `removeRequirement(${i})`)).join('');
+            document.getElementById('tagsList').innerHTML = tags.map((item, i) => chip(item, `removeTag(${i})`)).join('');
+        }
 
-            document.getElementById('tagsList').innerHTML = tags.map((item, i) => 
-                `<span class="tag-item">${item} <span class="tag-remove" onclick="removeTag(${i})">×</span></span>`
-            ).join('');
+        function escapeChipText(text) {
+            return String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
         function removeBenefit(index) {
