@@ -73,7 +73,7 @@
 
 ### 기타 유지
 
-`/api/networking/*`, `/api/certificates/*`, `/api/posts/*`, `/api/majors`, `/api/stats`, `/api/announcements/*`, `/api/education-programs`, `/api/messages/*`, `GET /api/health`
+`/api/networking/*`, `/api/certificates/*`, `/api/posts/*`, `/api/majors`, `/api/stats`, `/api/announcements/*`, `/api/education-programs` (+ `POST :id/apply`, `GET :id/applications`, `GET my-applications`), `/api/messages/*`, `GET /api/health`
 
 `majors`는 과도기 유지 후 `/api/departments`로 이전.
 
