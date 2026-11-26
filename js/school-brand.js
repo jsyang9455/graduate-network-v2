@@ -74,17 +74,18 @@
       if (logoUrl) applyLogoToImg(img, logoUrl, name);
     });
 
+    // 로고 옆 문구는 학교명이 아니라 플랫폼 슬로건으로 고정 (메뉴 이동 시 학교명으로 바뀌던 문제)
+    const PLATFORM_SLOGAN = '전북 직업계고 졸업생 취업 네트워크';
     const contextEls = [
       document.getElementById('schoolContextLabel'),
       document.getElementById('schoolBrandName'),
       ...document.querySelectorAll('[data-school-brand="name"]'),
+      ...document.querySelectorAll('.logo-tagline'),
     ].filter(Boolean);
     contextEls.forEach((el) => {
-      if (name) {
-        el.textContent = name;
-        el.hidden = false;
-        el.style.display = '';
-      }
+      el.textContent = PLATFORM_SLOGAN;
+      el.hidden = false;
+      el.style.display = '';
     });
 
     const welcomeSub = document.getElementById('welcomeSubtext');

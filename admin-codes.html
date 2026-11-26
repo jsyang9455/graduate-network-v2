@@ -153,18 +153,18 @@
                         </div>
                     </div>
                     <fieldset id="primaryAdminFields" style="border:1px solid #e5e7eb;border-radius:8px;padding:1rem;margin:1rem 0;">
-                        <legend style="padding:0 0.5rem;font-weight:600;">주 담당자 (학교 관리자) *</legend>
-                        <p id="primaryAdminHint" style="font-size:0.85rem;color:#6b7280;margin-bottom:0.75rem;">신규 학교 등록 시 주 담당자 계정을 함께 만듭니다.</p>
+                        <legend style="padding:0 0.5rem;font-weight:600;">주 담당자 (학교 관리자, 선택)</legend>
+                        <p id="primaryAdminHint" style="font-size:0.85rem;color:#6b7280;margin-bottom:0.75rem;">선택 사항입니다. 입력하면 학교 관리자 계정을 함께 만듭니다.</p>
                         <div class="form-group">
-                            <label for="primaryAdminName">이름 *</label>
+                            <label for="primaryAdminName">이름</label>
                             <input type="text" id="primaryAdminName" placeholder="예: 김담당">
                         </div>
                         <div class="form-group">
-                            <label for="primaryAdminEmail">이메일 *</label>
+                            <label for="primaryAdminEmail">이메일</label>
                             <input type="email" id="primaryAdminEmail" placeholder="admin@school.example">
                         </div>
                         <div class="form-group">
-                            <label for="primaryAdminPassword">비밀번호 * (최소 8자)</label>
+                            <label for="primaryAdminPassword">비밀번호 (최소 8자)</label>
                             <input type="password" id="primaryAdminPassword" minlength="8" autocomplete="new-password">
                         </div>
                     </fieldset>
@@ -289,10 +289,10 @@
             document.getElementById('schoolForm').reset();
             document.getElementById('schoolId').value = '';
             document.getElementById('primaryAdminFields').style.display = '';
-            document.getElementById('primaryAdminHint').textContent = '신규 학교 등록 시 주 담당자 계정을 함께 만듭니다.';
-            document.getElementById('primaryAdminName').required = true;
-            document.getElementById('primaryAdminEmail').required = true;
-            document.getElementById('primaryAdminPassword').required = true;
+            document.getElementById('primaryAdminHint').textContent = '선택 사항입니다. 입력하면 학교 관리자 계정을 함께 만듭니다.';
+            document.getElementById('primaryAdminName').required = false;
+            document.getElementById('primaryAdminEmail').required = false;
+            document.getElementById('primaryAdminPassword').required = false;
             document.getElementById('schoolLogoPreviewWrap').style.display = 'none';
             document.getElementById('schoolModal').style.display = 'flex';
         }
@@ -359,28 +359,31 @@
                     const adminName = document.getElementById('primaryAdminName').value.trim();
                     const adminEmail = document.getElementById('primaryAdminEmail').value.trim();
                     const adminPassword = document.getElementById('primaryAdminPassword').value;
-                    if (!adminName || !adminEmail || !adminPassword) {
-                        alert('주 담당자 이름·이메일·비밀번호를 입력해주세요.');
-                        return;
-                    }
-                    if (adminPassword.length < 8) {
-                        alert('주 담당자 비밀번호는 최소 8자입니다.');
-                        return;
-                    }
-                    const created = await api.schools.create({
-                        name,
-                        region: region || undefined,
-                        primary_admin: {
+                    const payload = { name, region: region || undefined };
+                    const anyAdmin = adminName || adminEmail || adminPassword;
+                    if (anyAdmin) {
+                        if (!adminName || !adminEmail || !adminPassword) {
+                            alert('주 담당자를 등록하려면 이름·이메일·비밀번호를 모두 입력해주세요.');
+                            return;
+                        }
+                        if (adminPassword.length < 8) {
+                            alert('주 담당자 비밀번호는 최소 8자입니다.');
+                            return;
+                        }
+                        payload.primary_admin = {
                             name: adminName,
                             email: adminEmail,
                             password: adminPassword,
-                        },
-                    });
+                        };
+                    }
+                    const created = await api.schools.create(payload);
                     const newId = created.school && created.school.id;
                     if (newId && logoFile) {
                         await api.schools.uploadLogo(newId, logoFile);
                     }
-                    alert('학교가 등록되었습니다. 주 담당자로 로그인할 수 있습니다.');
+                    alert(payload.primary_admin
+                        ? '학교가 등록되었습니다. 주 담당자로 로그인할 수 있습니다.'
+                        : '학교가 등록되었습니다.');
                 }
                 closeSchoolModal();
                 loadSchools();

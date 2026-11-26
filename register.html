@@ -22,11 +22,7 @@
                     <label>회원 유형 *</label>
                     <div style="display: flex; flex-wrap: wrap; gap: 16px 20px; margin-top: 0.5rem;">
                         <label class="radio-label">
-                            <input type="radio" name="userType" value="student" checked>
-                            <span>학생</span>
-                        </label>
-                        <label class="radio-label">
-                            <input type="radio" name="userType" value="graduate">
+                            <input type="radio" name="userType" value="graduate" checked>
                             <span>졸업생</span>
                         </label>
                         <label class="radio-label">
@@ -38,6 +34,7 @@
                             <span>기업</span>
                         </label>
                     </div>
+                    <small style="color:#6b7280;">3학년 졸업예정자도 졸업생으로 가입하고, 졸업(예정)년도로 구분합니다.</small>
                 </div>
 
                 <div class="form-group">
@@ -90,7 +87,7 @@
                     
                     <div class="form-group">
                         <label for="graduationYear">졸업년도(예정) *</label>
-                        <input type="number" id="graduationYear" name="graduationYear" min="1980" max="2030" placeholder="예: 2026 (재학생은 예정 졸업년도)" required>
+                        <input type="number" id="graduationYear" name="graduationYear" min="1980" max="2030" placeholder="예: 2026 (졸업예정 포함)" required>
                     </div>
                     <div class="form-group">
                         <label for="desiredJob">희망 직종</label>
@@ -99,36 +96,81 @@
                 </div>
 
                 <div id="companyFields" style="display: none;">
-                    <div class="form-group">
-                        <label for="companyName">기업명 *</label>
-                        <input type="text" id="companyName" name="companyName" placeholder="예: (주)전북테크">
+                    <div class="company-step" data-company-step="1">
+                        <p style="font-weight:600;margin:0 0 0.75rem;color:#0f2b4c;">1. 기업 정보</p>
+                        <div class="form-group">
+                            <label for="companyName">기업명 *</label>
+                            <input type="text" id="companyName" name="companyName" placeholder="기업명을 입력해주세요.">
+                        </div>
+                        <div class="form-group">
+                            <label for="bizNo">사업자 등록번호</label>
+                            <input type="text" id="bizNo" name="bizNo" inputmode="numeric" maxlength="12" placeholder="-제외 10자리">
+                            <small style="color:#6b7280;">사업자등록번호가 없으면 기업 승인 절차가 진행됩니다.</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="industry">산업 선택 *</label>
+                            <select id="industry" name="industry">
+                                <option value="">산업을 선택해주세요</option>
+                                <option value="제조/기계">제조/기계</option>
+                                <option value="전기/전자">전기/전자</option>
+                                <option value="IT/소프트웨어">IT/소프트웨어</option>
+                                <option value="건설/건축">건설/건축</option>
+                                <option value="교육">교육</option>
+                                <option value="서비스">서비스</option>
+                                <option value="유통/물류">유통/물류</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="companySize">기업의 직원 수 *</label>
+                            <select id="companySize" name="companySize">
+                                <option value="">직원 수를 선택해주세요</option>
+                                <option value="1-10">1~10명</option>
+                                <option value="11-50">11~50명</option>
+                                <option value="51-200">51~200명</option>
+                                <option value="201-500">201~500명</option>
+                                <option value="500+">500명 이상</option>
+                                <option value="startup">스타트업</option>
+                                <option value="sme">중소기업</option>
+                                <option value="mid">중견기업</option>
+                                <option value="large">대기업</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="companyWebsite">웹사이트</label>
+                            <input type="url" id="companyWebsite" name="companyWebsite" placeholder="https://">
+                        </div>
+                        <div class="form-group">
+                            <label for="companyAddress">소재지</label>
+                            <input type="text" id="companyAddress" name="companyAddress" placeholder="예: 전라북도 전주시">
+                        </div>
+                        <div class="form-group">
+                            <label for="companyPhone">담당자 연락처 *</label>
+                            <input type="tel" id="companyPhone" name="companyPhone" placeholder="010-1234-5678">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="companyPhone">담당자 연락처 *</label>
-                        <input type="tel" id="companyPhone" name="companyPhone" placeholder="010-1234-5678">
-                    </div>
-                    <div class="form-group">
-                        <label for="industry">업종</label>
-                        <input type="text" id="industry" name="industry" placeholder="예: 제조/기계, IT/소프트웨어">
-                    </div>
-                    <div class="form-group">
-                        <label for="companySize">기업 규모</label>
-                        <select id="companySize" name="companySize">
-                            <option value="">선택</option>
-                            <option value="startup">스타트업</option>
-                            <option value="sme">중소기업</option>
-                            <option value="mid">중견기업</option>
-                            <option value="large">대기업</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="companyWebsite">웹사이트</label>
-                        <input type="url" id="companyWebsite" name="companyWebsite" placeholder="https://">
-                    </div>
-                    <div class="form-group">
-                        <label for="companyAddress">소재지</label>
-                        <input type="text" id="companyAddress" name="companyAddress" placeholder="예: 전라북도 전주시">
-                    </div>
+                </div>
+
+                <div id="privacyConsentBox" class="form-group" style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem;background:#fafafa;">
+                    <p style="font-weight:600;margin:0 0 0.75rem;">고졸자 후속관리 지원모델 — 개인정보 동의 *</p>
+                    <label class="checkbox-label" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:0.5rem;">
+                        <input type="checkbox" id="agreeAllPrivacy">
+                        <span>전체 동의</span>
+                    </label>
+                    <label class="checkbox-label" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:0.4rem;">
+                        <input type="checkbox" id="privacyPersonal" class="privacy-item" required>
+                        <span>[필수] 개인정보 수집·이용에 동의합니다</span>
+                    </label>
+                    <label class="checkbox-label" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:0.4rem;">
+                        <input type="checkbox" id="privacyUnique" class="privacy-item" required>
+                        <span>[필수] 고유식별정보 제공에 동의합니다</span>
+                    </label>
+                    <label class="checkbox-label" style="display:flex;gap:8px;align-items:flex-start;margin-bottom:0.4rem;">
+                        <input type="checkbox" id="privacyDisadvantage" class="privacy-item" required>
+                        <span>[필수] 동의 거부 시 서비스 제한 안내를 확인했습니다</span>
+                    </label>
+                    <button type="button" onclick="openPrivacyModal()" style="margin-top:0.5rem;padding:4px 10px;font-size:0.8rem;background:#0f2b4c;color:#fff;border:none;border-radius:4px;cursor:pointer;">동의서 전문 보기</button>
+                    <p style="font-size:0.8rem;color:#6b7280;margin:0.5rem 0 0;">동의 내역은 관리자가 출력·확인할 수 있습니다.</p>
                 </div>
                 
                 <div class="form-group checkbox-group">
@@ -340,6 +382,31 @@
         });
     </script>
 
+    <div id="privacyModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.5); overflow-y:auto;">
+        <div style="background:#fff; max-width:720px; margin:40px auto; border-radius:10px; padding:24px 28px; max-height:calc(100vh - 80px); overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                <h2 style="margin:0;font-size:1.1rem;color:#0f2b4c;">개인 신용정보 수집·이용·제공 및 조회 동의서</h2>
+                <button type="button" onclick="closePrivacyModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">&times;</button>
+            </div>
+            <div style="font-size:0.9rem;line-height:1.7;color:#374151;">
+                <p><strong>필수 동의사항</strong> — 「고졸자 후속관리 지원모델 개발 사업」 서비스 제공에 관한 사항</p>
+                <p>본 플랫폼은 「개인정보보호법」을 준수하며, 고졸자 후속관리 지원모델 개발 사업에 따라 재학 단계부터 졸업 이후 5년까지 취업정보·컨설팅·교육 프로그램 등 고용서비스를 안내·제공하기 위해 개인정보를 수집합니다.</p>
+                <p><strong>수집·이용 항목:</strong> 성명, 연락처, 소속학교, 학년, 입학년월, 졸업(예정)년월, 신청일자 등</p>
+                <p><strong>보유·이용기간:</strong> 졸업(예정)일로부터 5년</p>
+                <p>이용자는 동의를 거부할 권리가 있으며, 거부 시 취업 지원 서비스 제공이 제한됩니다.</p>
+            </div>
+            <div style="text-align:right;margin-top:1rem;">
+                <button type="button" onclick="closePrivacyModal()" class="btn btn-primary">확인</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        function openPrivacyModal() { document.getElementById('privacyModal').style.display = 'block'; }
+        function closePrivacyModal() { document.getElementById('privacyModal').style.display = 'none'; }
+        document.getElementById('privacyModal').addEventListener('click', function(e) {
+            if (e.target === this) closePrivacyModal();
+        });
+    </script>
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
     <script src="js/nav.js"></script>

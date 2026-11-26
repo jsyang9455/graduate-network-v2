@@ -10,7 +10,8 @@ document.addEventListener('DOMContentLoaded', function() {
     loadSchools();
     loadMajors();
     populateGraduationYears();
-    applyUserTypeUI(document.querySelector('input[name="userType"]:checked')?.value || 'student');
+    applyUserTypeUI(document.querySelector('input[name="userType"]:checked')?.value || 'graduate');
+    setupPrivacyAgreeAll();
 
     userTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
@@ -33,12 +34,20 @@ document.addEventListener('DOMContentLoaded', function() {
             agreeTerms: document.getElementById('agreeTerms').checked
         };
 
-        if (userType === 'student' || userType === 'graduate') {
+        if (userType === 'graduate') {
             formData.phone = document.getElementById('phone')?.value || '';
             formData.graduationYear = document.getElementById('graduationYear')?.value || '';
             formData.major = document.getElementById('major')?.value || '';
             formData.departmentName = document.getElementById('departmentName')?.value || '';
             formData.desiredJob = document.getElementById('desiredJob')?.value || '';
+            formData.privacyConsent = !!(document.getElementById('privacyPersonal')?.checked
+                && document.getElementById('privacyUnique')?.checked
+                && document.getElementById('privacyDisadvantage')?.checked);
+            formData.privacyItems = {
+                personal: !!document.getElementById('privacyPersonal')?.checked,
+                unique_id: !!document.getElementById('privacyUnique')?.checked,
+                disadvantage: !!document.getElementById('privacyDisadvantage')?.checked,
+            };
         } else if (userType === 'company') {
             formData.companyName = document.getElementById('companyName')?.value.trim() || '';
             formData.phone = document.getElementById('companyPhone')?.value || '';
@@ -46,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
             formData.companySize = document.getElementById('companySize')?.value || '';
             formData.website = document.getElementById('companyWebsite')?.value.trim() || '';
             formData.address = document.getElementById('companyAddress')?.value.trim() || '';
+            formData.bizNo = document.getElementById('bizNo')?.value.trim() || '';
         } else if (userType === 'teacher') {
             formData.phone = document.getElementById('phone')?.value || '';
         }
@@ -80,6 +90,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 registerData.company_size = formData.companySize || null;
                 registerData.website = formData.website || null;
                 registerData.address = formData.address || null;
+                registerData.biz_no = formData.bizNo || null;
+            }
+            if (formData.userType === 'graduate') {
+                registerData.privacy_consent = true;
+                registerData.privacy_consent_items = formData.privacyItems;
+                registerData.privacy_consent_name = formData.name;
             }
 
             try {
@@ -127,9 +143,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const companyNameInput = document.getElementById('companyName');
         const companyPhoneInput = document.getElementById('companyPhone');
 
+        const privacyBox = document.getElementById('privacyConsentBox');
+        const industrySelect = document.getElementById('industry');
+        const companySizeSelect = document.getElementById('companySize');
+
         if (userType === 'company') {
             if (studentFields) studentFields.style.display = 'none';
             if (companyFields) companyFields.style.display = 'block';
+            if (privacyBox) privacyBox.style.display = 'none';
             if (nameLabel) nameLabel.textContent = '담당자 이름 *';
             if (nameInput) nameInput.placeholder = '채용 담당자 실명';
             if (schoolLabel) schoolLabel.textContent = '협력(게시 대상) 학교 *';
@@ -138,8 +159,11 @@ document.addEventListener('DOMContentLoaded', function() {
             [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
                 if (el) el.removeAttribute('required');
             });
+            document.querySelectorAll('.privacy-item').forEach((el) => el.removeAttribute('required'));
             if (companyNameInput) companyNameInput.setAttribute('required', 'required');
             if (companyPhoneInput) companyPhoneInput.setAttribute('required', 'required');
+            if (industrySelect) industrySelect.setAttribute('required', 'required');
+            if (companySizeSelect) companySizeSelect.setAttribute('required', 'required');
             return;
         }
 
@@ -150,18 +174,40 @@ document.addEventListener('DOMContentLoaded', function() {
         if (schoolHint) schoolHint.style.display = 'none';
         if (companyNameInput) companyNameInput.removeAttribute('required');
         if (companyPhoneInput) companyPhoneInput.removeAttribute('required');
+        if (industrySelect) industrySelect.removeAttribute('required');
+        if (companySizeSelect) companySizeSelect.removeAttribute('required');
 
         if (userType === 'teacher') {
             if (studentFields) studentFields.style.display = 'none';
+            if (privacyBox) privacyBox.style.display = 'none';
             [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
                 if (el) el.removeAttribute('required');
             });
+            document.querySelectorAll('.privacy-item').forEach((el) => el.removeAttribute('required'));
         } else {
             if (studentFields) studentFields.style.display = 'block';
+            if (privacyBox) privacyBox.style.display = 'block';
             [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
                 if (el) el.setAttribute('required', 'required');
             });
+            document.querySelectorAll('.privacy-item').forEach((el) => el.setAttribute('required', 'required'));
         }
+    }
+
+    function setupPrivacyAgreeAll() {
+        const all = document.getElementById('agreeAllPrivacy');
+        if (!all) return;
+        all.addEventListener('change', () => {
+            document.querySelectorAll('.privacy-item').forEach((el) => {
+                el.checked = all.checked;
+            });
+        });
+        document.querySelectorAll('.privacy-item').forEach((el) => {
+            el.addEventListener('change', () => {
+                const items = [...document.querySelectorAll('.privacy-item')];
+                all.checked = items.every((i) => i.checked);
+            });
+        });
     }
 
     function populateGraduationYears() {
@@ -183,11 +229,9 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
 
-        if (data.userType === 'student' || data.userType === 'graduate') {
+        if (data.userType === 'graduate') {
             if (!data.phone || !data.graduationYear) {
-                showError(data.userType === 'student'
-                    ? '필수 항목을 모두 입력해주세요. (전화번호, 졸업년도(예정))'
-                    : '필수 항목을 모두 입력해주세요. (전화번호, 졸업년도)');
+                showError('필수 항목을 모두 입력해주세요. (전화번호, 졸업년도)');
                 return false;
             }
             if (!data.major) {
@@ -196,6 +240,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (!data.departmentName) {
                 showError('학과명을 입력해주세요.');
+                return false;
+            }
+            if (!data.privacyConsent) {
+                showError('고졸자 후속관리 개인정보 동의(필수)에 모두 동의해주세요.');
                 return false;
             }
             const phoneRegex = /^01[0-9]-?[0-9]{3,4}-?[0-9]{4}$/;
@@ -208,6 +256,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (data.userType === 'company') {
             if (!data.companyName) {
                 showError('기업명을 입력해주세요.');
+                return false;
+            }
+            if (!data.industry) {
+                showError('산업을 선택해주세요.');
+                return false;
+            }
+            if (!data.companySize) {
+                showError('직원 수를 선택해주세요.');
                 return false;
             }
             if (!data.phone) {

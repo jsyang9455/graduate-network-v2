@@ -1,6 +1,6 @@
 # STATUS — jjobb_v2 (living)
 
-최종 갱신: 2026-11-09  
+최종 갱신: 2026-11-27  
 현재 단계: **Sprint 7+ / 학교 테넌트 UX·브랜딩 + DX 데모 시드**  
 전체 P0 구현: **약 72%** (Wave 1–Sprint 6 + Sprint 7 + 기업 승인 + 정책 Q1–Q7 + **STB**. **워크넷·알림톡 실연동 0%** — 게이트 `unknown`)
 
@@ -18,6 +18,7 @@
 - **로고 전문직 톤 리디자인 (2026-10-29):** "유아틱하다" 피드백 반영 — 둥근 그라데이션 소문자 로고(시안 1·2·4 테스트) 대신 네이비 심볼(흰 J + 그린 포인트) + 대문자 JJOBB 워드마크 `images/logo-jjobb.svg`를 전 페이지·`js/nav.js`·`js/school-brand.js`에 적용. 메인은 HTML 슬로건 "전북 직업계고 졸업생 취업 네트워크"(모바일 숨김). 파비콘 `logo-symbol.svg`도 같은 심볼로 교체. 브라우저 검증: index, student dashboard
 - **종합 테스트 (2026-11-09, QA):** 계정 생성부터 전 흐름 — 자동 101/101, API 시나리오 214/226 (실패 8, SKIP 4), 브라우저 24/36 (실패 11, SKIP 1). 핵심 흐름·학교 간 격리 정상. 높음 2건(상담 담당자 타교 변경, 승인 대기 기업 학생 PII 열람) 포함 D1–D13 **같은 날 수정·재검증 완료** — `npm test` 114/114, API 재검증 64/64, 브라우저 D5–D11 통과. 보고서: [docs/qa/comprehensive-test-report-2026-11-09.md](qa/comprehensive-test-report-2026-11-09.md)
 - **관리자 사이드바 통일 (2026-11-09, REQ-IAM-008):** `admin-*.html` 6개 화면 왼쪽 메뉴를 같은 7개 항목으로 통일(화면마다 권한 매트릭스·공지사항 관리 누락). 브라우저 검증: admin 계정으로 6개 화면 모두 동일 메뉴·현재 화면만 강조
+- **UX 일괄 수정 (2026-11-27):** ①로고 옆 문구 고정「전북 직업계고 졸업생 취업 네트워크」(`js/school-brand.js`) ②학교 등록 주 담당자 선택화(API+admin-codes, STB TC-01 갱신) ③역할별 메뉴(`auth.js` company 숨김: 진로상담·일지·경력·교육·자격증) ④상담일지 메뉴 페이지마다 깜빡임 → `ensureJournalMenuLink` ⑤교육프로그램 신청·신청자 API(`022`+education-programs) ⑥기업 가입 원티드형(사업자번호·산업·직원수) ⑦고졸자 후속관리 동의서 가입 수집+`consent-print.html` ⑧회원가입 재학생 유형 제거(졸업생+졸업년도)
 - **공지 등록 칩 삭제 버튼 (2026-11-10, Frontend):** `admin-announcements.html` 혜택·준비사항·태그 칩의 × 가 `dashboard.css`의 `.tag-remove { position:absolute }` 때문에 칩 밖(팝업 가장자리)으로 밀려 안 보여 삭제 불가 → 페이지에서 `.tag-item .tag-remove` 재정의, `<button type="button">`·`aria-label`로 변경, 칩 텍스트 이스케이프. 브라우저 검증: × 표시, 클릭 시 해당 항목만 삭제·팝업 유지
 - **취업 박람회 목록 누락 + 전국 지역 (2026-11-09, Frontend, REQ-IAM-003):** 관리자가 등록한 박람회가 학생·관리자 목록에 안 보이던 문제(목록 요청에 토큰 미전송 → 학교 지정 공지 제외) 수정 — `job-fair.html`, `certification-support.html`. `js/regions.js` 전국 시/도·시/군/구로 공지 등록 장소 선택 + 박람회 2단계 지역 필터. 브라우저 검증: admin 등록 → 박람회 목록 표시(0 → 6건), 전북/전주 4건·군산/서울 0건, 자격증 3건. 상세: [05-frontend-ia.md](05-frontend-ia.md)
 - **매뉴얼 v2.1 갱신 (2026-11-09, Architect/PM):** v1(전주공고·단일 학교) 내용을 v2로 교체. `scripts/capture-screenshots.js` 재작성(`@jjob.com` 계정, JWT만 저장) → `manual-screenshots/` 29장(학생 11·교사 3·기업 3·관리자 8·모바일). 사용자 매뉴얼(`scripts/generate-manual.py` → `전북지역_졸업생네트워크_사용자매뉴얼.docx`, `MANUAL.md`): 회원가입·학교 선택·기업 승인, 이력서·지원 상태, 상담일지, 견학, 관리자 7개 메뉴. 개발자 매뉴얼(`scripts/generate-dev-manual.py` → `…_개발자매뉴얼.docx`): 멀티스쿨·마이그레이션 010–021, RBAC·schoolScope, v2 API, JWT-only 저장, `npm test` 114, `aws-up.sh`/8090 배포

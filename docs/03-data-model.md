@@ -30,6 +30,9 @@
 
 ```
 schools (id, name, region, biz_no, status, logo_file_id, primary_admin_user_id, ...)
+users.privacy_consent_* (at/version/items/name) — 고졸자 후속관리 동의 (가입 시)
+education_program_applications (program_id, user_id, applicant_*, status) — 교육 신청
+company_profiles.biz_no — 기업 사업자등록번호
 departments (id, school_id, name, ...)          -- 학과
 classes (id, department_id, name, grade, year) -- 반 (필요 시)
 roles (id, code, name)                         -- system_admin, school_admin, ...

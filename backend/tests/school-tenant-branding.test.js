@@ -165,14 +165,16 @@ describe('School tenant branding', { timeout: 120000 }, () => {
     }
   });
 
-  test('TC-01 POST /schools without primary_admin → 400', async () => {
+  test('TC-01 POST /schools without primary_admin → 201 (optional)', async () => {
     const token = await login(accounts.sys.email);
     const { status, data } = await jsonRequest('POST', '/api/schools', {
       token,
-      body: { name: `STB무담당-${stamp}` },
+      body: { name: `STB무담당-${stamp}`, code: `STBN${String(stamp).slice(-5)}` },
     });
-    assert.equal(status, 400);
-    assert.equal(data.code || data.error?.code, 'VALIDATION');
+    assert.equal(status, 201);
+    assert.ok(data.school?.id);
+    assert.equal(data.school.primary_admin_user_id, null);
+    assert.equal(data.primary_admin, null);
   });
 
   test('TC-02/03 create with primary_admin; duplicate email 409; login + me.school', async () => {

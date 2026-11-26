@@ -77,7 +77,8 @@ function displayPrograms(programList) {
         return;
     }
 
-    const isAdmin = currentUser && (currentUser.user_type === 'admin' || currentUser.user_type === 'teacher');
+    const isStaff = currentUser && (currentUser.user_type === 'admin' || currentUser.user_type === 'teacher' || currentUser.user_type === 'school_admin');
+    const canApply = currentUser && (currentUser.user_type === 'graduate' || currentUser.user_type === 'student');
 
     grid.innerHTML = programList.map(program => {
         const desc = program.description || '';
@@ -94,10 +95,13 @@ function displayPrograms(programList) {
                     <span>📅 ${program.duration || '-'}</span>
                     ${program.instructor ? `<span>👨‍🏫 ${program.instructor}</span>` : ''}
                     ${program.cost ? `<span>💰 ${program.cost}</span>` : ''}
+                    ${program.creator_name ? `<span>등록: ${program.creator_name}</span>` : ''}
                 </div>
                 <div class="program-actions">
                     <button class="btn btn-secondary" onclick="viewProgramDetail(${program.id})">상세보기</button>
-                    ${isAdmin ? `
+                    ${canApply ? `<button class="btn btn-primary" onclick="applyProgram(${program.id})">신청하기</button>` : ''}
+                    ${isStaff ? `
+                        <button class="btn btn-secondary" onclick="viewApplicants(${program.id})">신청자</button>
                         <button class="btn btn-primary" onclick="editProgram(${program.id})">수정</button>
                         <button class="btn btn-danger" onclick="deleteProgram(${program.id})">삭제</button>
                     ` : ''}
@@ -105,6 +109,48 @@ function displayPrograms(programList) {
             </div>`;
     }).join('');
 }
+
+async function applyProgram(programId) {
+    const program = programs.find((p) => p.id === programId);
+    if (!program) return;
+    const name = prompt('신청자 이름', currentUser?.name || '');
+    if (name === null) return;
+    const phone = prompt('연락처', currentUser?.phone || '');
+    if (phone === null) return;
+    if (!name.trim() || !phone.trim()) {
+        alert('이름과 연락처는 필수입니다.');
+        return;
+    }
+    try {
+        await api.post(`/education-programs/${programId}/apply`, {
+            applicant_name: name.trim(),
+            applicant_phone: phone.trim(),
+            applicant_email: currentUser?.email || null,
+        });
+        alert('신청이 완료되었습니다.');
+    } catch (err) {
+        alert(err.message || '신청에 실패했습니다.');
+    }
+}
+window.applyProgram = applyProgram;
+
+async function viewApplicants(programId) {
+    try {
+        const data = await api.get(`/education-programs/${programId}/applications`);
+        const rows = data.applications || [];
+        if (!rows.length) {
+            alert('신청자가 없습니다.');
+            return;
+        }
+        const lines = rows.map((a, i) =>
+            `${i + 1}. ${a.applicant_name} / ${a.applicant_phone} / ${a.status} / ${String(a.created_at || '').slice(0, 10)}`
+        ).join('\n');
+        alert(`${data.program?.title || '프로그램'} 신청자 (${rows.length}명)\n\n${lines}`);
+    } catch (err) {
+        alert(err.message || '신청자 목록을 불러오지 못했습니다.');
+    }
+}
+window.viewApplicants = viewApplicants;
 
 // 프로그램 등록 모달 열기
 function openAddProgramModal() {

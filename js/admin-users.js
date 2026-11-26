@@ -183,6 +183,7 @@ function displayUsers(userList) {
                 <td>${joinDate}</td>
                 <td>
                     <button class="btn-small btn-primary" onclick="editUser('${user.id}')">수정</button>
+                    ${(user.user_type === 'graduate' || user.user_type === 'student') ? `<button class="btn-small" style="background:#0f2b4c;color:#fff;border:none;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:0.78rem;" onclick="printConsent('${user.id}')">동의서</button>` : ''}
                     ${user.user_type !== 'admin' ? `<button class="btn-small btn-danger" onclick="deleteUser('${user.id}')">탈퇴</button>` : ''}
                 </td>
             </tr>
@@ -216,8 +217,19 @@ function editUser(userId) {
     }
 
     document.getElementById('editUserModal').style.display = 'block';
+    const printBtn = document.getElementById('printConsentBtn');
+    if (printBtn) {
+        const show = user.user_type === 'graduate' || user.user_type === 'student';
+        printBtn.style.display = show ? '' : 'none';
+        printBtn.onclick = () => printConsent(user.id);
+    }
 }
 window.editUser = editUser;
+
+function printConsent(userId) {
+    window.open(`consent-print.html?userId=${encodeURIComponent(userId)}`, '_blank');
+}
+window.printConsent = printConsent;
 
 // 회원 저장
 async function saveUser(event) {

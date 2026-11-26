@@ -196,9 +196,6 @@ router.post('/', auth, authorize('schools', 'manage'), async (req, res) => {
     if (!name || !String(name).trim()) {
       return sendError(res, 400, 'VALIDATION', '학교명이 필요합니다');
     }
-    if (!primaryAdmin) {
-      return sendError(res, 400, 'VALIDATION', '주 담당자(primary_admin)가 필요합니다');
-    }
 
     await client.query('BEGIN');
 
@@ -209,16 +206,25 @@ router.post('/', auth, authorize('schools', 'manage'), async (req, res) => {
       [code || null, String(name).trim(), region || null, biz_no || null, status || 'active']
     );
     let school = result.rows[0];
+    let admin = null;
 
-    const admin = await resolvePrimaryAdmin(client, school.id, primaryAdmin, req.user.id);
-
-    const updated = await client.query(
-      `UPDATE schools SET primary_admin_user_id = $1, updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING ${SCHOOL_LIST_COLS}`,
-      [admin.id, school.id]
-    );
-    school = updated.rows[0];
+    // 주 담당자는 선택 사항 — 이름·이메일·비밀번호가 모두 있을 때만 생성
+    const hasPrimaryAdmin = primaryAdmin
+      && typeof primaryAdmin === 'object'
+      && (primaryAdmin.user_id
+        || (String(primaryAdmin.email || '').trim()
+          && String(primaryAdmin.name || '').trim()
+          && primaryAdmin.password));
+    if (hasPrimaryAdmin) {
+      admin = await resolvePrimaryAdmin(client, school.id, primaryAdmin, req.user.id);
+      const updated = await client.query(
+        `UPDATE schools SET primary_admin_user_id = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING ${SCHOOL_LIST_COLS}`,
+        [admin.id, school.id]
+      );
+      school = updated.rows[0];
+    }
 
     await client.query('COMMIT');
 
@@ -227,7 +233,7 @@ router.post('/', auth, authorize('schools', 'manage'), async (req, res) => {
       schoolId: school.id,
       action: 'school.create',
       resource: `schools:${school.id}`,
-      payload: { name: school.name, primary_admin_user_id: admin.id },
+      payload: { name: school.name, primary_admin_user_id: admin?.id || null },
       ip: requestIp(req),
     });
 

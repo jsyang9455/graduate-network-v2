@@ -83,7 +83,7 @@
 
 | Method | Path | 권한 | REQ |
 |--------|------|------|-----|
-| GET/POST | `/api/schools` | system 관리 / school 읽기 | IAM-001. **POST 시 `primary_admin` 필수** (`{ user_id }` 또는 `{ email, name, password }`). 응답 `logo_url`, `primary_admin_user_id` |
+| GET/POST | `/api/schools` | system 관리 / school 읽기 | IAM-001. **POST 시 `primary_admin` 선택** (`{ user_id }` 또는 `{ email, name, password }` — 생략 시 학교만 생성). 응답 `logo_url`, `primary_admin_user_id` |
 | GET/PATCH | `/api/schools/:id` | system / 해당 school_admin | IAM-001. 단건에 `primary_admin` 요약 |
 | POST/GET | `/api/schools/:id/logo` | write / **공개 GET** | PLT-004 학교 로고 업로드·`<img>` 스트림. GET: 로고 미등록 또는 저장소 파일 유실 시 **204 No Content**(본문 없음), 학교 없음 404. 클라이언트는 `user.school.logo_url`이 `null`이면 요청하지 않고, 204/`<img>` error 시 기본 로고로 폴백 |
 | GET/POST | `/api/schools/:id/departments` | school 쓰기 | IAM-002 |

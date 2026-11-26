@@ -76,14 +76,15 @@ async function upsertCompanyProfile(userId, body = {}) {
   const address = body.address || null;
   const description = body.description || null;
   const foundedYear = body.founded_year || null;
+  const bizNo = body.biz_no ? String(body.biz_no).replace(/\D/g, '').slice(0, 20) : null;
 
   if (existing.rows.length === 0) {
     const created = await query(
       `INSERT INTO company_profiles
-         (user_id, company_name, industry, company_size, website, address, description, founded_year, approval_status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
+         (user_id, company_name, industry, company_size, website, address, description, founded_year, biz_no, approval_status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending')
        RETURNING *`,
-      [userId, companyName, industry, companySize, website, address, description, foundedYear]
+      [userId, companyName, industry, companySize, website, address, description, foundedYear, bizNo]
     );
     return created.rows[0];
   }
@@ -98,16 +99,39 @@ async function upsertCompanyProfile(userId, body = {}) {
          address = COALESCE($5, address),
          description = COALESCE($6, description),
          founded_year = COALESCE($7, founded_year),
+         biz_no = COALESCE($8, biz_no),
          approval_status = 'pending',
          approved_at = NULL,
          approved_by = NULL,
          rejection_reason = NULL,
          updated_at = CURRENT_TIMESTAMP
-     WHERE user_id = $8
+     WHERE user_id = $9
      RETURNING *`,
-    [companyName, industry, companySize, website, address, description, foundedYear, userId]
+    [companyName, industry, companySize, website, address, description, foundedYear, bizNo, userId]
   );
   return updated.rows[0];
+}
+
+async function savePrivacyConsent(userId, { privacy_consent, privacy_consent_items, privacy_consent_name, name }) {
+  if (!privacy_consent) return;
+  try {
+    await query(
+      `UPDATE users SET
+         privacy_consent_at = CURRENT_TIMESTAMP,
+         privacy_consent_version = $1,
+         privacy_consent_items = $2::jsonb,
+         privacy_consent_name = $3
+       WHERE id = $4`,
+      [
+        'kosaf-2026',
+        JSON.stringify(privacy_consent_items || { personal: true, unique_id: true, disadvantage: true }),
+        String(privacy_consent_name || name || '').trim() || null,
+        userId,
+      ]
+    );
+  } catch (err) {
+    if (err.code !== '42703') console.warn('savePrivacyConsent:', err.message);
+  }
 }
 
 // Register — public types only (REQ-IAM-006/007; no open admin)
@@ -127,6 +151,8 @@ router.post('/register', [
       email, password, name, user_type, phone, school_name, school_id,
       major, desired_job, graduation_year, department_name,
       company_name, industry, company_size, website, address, description, founded_year,
+      biz_no,
+      privacy_consent, privacy_consent_items, privacy_consent_name,
     } = req.body;
 
     // Reject privileged types even if validator is bypassed
@@ -164,6 +190,11 @@ router.post('/register', [
 
     if (user_type === 'company' && !(company_name || name)) {
       return sendError(res, 400, 'VALIDATION', '기업명을 입력해주세요');
+    }
+
+    // 졸업생(고졸자 후속관리) 개인정보 동의 — 공개 가입 필수
+    if (user_type === 'graduate' && !privacy_consent) {
+      return sendError(res, 400, 'VALIDATION', '개인정보 수집·이용 동의는 필수입니다');
     }
 
     const existingUser = await query(
@@ -222,12 +253,15 @@ router.post('/register', [
         try {
           companyProfile = await upsertCompanyProfile(user.id, {
             company_name: company_name || name,
-            industry, company_size, website, address, description, founded_year, name,
+            industry, company_size, website, address, description, founded_year, name, biz_no,
           });
         } catch (err) {
           console.warn('company profile upsert skipped:', err.message);
         }
       }
+      await savePrivacyConsent(user.id, {
+        privacy_consent, privacy_consent_items, privacy_consent_name, name,
+      });
       const token = signUserToken(tokenUser(user));
       return res.status(201).json({
         message: 'User registered successfully',
@@ -278,17 +312,22 @@ router.post('/register', [
       try {
         companyProfile = await upsertCompanyProfile(user.id, {
           company_name: company_name || name,
-          industry, company_size, website, address, description, founded_year, name,
+          industry, company_size, website, address, description, founded_year, name, biz_no,
         });
       } catch (err) {
         console.warn('company profile upsert skipped:', err.message);
       }
     }
-    const token = signUserToken(tokenUser(user));
+    await savePrivacyConsent(user.id, {
+      privacy_consent, privacy_consent_items, privacy_consent_name, name,
+    });
+    const refreshed = await query('SELECT * FROM users WHERE id = $1', [user.id]);
+    const finalUser = refreshed.rows[0] || user;
+    const token = signUserToken(tokenUser(finalUser));
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: publicUser(user),
+      user: publicUser(finalUser),
       token,
       ...(companyProfile ? { company_profile: companyProfile } : {}),
     });

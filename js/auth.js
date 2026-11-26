@@ -236,10 +236,22 @@ class AuthManager {
             return;
         }
 
+        this.ensureJournalMenuLink();
+
         const links = document.querySelectorAll('.sidebar-menu a.menu-item, #adminMenuSection a.menu-item');
         links.forEach((link) => {
             const menu = link.getAttribute('data-menu') || this.menuCodeForHref(link.getAttribute('href') || '');
-            if (!menu) return;
+            const roleAllowed = this.roleAllowsHref(user, link.getAttribute('href') || '', link);
+            if (roleAllowed === false) {
+                link.style.display = 'none';
+                link.setAttribute('aria-hidden', 'true');
+                return;
+            }
+            if (!menu) {
+                link.style.display = '';
+                link.removeAttribute('aria-hidden');
+                return;
+            }
             const allowed = this.linkAllowed(link);
             if (allowed === false) {
                 link.style.display = 'none';
@@ -249,6 +261,24 @@ class AuthManager {
                 link.removeAttribute('aria-hidden');
             }
         });
+
+        // 상단 네비도 역할별 숨김 (기업: 진로상담 등)
+        document.querySelectorAll('.nav-menu a[href], .main-nav a[href], header nav a[href]').forEach((link) => {
+            const href = link.getAttribute('href') || '';
+            if (!href || href === '#' || href.startsWith('javascript:')) return;
+            if (this.roleAllowsHref(user, href, link) === false) {
+                const li = link.closest('li');
+                if (li) {
+                    li.style.display = 'none';
+                    li.setAttribute('aria-hidden', 'true');
+                } else {
+                    link.style.display = 'none';
+                    link.setAttribute('aria-hidden', 'true');
+                }
+            }
+        });
+
+        this.applyRoleMenuExtras(user);
 
         if (adminMenuSection) {
             // Admin pages guard with requireStaffAdmin(); teachers with e.g. field_trips:write stay out.
@@ -267,6 +297,82 @@ class AuthManager {
 
         document.documentElement.classList.remove('rbac-pending');
         document.documentElement.classList.add('rbac-ready');
+    }
+
+    /** 페이지마다 상담일지 유무가 달라 깜빡이던 문제 — 진로상담 옆에 항상 삽입 후 역할로 표시 */
+    ensureJournalMenuLink() {
+        const counseling = document.getElementById('counselingMenu')
+            || document.querySelector('.sidebar-menu a[href="counseling.html"]');
+        if (!counseling || !counseling.parentElement) return;
+        let journal = document.getElementById('journalMenu');
+        if (journal) return;
+        journal = document.createElement('a');
+        journal.href = 'counseling-journal.html';
+        journal.className = 'menu-item';
+        journal.id = 'journalMenu';
+        journal.setAttribute('data-menu', 'counseling');
+        journal.innerHTML = '<span class="icon" data-icon="journal" aria-hidden="true"></span><span>상담일지</span>';
+        counseling.insertAdjacentElement('afterend', journal);
+        if (window.MenuIcons && typeof window.MenuIcons.apply === 'function') {
+            try { window.MenuIcons.apply(journal); } catch (_) { /* ignore */ }
+        }
+    }
+
+    /**
+     * 역할별 메뉴 허용. false면 숨김, true/undefined면 RBAC 계속.
+     * 기업: 진로상담·상담일지·경력·교육·자격증 불필요.
+     */
+    roleAllowsHref(user, href, link) {
+        if (!user) return true;
+        const path = (href || '').split('?')[0];
+        const type = user.user_type || user.role;
+        const isCompany = type === 'company';
+        const isTeacher = type === 'teacher';
+        const isGraduateOrStudent = type === 'graduate' || type === 'student';
+
+        if (isCompany) {
+            const companyHidden = [
+                'counseling.html',
+                'counseling-journal.html',
+                'career.html',
+                'education-programs.html',
+                'certification-support.html',
+            ];
+            if (companyHidden.some((p) => path.endsWith(p))) return false;
+            if (link && (link.id === 'counselingMenu' || link.id === 'journalMenu' || link.id === 'careerMenu')) {
+                return false;
+            }
+        }
+
+        if (path.endsWith('counseling-journal.html') || (link && link.id === 'journalMenu')) {
+            if (isCompany) return false;
+            if (isTeacher && !user.is_counselor && !this.isStaffAdmin(user)) return false;
+            // 졸업생·재학생도 본인 일지 열람 가능 → 표시 유지
+        }
+
+        if (isTeacher && path.endsWith('career.html')) return false;
+
+        if ((isGraduateOrStudent || isTeacher) && path.endsWith('job-create.html')) return false;
+        if ((isGraduateOrStudent || isTeacher) && path.endsWith('company-profile.html')) return false;
+
+        return true;
+    }
+
+    applyRoleMenuExtras(user) {
+        if (!user) return;
+        const type = user.user_type || user.role;
+        const companyProfileMenu = document.getElementById('companyProfileMenu');
+        const companyJobCreateMenu = document.getElementById('companyJobCreateMenu');
+        if (type === 'company') {
+            if (companyProfileMenu) {
+                companyProfileMenu.style.display = '';
+                companyProfileMenu.removeAttribute('aria-hidden');
+            }
+            if (companyJobCreateMenu) {
+                companyJobCreateMenu.style.display = '';
+                companyJobCreateMenu.removeAttribute('aria-hidden');
+            }
+        }
     }
 
     /** Display label for badges/menus (admin → 시스템 관리자) */

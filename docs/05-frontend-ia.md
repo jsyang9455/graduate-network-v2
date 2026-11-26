@@ -20,7 +20,7 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 |------|------|----|
 | 메인 | `index.html` | 학교 선택 불필요(로그인 후 소속). 현황은 `site_stats` |
 | 로그인 | `login.html` | 유지 |
-| 회원가입 | `register.html` | **Wave 1:** 학교 목록은 `GET /api/schools` select. LocalStorage `schools` 제거. **기업** 유형 선택 + 기업명·연락처·업종·협력학교. 가입 후 `company-profile.html` |
+| 회원가입 | `register.html` | 학교 목록 `GET /api/schools`. **유형: 졸업생·선생님·기업**(재학생 가입 삭제, 졸업예정=졸업생+졸업년도). 기업: 원티드형(사업자번호·산업·직원수). 졸업생: 고졸자 후속관리 동의서 필수 → 관리자 `consent-print.html` 출력. |
 | 도움말 | `help.html` | 역할별 섹션 보강 |
 
 ### 학생·졸업생
@@ -44,6 +44,12 @@ v1은 다페이지 HTML이다. 라우터 프레임워크 없이 **페이지 파�
 |------|------|----|
 | 상담일지 | `counseling-journal.html` | **Sprint 2:** 소속 학생 타임라인 조회. 유형 확장, PDF/DOCX, 통계 바 |
 | 대시보드 | `dashboard.html` | 폴백 제거, 소속 학생만 |
+
+### 역할별 메뉴 (2026-11-27)
+- 로고 옆 문구 고정: `전북 직업계고 졸업생 취업 네트워크` (`js/school-brand.js`)
+- 기업: 진로상담·상담일지·경력관리·교육프로그램·자격증지원 숨김 (사이드바+상단 네비, `auth.roleAllowsHref`)
+- 상담일지: 전 페이지 `ensureJournalMenuLink` 후 역할/RBAC으로 표시 — 페이지별 깜빡임 제거
+- 교육프로그램: 졸업생 신청 + 교사/관리자 「신청자」 이력
 
 ### 기업
 
