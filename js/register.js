@@ -85,6 +85,9 @@ document.addEventListener('DOMContentLoaded', function() {
             };
 
             if (formData.userType === 'company') {
+                delete registerData.password;
+                registerData.school_id = null;
+                registerData.school_name = '';
                 registerData.company_name = formData.companyName;
                 registerData.industry = formData.industry || null;
                 registerData.company_size = formData.companySize || null;
@@ -103,7 +106,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (response && response.token) {
                     auth.login(response.user, response.token);
                 }
-                showSuccess('🎉 회원가입이 완료되었습니다!');
+                showSuccess(formData.userType === 'company'
+                    ? '🎉 회원가입이 완료되었습니다! 다음 로그인부터 비밀번호는 사업자등록번호 10자리입니다.'
+                    : '🎉 회원가입이 완료되었습니다!');
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
                 const next =
@@ -134,7 +139,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const nameLabel = document.getElementById('nameLabel');
         const nameInput = document.getElementById('name');
         const schoolLabel = document.getElementById('schoolLabel');
-        const schoolHint = document.getElementById('schoolHint');
 
         const phoneInput = document.getElementById('phone');
         const graduationYearInput = document.getElementById('graduationYear');
@@ -146,6 +150,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const privacyBox = document.getElementById('privacyConsentBox');
         const industrySelect = document.getElementById('industry');
         const companySizeSelect = document.getElementById('companySize');
+        const bizNoInput = document.getElementById('bizNo');
+        const accountFields = [
+            ['passwordGroup', 'password'],
+            ['confirmPasswordGroup', 'confirmPassword'],
+            ['schoolGroup', 'schoolName'],
+        ];
 
         if (userType === 'company') {
             if (studentFields) studentFields.style.display = 'none';
@@ -153,8 +163,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (privacyBox) privacyBox.style.display = 'none';
             if (nameLabel) nameLabel.textContent = '담당자 이름 *';
             if (nameInput) nameInput.placeholder = '채용 담당자 실명';
-            if (schoolLabel) schoolLabel.textContent = '협력(게시 대상) 학교 *';
-            if (schoolHint) schoolHint.style.display = 'block';
+            accountFields.forEach(([groupId, inputId]) => {
+                const group = document.getElementById(groupId);
+                const input = document.getElementById(inputId);
+                if (group) group.style.display = 'none';
+                if (input) input.removeAttribute('required');
+            });
 
             [phoneInput, graduationYearInput, majorInput, departmentNameInput].forEach((el) => {
                 if (el) el.removeAttribute('required');
@@ -164,6 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (companyPhoneInput) companyPhoneInput.setAttribute('required', 'required');
             if (industrySelect) industrySelect.setAttribute('required', 'required');
             if (companySizeSelect) companySizeSelect.setAttribute('required', 'required');
+            if (bizNoInput) bizNoInput.setAttribute('required', 'required');
             return;
         }
 
@@ -171,11 +186,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (nameLabel) nameLabel.textContent = '이름 *';
         if (nameInput) nameInput.placeholder = '실명을 입력하세요';
         if (schoolLabel) schoolLabel.textContent = '소속 학교 *';
-        if (schoolHint) schoolHint.style.display = 'none';
+        accountFields.forEach(([groupId, inputId]) => {
+            const group = document.getElementById(groupId);
+            const input = document.getElementById(inputId);
+            if (group) group.style.display = '';
+            if (input) input.setAttribute('required', 'required');
+        });
         if (companyNameInput) companyNameInput.removeAttribute('required');
         if (companyPhoneInput) companyPhoneInput.removeAttribute('required');
         if (industrySelect) industrySelect.removeAttribute('required');
         if (companySizeSelect) companySizeSelect.removeAttribute('required');
+        if (bizNoInput) bizNoInput.removeAttribute('required');
 
         if (userType === 'teacher') {
             if (studentFields) studentFields.style.display = 'none';
@@ -224,7 +245,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function validateForm(data) {
-        if (!data.name || !data.email || !data.password || !data.schoolId) {
+        const isCompany = data.userType === 'company';
+        if (!data.name || !data.email || (!isCompany && (!data.password || !data.schoolId))) {
             showError('필수 항목을 모두 입력해주세요.');
             return false;
         }
@@ -258,6 +280,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 showError('기업명을 입력해주세요.');
                 return false;
             }
+            if (!isValidBizNo(data.bizNo)) {
+                showError('올바른 사업자등록번호 10자리를 입력해주세요. (로그인 비밀번호로 사용됩니다)');
+                return false;
+            }
             if (!data.industry) {
                 showError('산업을 선택해주세요.');
                 return false;
@@ -284,12 +310,12 @@ document.addEventListener('DOMContentLoaded', function() {
             return false;
         }
 
-        if (data.password.length < 8) {
+        if (!isCompany && data.password.length < 8) {
             showError('비밀번호는 8자 이상이어야 합니다.');
             return false;
         }
 
-        if (data.password !== data.confirmPassword) {
+        if (!isCompany && data.password !== data.confirmPassword) {
             showError('비밀번호가 일치하지 않습니다.');
             return false;
         }
@@ -300,6 +326,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         return true;
+    }
+
+    function isValidBizNo(value) {
+        const digits = String(value || '').replace(/\D/g, '');
+        if (!/^\d{10}$/.test(digits)) return false;
+        const d = digits.split('').map(Number);
+        const weights = [1, 3, 7, 1, 3, 7, 1, 3, 5];
+        let sum = weights.reduce((acc, w, i) => acc + d[i] * w, 0);
+        sum += Math.floor((d[8] * 5) / 10);
+        return (10 - (sum % 10)) % 10 === d[9];
     }
 
     function showError(message) {

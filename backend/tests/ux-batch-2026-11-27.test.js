@@ -250,12 +250,10 @@ describe('UX batch 2026-11-27', { timeout: 120000 }, () => {
     const { status, data } = await jsonRequest('POST', '/api/auth/register', {
       body: {
         email: `uxb.co.${stamp}@jjob.test`,
-        password: PASSWORD,
         name: '채용담당',
         user_type: 'company',
-        school_id: schools.A.id,
         company_name: 'UXB기업',
-        biz_no: '123-45-67890',
+        biz_no: '220-81-62517',
         industry: 'IT/소프트웨어',
         company_size: '11-50',
         phone: '01099998888',
@@ -263,22 +261,30 @@ describe('UX batch 2026-11-27', { timeout: 120000 }, () => {
     });
     assert.equal(status, 201, JSON.stringify(data));
     const cp = data.company_profile;
-    assert.equal(cp.biz_no, '1234567890');
+    assert.equal(cp.biz_no, '2208162517');
     assert.equal(cp.industry, 'IT/소프트웨어');
     assert.equal(cp.company_size, '11-50');
     assert.equal(cp.approval_status, 'pending');
+    assert.equal(data.user.school_id, null);
     accounts.co = { ...data.user, email: `uxb.co.${stamp}@jjob.test` };
-    await login('co');
+    const login = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: accounts.co.email, password: '220-81-62517' },
+    });
+    assert.equal(login.status, 200, JSON.stringify(login.data));
+    tokens.co = login.data.token;
   });
 
-  test('register company without school → 400', async () => {
-    const { status } = await jsonRequest('POST', '/api/auth/register', {
+  test('register company: school_id sent by client is ignored', async () => {
+    const { status, data } = await jsonRequest('POST', '/api/auth/register', {
       body: {
-        email: `uxb.co2.${stamp}@jjob.test`, password: PASSWORD, name: '채용담당',
+        email: `uxb.co2.${stamp}@jjob.test`, name: '채용담당',
         user_type: 'company', company_name: 'X', phone: '01011112222',
+        biz_no: '1234567891', school_id: schools.A.id, school_name: 'x',
       },
     });
-    assert.equal(status, 400);
+    assert.equal(status, 201, JSON.stringify(data));
+    assert.equal(data.user.school_id, null);
+    assert.equal(data.user.school_name ?? null, null);
   });
 
   // ── 동의서 조회 (관리자 출력) ──────────────────────────

@@ -9,6 +9,7 @@ const { canonicalRole } = require('../lib/roles');
 const { sendError } = require('../lib/httpErrors');
 const { writeAudit, requestIp } = require('../modules/audit');
 const rbac = require('../modules/rbac');
+const { normalizeBizNo, isValidBizNo } = require('../lib/bizNo');
 
 async function resolveSchool({ school_id, school_name }) {
   if (school_id) {
@@ -137,7 +138,7 @@ async function savePrivacyConsent(userId, { privacy_consent, privacy_consent_ite
 // Register — public types only (REQ-IAM-006/007; no open admin)
 router.post('/register', [
   body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 8 }),
+  body('password').if(body('user_type').not().equals('company')).isLength({ min: 8 }),
   body('name').trim().isLength({ min: 2 }),
   body('user_type').isIn(['student', 'graduate', 'teacher', 'company'])
 ], async (req, res) => {
@@ -148,7 +149,7 @@ router.post('/register', [
     }
 
     const {
-      email, password, name, user_type, phone, school_name, school_id,
+      email, name, user_type, phone, school_name, school_id,
       major, desired_job, graduation_year, department_name,
       company_name, industry, company_size, website, address, description, founded_year,
       biz_no,
@@ -160,18 +161,25 @@ router.post('/register', [
       return sendError(res, 403, 'FORBIDDEN', '해당 역할로 공개 가입할 수 없습니다');
     }
 
-    // Graduate/student/teacher/company: high school (학교) required
-    const needsSchool = ['student', 'graduate', 'teacher', 'company'].includes(user_type);
+    // 기업: 별도 비밀번호 없이 사업자등록번호(숫자 10자리)를 비밀번호로 사용
+    let password = req.body.password;
+    if (user_type === 'company') {
+      if (!isValidBizNo(biz_no)) {
+        return sendError(res, 400, 'VALIDATION', '올바른 사업자등록번호 10자리를 입력해주세요');
+      }
+      password = normalizeBizNo(biz_no);
+    }
+
+    // 졸업생·재학생·교사는 학교 필수. 기업은 가입 시 학교 없음(공고마다 게시 대상 학교 선택)
+    const needsSchool = ['student', 'graduate', 'teacher'].includes(user_type);
     let school = null;
-    if (needsSchool || school_id || school_name) {
+    if (needsSchool || ((school_id || school_name) && user_type !== 'company')) {
       school = await resolveSchool({ school_id, school_name });
       if (needsSchool && !school) {
         return sendError(res, 400, 'VALIDATION',
-          user_type === 'company'
-            ? '게시 대상(협력) 학교를 선택해주세요'
-            : user_type === 'graduate'
-              ? '졸업(고등학교) 학교를 선택해주세요'
-              : '소속 학교를 선택해주세요');
+          user_type === 'graduate'
+            ? '졸업(고등학교) 학교를 선택해주세요'
+            : '소속 학교를 선택해주세요');
       }
     }
 
@@ -224,7 +232,7 @@ router.post('/register', [
 
       const reOptional = {
         phone,
-        school_name: school?.name || school_name,
+        school_name: user_type === 'company' ? null : (school?.name || school_name),
         school_id: school?.id || null,
         major: user_type === 'company' ? null : (major || null),
         desired_job: user_type === 'company' ? null : (desired_job || null),
@@ -288,7 +296,7 @@ router.post('/register', [
 
     const optionalFields = {
       phone,
-      school_name: school?.name || school_name,
+      school_name: user_type === 'company' ? null : (school?.name || school_name),
       school_id: school?.id || null,
       major: user_type === 'company' ? null : (major || null),
       desired_job: user_type === 'company' ? null : (desired_job || null),
@@ -367,7 +375,13 @@ router.post('/login', [
 
     const user = result.rows[0];
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    let isMatch = await bcrypt.compare(String(password), user.password_hash);
+    if (!isMatch && user.user_type === 'company') {
+      const digits = normalizeBizNo(password);
+      if (digits.length === 10 && digits !== String(password)) {
+        isMatch = await bcrypt.compare(digits, user.password_hash);
+      }
+    }
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials', code: 'UNAUTHENTICATED' });
     }

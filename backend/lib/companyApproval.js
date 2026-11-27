@@ -34,8 +34,8 @@ async function assertCompanyCanManageJobs(res, user) {
 
   const status = profile?.approval_status || 'pending';
   const msg = status === 'rejected'
-    ? '기업 승인이 반려되어 채용 공고를 등록·수정할 수 없습니다. 학교 관리자에게 문의하세요.'
-    : '학교 승인 후 채용 공고를 등록·수정할 수 있습니다.';
+    ? '기업 승인이 반려되어 채용 공고를 등록·수정할 수 없습니다. 관리자에게 문의하세요.'
+    : '관리자 승인 후 채용 공고를 등록·수정할 수 있습니다.';
   sendError(res, 403, 'COMPANY_NOT_APPROVED', msg);
   return false;
 }

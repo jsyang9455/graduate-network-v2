@@ -330,16 +330,15 @@ describe('Persona E2E campaign (all roles)', { timeout: 180000 }, () => {
   });
 
   // ─── Company pending → school_admin approve → jobs ─────────
-  test('company: register pending → profile OK → job 403 → school_admin approve → job 201', async () => {
+  test('company: register pending → profile OK → job 403 → system admin approve → job 201', async () => {
     const reg = await jsonRequest('POST', '/api/auth/register', {
       body: {
         email: emails.company,
-        password: PASSWORD,
         name: 'PE2E기업담당',
         user_type: 'company',
-        school_id: schoolA.id,
         company_name: 'PE2E테스트기업',
         industry: '제조',
+        biz_no: '220-81-62517',
       },
     });
     assert.equal(reg.status, 201, JSON.stringify(reg.data));
@@ -387,14 +386,21 @@ describe('Persona E2E campaign (all roles)', { timeout: 180000 }, () => {
     assert.equal(cross.status, 403, JSON.stringify(cross.data));
 
     tokens.schoolAdmin = await login(emails.schoolAdmin);
-    const pendingList = await jsonRequest('GET', '/api/users/companies?approval_status=pending', {
+    const sameSchoolTry = await jsonRequest('PATCH', `/api/users/${ids.company}/company-approval`, {
       token: tokens.schoolAdmin,
+      body: { status: 'approved' },
+    });
+    assert.equal(sameSchoolTry.status, 403, 'schoolless company is approved by system admin only');
+
+    tokens.sysAdmin = tokens.sysAdmin || await login(emails.systemAdmin);
+    const pendingList = await jsonRequest('GET', '/api/users/companies?approval_status=pending', {
+      token: tokens.sysAdmin,
     });
     assert.equal(pendingList.status, 200, JSON.stringify(pendingList.data));
     assert.ok((pendingList.data.companies || []).some((c) => Number(c.user_id) === Number(ids.company)));
 
     const appr = await jsonRequest('PATCH', `/api/users/${ids.company}/company-approval`, {
-      token: tokens.schoolAdmin,
+      token: tokens.sysAdmin,
       body: { status: 'approved' },
     });
     assert.equal(appr.status, 200, JSON.stringify(appr.data));
@@ -410,6 +416,7 @@ describe('Persona E2E campaign (all roles)', { timeout: 180000 }, () => {
         job_type: 'full-time',
         deadline: '2026-12-31',
         status: 'active',
+        school_id: schoolA.id,
       },
     });
     assert.equal(job.status, 201, JSON.stringify(job.data));

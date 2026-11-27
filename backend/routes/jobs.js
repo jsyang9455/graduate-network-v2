@@ -350,12 +350,21 @@ router.post('/', auth, checkRole('company', 'admin', 'teacher', 'school_admin'),
     } = req.body;
 
     let schoolId = req.user.school_id || null;
-    if (isSystemAdmin(req.user) && school_id) {
-      schoolId = school_id;
+    if ((isSystemAdmin(req.user) || req.user.user_type === 'company') && school_id) {
+      const target = await query(
+        `SELECT id FROM schools WHERE id = $1 AND status = 'active'`,
+        [school_id]
+      );
+      if (!target.rows.length) {
+        return sendError(res, 400, 'VALIDATION', '게시 대상 학교를 찾을 수 없습니다');
+      }
+      schoolId = target.rows[0].id;
     }
     if (!schoolId && !isSystemAdmin(req.user)) {
       return res.status(400).json({
-        error: 'school_id is required for job posting',
+        error: req.user.user_type === 'company'
+          ? '게시 대상 학교를 선택해주세요'
+          : 'school_id is required for job posting',
         code: 'VALIDATION',
       });
     }

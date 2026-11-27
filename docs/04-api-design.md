@@ -91,7 +91,7 @@
 | GET/PUT | `/api/roles/:code/permissions` | system 관리 (`schools` manage) | IAM-008 — 기업 승인(`company_approval`) 등 역할별 부여/회수 |
 | GET | `/api/roles` | system 관리 | IAM-008 — 역할+권한 요약 |
 | GET | `/api/users/:id/privacy-consent` | `users:read` + 같은 학교 관리자 / system | IAM-006, NFR-006 — 고졸자 후속관리 동의 내역(동의 시각·버전·항목·서명 이름). 타교 school_admin·교사·학생·기업 403, 없는 회원 404. `consent-print.html` 출력용 |
-| POST | `/api/auth/register` | 공개 | IAM-006 — `user_type=graduate`는 `privacy_consent: true` 필수, `privacy_consent_items`를 보내면 `personal`·`unique_id`·`disadvantage` 모두 true여야 함(아니면 400). 교사·기업은 동의 불필요. 기업은 `biz_no`(숫자만 저장)·`industry`·`company_size`, 승인 `pending` |
+| POST | `/api/auth/register` | 공개 | IAM-006 — `user_type=graduate`는 `privacy_consent: true` 필수, `privacy_consent_items`를 보내면 `personal`·`unique_id`·`disadvantage` 모두 true여야 함(아니면 400). 교사·기업은 동의 불필요. 기업은 `biz_no` 필수(검증번호 확인, 숫자만 저장, 로그인 비밀번호로 사용)·`industry`·`company_size`, 학교 없음, 승인 `pending` |
 | POST | `/api/users/:id/roles` | 회원 관리 | IAM-007 |
 | POST | `/api/users/:id/transfer` | 회원 관리 | IAM-005 |
 | GET | `/api/audit-logs` | system/school 관리 | IAM-010 |
@@ -192,6 +192,7 @@
 - Sprint 5 구현: `GET /api/posts/categories`, `GET /api/posts?sort=popular`, scrap/report/blind, `GET/PUT /api/users/company-profile`. 워크넷·알림톡 실연동 없음.
 - Sprint 6 구현: `GET /api/recommendations/associated` (REC-002), `POST/DELETE /api/jobs/:id/scrap`, posts `tags`/`file_ids` + `?tag=`, `POST /api/files`, `GET/PUT /api/field-trips/:id/report`, `GET /api/worknet/status` 스텁. 워크넷·알림톡 실연동 없음.
 - 기업 승인(REQ-JOB-007): register → `company_profiles.approval_status=pending`; `GET /api/users/companies`, `PATCH /api/users/:id/company-approval` (`company_approval` 메뉴); `POST /api/jobs` 미승인 시 `COMPANY_NOT_APPROVED`. null `jobs.school_id`는 목록·상세에서 학교 사용자에게 비노출(system_admin·소유 기업만). 레거시 null-school 기업은 전주공고 자동 바인딩하지 않음(마이그레이션 018 개정 + 019).
+- 기업 가입·공고 (2026-11-27 정책 변경, REQ-IAM-006·REQ-JOB-007·REQ-PLT-002): 기업은 가입 시 **학교 없음**(`school_id`·`school_name` 보내도 무시하고 null). **`biz_no` 필수**(숫자 10자리 + 국세청 검증번호, 아니면 400) — 별도 비밀번호 없이 `biz_no` 숫자가 비밀번호(요청의 `password`는 무시). 로그인은 `123-45-67890`/`1234567890` 둘 다 허용. 학교 없는 기업의 승인 목록·승인은 **system_admin만**(school_admin 목록에 안 보이고 PATCH 403). `POST /api/jobs`: 기업·system_admin은 body `school_id`로 **게시 대상 학교** 지정(활성 학교만, 없으면 400). 학교 없는 기업이 `school_id`를 빠뜨리면 400 `게시 대상 학교를 선택해주세요`. `GET /api/users/companies` 응답에 `biz_no` 포함.
 
 ## 5. OpenAPI
 

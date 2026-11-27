@@ -426,6 +426,11 @@ async function loadCompanyPendingCount() {
 }
 window.loadCompanyPendingCount = loadCompanyPendingCount;
 
+function formatBizNo(value) {
+    const d = String(value || '').replace(/\D/g, '');
+    return d.length === 10 ? `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}` : d;
+}
+
 async function loadCompanyApprovals() {
     const tbody = document.getElementById('companiesTableBody');
     if (!tbody) return;
@@ -471,7 +476,7 @@ async function loadCompanyApprovals() {
                 <td style="padding:0.85rem;">${escHtml(c.name || '-')}</td>
                 <td style="padding:0.85rem;">${escHtml(c.email || '-')}</td>
                 <td style="padding:0.85rem;">${escHtml(c.industry || '-')}</td>
-                <td style="padding:0.85rem;">${escHtml(c.school_name || '-')}</td>
+                <td style="padding:0.85rem;">${escHtml(formatBizNo(c.biz_no) || '-')}</td>
                 <td style="padding:0.85rem;">${statusLabel[st] || st}</td>
                 <td style="padding:0.85rem;">${joinDate}</td>
                 <td style="padding:0.85rem;text-align:center;">${actions}</td>

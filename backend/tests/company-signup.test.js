@@ -21,6 +21,8 @@ const stamp = Date.now();
 const EMAIL_A = `qa.company.signup.a.${stamp}@jjob.test`;
 const EMAIL_B = `qa.company.signup.b.${stamp}@jjob.test`;
 const EMAIL_ADMIN = `qa.company.signup.admin.${stamp}@jjob.test`;
+const BIZ_A = '220-81-62517';
+const BIZ_B = '1234567891';
 
 async function ensureUsersTable() {
   const check = await query(`SELECT to_regclass('public.users') AS t`);
@@ -100,41 +102,54 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
     assert.ok(status === 400 || status === 403, `expected 400/403 got ${status}: ${JSON.stringify(data)}`);
   });
 
-  test('POST /api/auth/register company requires school_id', async () => {
+  test('company register without biz_no → 400', async () => {
     const { status, data } = await jsonRequest('POST', '/api/auth/register', {
       body: {
-        email: `qa.company.noschool.${stamp}@jjob.test`,
-        password: PASSWORD,
-        name: '무학교기업',
+        email: `qa.company.nobiz.${stamp}@jjob.test`,
+        name: '무번호기업',
         user_type: 'company',
-        company_name: '무학교기업',
+        company_name: '무번호기업',
       },
     });
     assert.equal(status, 400, JSON.stringify(data));
-    assert.ok(data.code === 'VALIDATION' || /학교/.test(String(data.error || '')));
+    assert.match(String(data.error || data.message || ''), /사업자등록번호/);
   });
 
-  test('REQ-IAM-006 company register creates role + profile + school binding', async () => {
+  test('company register with invalid biz_no checksum → 400', async () => {
+    const { status } = await jsonRequest('POST', '/api/auth/register', {
+      body: {
+        email: `qa.company.badbiz.${stamp}@jjob.test`,
+        name: '오류번호기업',
+        user_type: 'company',
+        company_name: '오류번호기업',
+        biz_no: '123-45-67890',
+      },
+    });
+    assert.equal(status, 400);
+  });
+
+  test('REQ-IAM-006 company register: no school, biz_no is password', async () => {
     const { status, data } = await jsonRequest('POST', '/api/auth/register', {
       body: {
         email: EMAIL_A,
-        password: PASSWORD,
+        password: 'ignored-password',
         name: '담당자A',
         user_type: 'company',
         phone: '010-1111-2222',
         school_id: schoolA.id,
         company_name: 'QA협력기업A',
         industry: '제조',
-        company_size: 'sme',
+        company_size: '11-50',
         address: '전주시',
+        biz_no: BIZ_A,
       },
     });
     assert.equal(status, 201, JSON.stringify(data));
     assert.equal(data.user.user_type, 'company');
-    assert.equal(Number(data.user.school_id), Number(schoolA.id));
+    assert.equal(data.user.school_id, null);
     assert.ok(data.token);
-    assert.ok(data.company_profile);
     assert.equal(data.company_profile.company_name, 'QA협력기업A');
+    assert.equal(data.company_profile.biz_no, BIZ_A.replace(/\D/g, ''));
     assert.equal(data.company_profile.approval_status, 'pending');
 
     const roles = await query(
@@ -143,13 +158,29 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
        WHERE ur.user_id = $1`,
       [data.user.id]
     );
-    assert.ok(roles.rows.some((r) => r.code === 'company'));
-    assert.ok(roles.rows.some((r) => Number(r.school_id) === Number(schoolA.id)));
+    assert.ok(roles.rows.some((r) => r.code === 'company' && r.school_id == null));
+
+    const byDigits = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: EMAIL_A, password: BIZ_A.replace(/\D/g, '') },
+    });
+    assert.equal(byDigits.status, 200, 'login with biz_no digits');
+    const byHyphen = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: EMAIL_A, password: BIZ_A },
+    });
+    assert.equal(byHyphen.status, 200, 'login with hyphenated biz_no');
+    const byIgnored = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: EMAIL_A, password: 'ignored-password' },
+    });
+    assert.equal(byIgnored.status, 401, 'client-sent password must not be used');
+    const wrong = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: EMAIL_A, password: '1234567891' },
+    });
+    assert.equal(wrong.status, 401);
   });
 
   test('REQ-JOB-007 pending company cannot POST job until approved', async () => {
     const login = await jsonRequest('POST', '/api/auth/login', {
-      body: { email: EMAIL_A, password: PASSWORD },
+      body: { email: EMAIL_A, password: BIZ_A },
     });
     assert.equal(login.status, 200);
     const token = login.data.token;
@@ -173,6 +204,18 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
       [EMAIL_A]
     );
 
+    const noTarget = await jsonRequest('POST', '/api/jobs', {
+      token,
+      body: { title: 'QA 대상 없음', description: 'x', job_type: 'full-time' },
+    });
+    assert.equal(noTarget.status, 400, JSON.stringify(noTarget.data));
+
+    const badTarget = await jsonRequest('POST', '/api/jobs', {
+      token,
+      body: { title: 'QA 없는 학교', description: 'x', job_type: 'full-time', school_id: 99999999 },
+    });
+    assert.equal(badTarget.status, 400, JSON.stringify(badTarget.data));
+
     const { status, data } = await jsonRequest('POST', '/api/jobs', {
       token,
       body: {
@@ -181,23 +224,27 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
         location: '전주',
         job_type: 'full-time',
         deadline: '2026-12-31',
+        school_id: schoolA.id,
       },
     });
     assert.equal(status, 201, JSON.stringify(data));
     assert.equal(Number(data.job.school_id), Number(schoolA.id));
     assert.ok(data.job.company_id);
+
+    const mine = await jsonRequest('GET', '/api/jobs?status=all', { token });
+    assert.equal(mine.status, 200);
+    assert.ok(mine.data.jobs.some((j) => Number(j.id) === Number(data.job.id)), 'company sees own job');
   });
 
   test('REQ-IAM-009 company A cannot manage school B job', async () => {
     const regB = await jsonRequest('POST', '/api/auth/register', {
       body: {
         email: EMAIL_B,
-        password: PASSWORD,
         name: '담당자B',
         user_type: 'company',
         phone: '010-3333-4444',
-        school_id: schoolB.id,
         company_name: 'QA협력기업B',
+        biz_no: BIZ_B,
       },
     });
     assert.equal(regB.status, 201, JSON.stringify(regB.data));
@@ -210,7 +257,7 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
     );
 
     const loginB = await jsonRequest('POST', '/api/auth/login', {
-      body: { email: EMAIL_B, password: PASSWORD },
+      body: { email: EMAIL_B, password: BIZ_B },
     });
     const jobB = await jsonRequest('POST', '/api/jobs', {
       token: loginB.data.token,
@@ -219,12 +266,13 @@ describe('Company signup + job scope', { timeout: 120000 }, () => {
         description: '학교 B 대상',
         location: '군산',
         job_type: 'full-time',
+        school_id: schoolB.id,
       },
     });
     assert.equal(jobB.status, 201, JSON.stringify(jobB.data));
 
     const loginA = await jsonRequest('POST', '/api/auth/login', {
-      body: { email: EMAIL_A, password: PASSWORD },
+      body: { email: EMAIL_A, password: BIZ_A },
     });
     const put = await jsonRequest('PUT', `/api/jobs/${jobB.data.job.id}`, {
       token: loginA.data.token,

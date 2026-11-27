@@ -533,8 +533,8 @@ async function loadCompanyApprovalBanner() {
             : 'status-banner status-banner--pending';
         banner.setAttribute('role', 'status');
         banner.innerHTML = status === 'rejected'
-            ? '기업 승인이 반려되었습니다. <a href="company-profile.html">프로필</a>을 확인한 뒤 학교 관리자에게 문의하세요.'
-            : '<strong>승인 대기 중</strong> — 학교 관리자 승인 전에는 채용 공고를 등록할 수 없습니다. <a href="company-profile.html">기업 프로필</a>';
+            ? '기업 승인이 반려되었습니다. <a href="company-profile.html">프로필</a>을 확인한 뒤 관리자에게 문의하세요.'
+            : '<strong>승인 대기 중</strong> — 관리자 승인 전에는 채용 공고를 등록할 수 없습니다. <a href="company-profile.html">기업 프로필</a>';
         host.insertBefore(banner, host.firstChild);
     } catch (e) {
         console.warn('approval banner:', e.message);

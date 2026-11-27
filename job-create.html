@@ -32,6 +32,13 @@
         <h1>채용 공고 등록</h1>
         <div id="companyApprovalGate" style="display:none;"></div>
         <form id="jobCreateForm">
+            <div class="form-group" id="targetSchoolGroup" style="display:none;">
+                <label for="targetSchool">게시 대상 학교 *</label>
+                <select id="targetSchool">
+                    <option value="">학교를 선택하세요</option>
+                </select>
+                <small style="color:#6b7280;">선택한 학교의 학생·졸업생에게 공고가 보입니다.</small>
+            </div>
             <div class="form-group">
                 <label for="title">채용 제목 *</label>
                 <input type="text" id="title" required>

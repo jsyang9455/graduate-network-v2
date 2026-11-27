@@ -22,6 +22,8 @@ const stamp = Date.now();
 const EMAIL_CO = `qa.company.appr.co.${stamp}@jjob.test`;
 const EMAIL_SA = `qa.company.appr.sa.${stamp}@jjob.test`;
 const EMAIL_SB = `qa.company.appr.sb.${stamp}@jjob.test`;
+const EMAIL_SYS = `qa.company.appr.sys.${stamp}@jjob.test`;
+const BIZ_NO = '2208162517';
 
 async function ensureUsersTable() {
   const check = await query(`SELECT to_regclass('public.users') AS t`);
@@ -101,6 +103,9 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
     await upsertStaff({
       email: EMAIL_SB, name: '승인관리자B', user_type: 'school_admin', school_id: schoolB.id,
     });
+    await upsertStaff({
+      email: EMAIL_SYS, name: '승인시스템관리자', user_type: 'admin', school_id: null,
+    });
 
     server = await new Promise((resolve) => {
       const s = app.listen(0, '127.0.0.1', () => resolve(s));
@@ -112,24 +117,25 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
     if (server) await new Promise((resolve) => server.close(resolve));
     await query(`DELETE FROM jobs WHERE company_id IN (SELECT id FROM users WHERE email = $1)`, [EMAIL_CO]);
     await query(`DELETE FROM company_profiles WHERE user_id IN (SELECT id FROM users WHERE email = $1)`, [EMAIL_CO]);
-    await query(`DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`, [[EMAIL_CO, EMAIL_SA, EMAIL_SB]]);
-    await query(`DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`, [[EMAIL_CO, EMAIL_SA, EMAIL_SB]]);
-    await query(`DELETE FROM users WHERE email = ANY($1::text[])`, [[EMAIL_CO, EMAIL_SA, EMAIL_SB]]);
+    const emails = [EMAIL_CO, EMAIL_SA, EMAIL_SB, EMAIL_SYS];
+    await query(`DELETE FROM audit_logs WHERE actor_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`, [emails]);
+    await query(`DELETE FROM user_roles WHERE user_id IN (SELECT id FROM users WHERE email = ANY($1::text[]))`, [emails]);
+    await query(`DELETE FROM users WHERE email = ANY($1::text[])`, [emails]);
   });
 
   test('REQ-JOB-007 register creates pending company profile', async () => {
     const { status, data } = await jsonRequest('POST', '/api/auth/register', {
       body: {
         email: EMAIL_CO,
-        password: PASSWORD,
         name: '승인테스트담당',
         user_type: 'company',
-        school_id: schoolA.id,
         company_name: '승인대기기업',
         industry: 'IT',
+        biz_no: BIZ_NO,
       },
     });
     assert.equal(status, 201, JSON.stringify(data));
+    assert.equal(data.user.school_id, null);
     assert.equal(data.company_profile.approval_status, 'pending');
     companyUserId = data.user.id;
     companyToken = data.token;
@@ -153,33 +159,40 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
     assert.equal(data.code, 'COMPANY_NOT_APPROVED');
   });
 
-  test('REQ-IAM-009 school B admin cannot approve school A company', async () => {
-    const loginB = await jsonRequest('POST', '/api/auth/login', {
-      body: { email: EMAIL_SB, password: PASSWORD },
-    });
-    assert.equal(loginB.status, 200);
+  test('REQ-IAM-009 school admins cannot see or approve a schoolless company', async () => {
+    for (const email of [EMAIL_SA, EMAIL_SB]) {
+      const login = await jsonRequest('POST', '/api/auth/login', {
+        body: { email, password: PASSWORD },
+      });
+      assert.equal(login.status, 200);
+      const list = await jsonRequest('GET', '/api/users/companies?approval_status=pending', {
+        token: login.data.token,
+      });
+      assert.equal(list.status, 200, JSON.stringify(list.data));
+      assert.ok(!(list.data.companies || []).some((c) => Number(c.user_id) === Number(companyUserId)));
 
-    const { status, data } = await jsonRequest('PATCH', `/api/users/${companyUserId}/company-approval`, {
-      token: loginB.data.token,
-      body: { status: 'approved' },
-    });
-    assert.equal(status, 403, JSON.stringify(data));
+      const { status, data } = await jsonRequest('PATCH', `/api/users/${companyUserId}/company-approval`, {
+        token: login.data.token,
+        body: { status: 'approved' },
+      });
+      assert.equal(status, 403, JSON.stringify(data));
+    }
   });
 
-  test('REQ-JOB-007 school A admin can approve then company can POST job', async () => {
-    const loginA = await jsonRequest('POST', '/api/auth/login', {
-      body: { email: EMAIL_SA, password: PASSWORD },
+  test('REQ-JOB-007 system admin approves then company can POST job to a chosen school', async () => {
+    const loginSys = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: EMAIL_SYS, password: PASSWORD },
     });
-    assert.equal(loginA.status, 200);
+    assert.equal(loginSys.status, 200);
 
     const list = await jsonRequest('GET', '/api/users/companies?approval_status=pending', {
-      token: loginA.data.token,
+      token: loginSys.data.token,
     });
     assert.equal(list.status, 200, JSON.stringify(list.data));
     assert.ok((list.data.companies || []).some((c) => Number(c.user_id) === Number(companyUserId)));
 
     const appr = await jsonRequest('PATCH', `/api/users/${companyUserId}/company-approval`, {
-      token: loginA.data.token,
+      token: loginSys.data.token,
       body: { status: 'approved' },
     });
     assert.equal(appr.status, 200, JSON.stringify(appr.data));
@@ -193,6 +206,7 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
         location: '전주',
         job_type: 'full-time',
         deadline: '2026-12-31',
+        school_id: schoolA.id,
       },
     });
     assert.equal(job.status, 201, JSON.stringify(job.data));
@@ -200,11 +214,11 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
   });
 
   test('REQ-JOB-007 reject then cannot post again', async () => {
-    const loginA = await jsonRequest('POST', '/api/auth/login', {
-      body: { email: EMAIL_SA, password: PASSWORD },
+    const loginSys = await jsonRequest('POST', '/api/auth/login', {
+      body: { email: EMAIL_SYS, password: PASSWORD },
     });
     const rej = await jsonRequest('PATCH', `/api/users/${companyUserId}/company-approval`, {
-      token: loginA.data.token,
+      token: loginSys.data.token,
       body: { status: 'rejected', rejection_reason: '사업자 정보 불충분' },
     });
     assert.equal(rej.status, 200, JSON.stringify(rej.data));
@@ -216,6 +230,7 @@ describe('Company approval (REQ-JOB-007)', { timeout: 120000 }, () => {
         title: '반려 후 공고',
         description: '막혀야 함',
         job_type: 'full-time',
+        school_id: schoolA.id,
       },
     });
     assert.equal(job.status, 403);

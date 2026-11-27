@@ -425,9 +425,29 @@ function setupJobApplications() {
     // applyJob 함수가 직접 처리
 }
 
+async function setupTargetSchoolSelect() {
+    const group = document.getElementById('targetSchoolGroup');
+    const select = document.getElementById('targetSchool');
+    if (!group || !select) return;
+    const user = await auth.whenUserLoaded();
+    if (!user || !['company', 'admin'].includes(user.user_type)) return;
+    group.style.display = '';
+    select.required = true;
+    try {
+        const data = await api.schools.list();
+        (data.schools || []).forEach((school) => {
+            select.add(new Option(school.name, school.id));
+        });
+        if (user.school_id) select.value = String(user.school_id);
+    } catch (err) {
+        console.error('학교 목록 로드 실패:', err);
+    }
+}
+
 function setupJobCreateForm() {
     const form = document.getElementById('jobCreateForm');
     if (!form) return;
+    setupTargetSchoolSelect();
 
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -439,7 +459,7 @@ function setupJobCreateForm() {
         }
 
         if (form.dataset.approvalBlocked === '1') {
-            alert('학교 승인 후 채용 공고를 등록할 수 있습니다.');
+            alert('관리자 승인 후 채용 공고를 등록할 수 있습니다.');
             return;
         }
 
@@ -454,6 +474,14 @@ function setupJobCreateForm() {
             headcount:        parseInt(document.getElementById('headcount')?.value) || 1,
             deadline:         document.getElementById('deadline')?.value     || null,
         };
+        const targetSchool = document.getElementById('targetSchool');
+        if (targetSchool && targetSchool.required) {
+            if (!targetSchool.value) {
+                alert('게시 대상 학교를 선택해주세요.');
+                return;
+            }
+            payload.school_id = parseInt(targetSchool.value, 10);
+        }
 
         try {
             await api.post('/jobs', payload);
@@ -461,7 +489,7 @@ function setupJobCreateForm() {
             window.location.href = 'dashboard.html';
         } catch (e) {
             if (e.code === 'COMPANY_NOT_APPROVED' || /승인/.test(String(e.message || ''))) {
-                alert(e.message || '학교 승인 후 채용 공고를 등록할 수 있습니다.');
+                alert(e.message || '관리자 승인 후 채용 공고를 등록할 수 있습니다.');
                 return;
             }
             alert('등록 실패: ' + e.message);
@@ -497,10 +525,10 @@ async function gateCompanyJobCreate(user) {
             ? `<div class="status-banner status-banner--rejected" role="status">
                 기업 승인이 반려되어 공고를 등록할 수 없습니다.
                 ${reason ? `<br>사유: ${String(reason).replace(/</g, '&lt;')}` : ''}
-                <br><a href="company-profile.html">기업 프로필</a>에서 내용을 보완한 뒤 학교 관리자에게 문의하세요.
+                <br><a href="company-profile.html">기업 프로필</a>에서 내용을 보완한 뒤 관리자에게 문의하세요.
               </div>`
             : `<div class="status-banner status-banner--pending" role="status">
-                <strong>승인 대기 중</strong> — 학교 관리자 승인 후에 채용 공고를 등록할 수 있습니다.
+                <strong>승인 대기 중</strong> — 관리자 승인 후에 채용 공고를 등록할 수 있습니다.
                 <br><a href="company-profile.html">기업 프로필 관리</a>
               </div>`;
     }

@@ -14,7 +14,7 @@ async function assertCompanyApprovedForDirectory(res, user) {
   if (!isCompanyActor(user)) return true;
   const profile = await loadCompanyApproval(user.id);
   if (profile && profile.approval_status === 'approved') return true;
-  sendError(res, 403, 'COMPANY_NOT_APPROVED', '학교 승인 후 회원 정보를 조회할 수 있습니다.');
+  sendError(res, 403, 'COMPANY_NOT_APPROVED', '관리자 승인 후 회원 정보를 조회할 수 있습니다.');
   return false;
 }
 
@@ -192,7 +192,7 @@ router.get('/companies', auth, authorize('company_approval', 'read'), schoolScop
 
     const result = await query(
       `SELECT u.id AS user_id, u.email, u.name, u.phone, u.school_id, u.school_name, u.created_at,
-              cp.id AS profile_id, cp.company_name, cp.industry, cp.company_size, cp.address,
+              cp.id AS profile_id, cp.company_name, cp.industry, cp.company_size, cp.address, cp.biz_no,
               cp.approval_status, cp.approved_at, cp.approved_by, cp.rejection_reason, cp.updated_at
        FROM users u
        LEFT JOIN company_profiles cp ON cp.user_id = u.id

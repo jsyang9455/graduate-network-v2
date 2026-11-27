@@ -46,7 +46,7 @@ function approvalBannerHtml(status, rejectionReason) {
         </div>`;
     }
     return `<div class="status-banner status-banner--pending" id="companyApprovalBanner" role="status">
-        <strong>승인 대기 중</strong>입니다. 로그인과 기업 프로필 수정은 가능하지만, 학교 관리자 승인 전에는 채용 공고를 등록할 수 없습니다.
+        <strong>승인 대기 중</strong>입니다. 로그인과 기업 프로필 수정은 가능하지만, 관리자 승인 전에는 채용 공고를 등록할 수 없습니다.
     </div>`;
 }
 
@@ -71,7 +71,7 @@ async function loadCompanyProfile() {
     const canPostJobs = status === 'approved';
     const jobCta = canPostJobs
         ? '<a href="job-create.html" class="btn btn-secondary">채용 공고 등록</a>'
-        : '<button type="button" class="btn btn-secondary" disabled title="학교 승인 후 이용 가능">채용 공고 등록 (승인 대기)</button>';
+        : '<button type="button" class="btn btn-secondary" disabled title="관리자 승인 후 이용 가능">채용 공고 등록 (승인 대기)</button>';
 
     content.innerHTML = `
         ${approvalBannerHtml(status, profile?.rejection_reason)}
