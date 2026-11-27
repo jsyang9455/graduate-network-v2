@@ -6,16 +6,16 @@
     <title>기업 프로필 - 전북지역 졸업생 네트워크</title>
     <link rel="icon" type="image/svg+xml" href="images/logo-symbol.svg">
     <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="css/theme.css">
 </head>
 <body>
     <header id="mainHeader">
         <nav>
             <div class="logo">
-                <img src="images/logo-jjobb.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="126" height="32">
-                <span class="logo-tagline">전북 직업계고 졸업생 취업 네트워크</span>
+                <img id="brandLogo" src="images/logo-jjobb.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" data-school-brand="logo" data-default-src="images/logo-jjobb.svg" width="126" height="32">
+                <span id="schoolContextLabel" class="logo-tagline">전북 직업계고 졸업생 취업 네트워크</span>
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.html">대시보드</a></li>
@@ -93,7 +93,35 @@
                     <span class="icon" data-icon="cert" aria-hidden="true"></span>
                     <span>자격증 지원</span>
                 </a>
-                <div id="adminMenuSection" class="rbac-pending" style="display: none;"></div>
+                <div id="adminMenuSection" class="rbac-pending" style="display: none;">
+                    <div style="border-top: 1px solid #e5e7eb; margin: 1rem 0; padding-top: 1rem;">
+                        <p style="padding: 0 1rem; color: #6b7280; font-size: 0.875rem; font-weight: 600;">관리자 메뉴</p>
+                    </div>
+                    <a href="admin-users.html" class="menu-item" data-menu="users" data-menu-min="write">
+                        <span class="icon" data-icon="users" aria-hidden="true"></span>
+                        <span>회원 관리</span>
+                    </a>
+                    <a href="admin-permissions.html" class="menu-item" data-menu="schools" data-menu-min="manage">
+                        <span class="icon" data-icon="lock" aria-hidden="true"></span>
+                        <span>권한 매트릭스</span>
+                    </a>
+                    <a href="admin-jobs.html" class="menu-item" data-menu="jobs" data-menu-min="manage">
+                        <span class="icon" data-icon="jobs" aria-hidden="true"></span>
+                        <span>채용공고 관리</span>
+                    </a>
+                    <a href="admin-board.html" class="menu-item" data-menu="community" data-menu-min="manage">
+                        <span class="icon" data-icon="board" aria-hidden="true"></span>
+                        <span>게시판 관리</span>
+                    </a>
+                    <a href="admin-codes.html" class="menu-item" data-menu="schools" data-menu-min="write">
+                        <span class="icon" data-icon="settings" aria-hidden="true"></span>
+                        <span>코드 관리</span>
+                    </a>
+                    <a href="admin-announcements.html" class="menu-item" data-menu="field_trips" data-menu-min="write">
+                        <span class="icon" data-icon="announce" aria-hidden="true"></span>
+                        <span>공지사항 관리</span>
+                    </a>
+                </div>
             </div>
         </aside>
 
@@ -110,6 +138,7 @@
 
     <script src="js/api.js"></script>
     <script src="js/auth.js"></script>
+    <script src="js/school-brand.js"></script>
     <script src="js/nav.js"></script>
     <script src="js/company-profile.js"></script>
 </body>

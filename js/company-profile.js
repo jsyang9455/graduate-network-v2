@@ -3,7 +3,8 @@
 document.addEventListener('DOMContentLoaded', async function() {
     if (!auth.requireAuth()) return;
 
-    const user = auth.getCurrentUser();
+    // 메뉴 표시는 auth.applyPermissionMenus만 사용 (페이지별 숨김 로직 금지 — 일관성)
+    const user = await auth.whenUserLoaded();
     const nameEl = document.getElementById('userName');
     if (nameEl && user) nameEl.textContent = user.name || '';
 
@@ -15,20 +16,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
 
-    hideNonCompanyMenus();
     await loadCompanyProfile();
-
-    const form = document.getElementById('companyProfileForm');
-    if (form) {
-        form.addEventListener('submit', saveCompanyProfile);
-    }
-});
-
-function hideNonCompanyMenus() {
-    ['counselingMenu', 'careerMenu', 'journalMenu'].forEach((id) => {
-        const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
-    });
 }
 
 function approvalBannerHtml(status, rejectionReason) {
@@ -42,7 +30,7 @@ function approvalBannerHtml(status, rejectionReason) {
             ? `<br><span class="status-banner__detail">사유: ${esc(rejectionReason)}</span>`
             : '';
         return `<div class="status-banner status-banner--rejected" id="companyApprovalBanner" role="status">
-            기업 승인이 <strong>반려</strong>되었습니다. 프로필을 보완한 뒤 학교 관리자에게 재심사를 요청하세요.${reason}
+            기업 승인이 <strong>반려</strong>되었습니다. 프로필을 보완한 뒤 관리자에게 재심사를 요청하세요.${reason}
         </div>`;
     }
     return `<div class="status-banner status-banner--pending" id="companyApprovalBanner" role="status">
