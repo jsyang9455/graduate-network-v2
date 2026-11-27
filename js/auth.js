@@ -407,7 +407,7 @@ class AuthManager {
 
     /**
      * 역할별 메뉴 허용. false면 숨김, true/undefined면 RBAC 계속.
-     * 기업: 진로상담·상담일지·경력·교육·자격증 불필요.
+     * 기업: 진로상담·상담일지·경력·교육·자격증·JJOBB 밴드 불필요.
      */
     roleAllowsHref(user, href, link) {
         if (!user) return true;
@@ -424,6 +424,7 @@ class AuthManager {
                 'career.html',
                 'education-programs.html',
                 'certification-support.html',
+                'networking.html',
             ];
             if (companyHidden.some((p) => path.endsWith(p))) return false;
             if (link && (link.id === 'counselingMenu' || link.id === 'journalMenu' || link.id === 'careerMenu')) {
