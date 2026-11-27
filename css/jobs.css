@@ -235,6 +235,11 @@
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+.main-content .job-form-container {
+    margin: 0;
+    max-width: 880px;
+}
+
 .job-form-container h1 {
     margin-bottom: 2rem;
     color: var(--text-color);

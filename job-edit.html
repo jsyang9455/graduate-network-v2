@@ -6,6 +6,7 @@
     <title>채용 공고 수정 - 전북지역 졸업생 네트워크</title>
     <link rel="icon" type="image/svg+xml" href="images/logo-symbol.svg">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="css/jobs.css">
     <link rel="stylesheet" href="css/theme.css">
 </head>
@@ -14,12 +15,14 @@
         <nav>
             <div class="logo">
                 <img src="images/logo-jjobb.svg" alt="JJOBB 전북지역 졸업생 취업지원플랫폼" class="logo-img" width="126" height="32">
+                <span class="logo-tagline">전북 직업계고 졸업생 취업 네트워크</span>
             </div>
             <ul class="nav-links">
                 <li><a href="dashboard.html">대시보드</a></li>
                 <li><a href="jobs.html">채용 정보</a></li>
-                <li><a href="job-create.html">공고 등록</a></li>
-                <li><a href="company-profile.html">기업 프로필</a></li>
+                <li><a href="networking.html">JJOBB 밴드</a></li>
+                <li><a href="counseling.html">진로 상담</a></li>
+                <li><a href="help.html">도움말</a></li>
             </ul>
             <div class="user-menu">
                 <span class="user-name" id="userName"></span>
@@ -28,56 +31,125 @@
         </nav>
     </header>
 
-    <div class="job-form-container">
-        <h1>채용 공고 수정</h1>
-        <form id="jobEditForm">
-            <input type="hidden" id="jobId">
-            <div class="form-group">
-                <label for="title">채용 제목 *</label>
-                <input type="text" id="title" required>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-menu">
+                <a href="index.html" class="menu-item">
+                    <span class="icon" data-icon="home" aria-hidden="true"></span>
+                    <span>홈</span>
+                </a>
+                <a href="dashboard.html" class="menu-item">
+                    <span class="icon" data-icon="dashboard" aria-hidden="true"></span>
+                    <span>대시보드</span>
+                </a>
+                <a href="profile.html" class="menu-item">
+                    <span class="icon" data-icon="profile" aria-hidden="true"></span>
+                    <span>내 프로필</span>
+                </a>
+                <a href="jobs.html" class="menu-item" data-menu="jobs">
+                    <span class="icon" data-icon="jobs" aria-hidden="true"></span>
+                    <span>채용 정보</span>
+                </a>
+                <a href="job-create.html" class="menu-item" id="companyJobCreateMenu" data-menu="jobs" style="display: none;">
+                    <span class="icon" data-icon="create" aria-hidden="true"></span>
+                    <span>공고 등록</span>
+                </a>
+                <a href="company-profile.html" class="menu-item" id="companyProfileMenu" style="display: none;">
+                    <span class="icon" data-icon="company" aria-hidden="true"></span>
+                    <span>기업 프로필</span>
+                </a>
+                <a href="networking.html" class="menu-item" data-menu="community">
+                    <span class="icon" data-icon="network" aria-hidden="true"></span>
+                    <span>JJOBB 밴드</span>
+                </a>
+                <a href="counseling.html" class="menu-item" id="counselingMenu" data-menu="counseling">
+                    <span class="icon" data-icon="counsel" aria-hidden="true"></span>
+                    <span>진로 상담</span>
+                </a>
+                <a href="counseling-journal.html" class="menu-item" id="journalMenu" data-menu="counseling">
+                    <span class="icon" data-icon="journal" aria-hidden="true"></span>
+                    <span>상담일지</span>
+                </a>
+                <a href="career.html" class="menu-item" id="careerMenu" data-menu="resumes">
+                    <span class="icon" data-icon="career" aria-hidden="true"></span>
+                    <span>경력 관리</span>
+                </a>
+                <a href="education-programs.html" class="menu-item">
+                    <span class="icon" data-icon="education" aria-hidden="true"></span>
+                    <span>교육 프로그램</span>
+                </a>
+                <div style="border-top: 1px solid #e5e7eb; margin: 1rem 0; padding-top: 1rem;">
+                    <p style="padding: 0 1rem; color: #6b7280; font-size: 0.875rem; font-weight: 600;">공지사항</p>
+                </div>
+                <a href="job-fair.html" class="menu-item">
+                    <span class="icon" data-icon="company" aria-hidden="true"></span>
+                    <span>취업 박람회</span>
+                </a>
+                <a href="industry-visit.html" class="menu-item">
+                    <span class="icon" data-icon="visit" aria-hidden="true"></span>
+                    <span>산업체 견학</span>
+                </a>
+                <a href="certification-support.html" class="menu-item">
+                    <span class="icon" data-icon="cert" aria-hidden="true"></span>
+                    <span>자격증 지원</span>
+                </a>
+                <div id="adminMenuSection" class="rbac-pending" style="display: none;"></div>
             </div>
-            <div class="form-group">
-                <label for="description">채용 내용 *</label>
-                <textarea id="description" rows="10" required></textarea>
+        </aside>
+
+        <main class="main-content">
+            <div class="job-form-container">
+                <h1>채용 공고 수정</h1>
+                <form id="jobEditForm">
+                    <input type="hidden" id="jobId">
+                    <div class="form-group">
+                        <label for="title">채용 제목 *</label>
+                        <input type="text" id="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="description">채용 내용 *</label>
+                        <textarea id="description" rows="10" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="type">채용 유형 *</label>
+                        <select id="type" required>
+                            <option value="full-time">정규직</option>
+                            <option value="part-time">파트타임</option>
+                            <option value="contract">계약직</option>
+                            <option value="internship">인턴</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="location">근무 지역</label>
+                        <input type="text" id="location">
+                    </div>
+                    <div class="form-group">
+                        <label for="salary">급여 정보</label>
+                        <input type="text" id="salary">
+                    </div>
+                    <div class="form-group">
+                        <label for="deadline">마감일</label>
+                        <input type="date" id="deadline">
+                    </div>
+                    <div class="form-group">
+                        <label for="headcount">채용 모집인원</label>
+                        <input type="number" id="headcount" min="1" placeholder="예: 3">
+                    </div>
+                    <div class="form-group">
+                        <label for="status">상태</label>
+                        <select id="status">
+                            <option value="active">모집중</option>
+                            <option value="closed">마감</option>
+                            <option value="draft">임시저장</option>
+                        </select>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">수정</button>
+                        <button type="button" onclick="location.href='jobs.html'" class="btn-secondary">취소</button>
+                    </div>
+                </form>
             </div>
-            <div class="form-group">
-                <label for="type">채용 유형 *</label>
-                <select id="type" required>
-                    <option value="full-time">정규직</option>
-                    <option value="part-time">파트타임</option>
-                    <option value="contract">계약직</option>
-                    <option value="internship">인턴</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="location">근무 지역</label>
-                <input type="text" id="location">
-            </div>
-            <div class="form-group">
-                <label for="salary">급여 정보</label>
-                <input type="text" id="salary">
-            </div>
-            <div class="form-group">
-                <label for="deadline">마감일</label>
-                <input type="date" id="deadline">
-            </div>
-            <div class="form-group">
-                <label for="headcount">채용 모집인원</label>
-                <input type="number" id="headcount" min="1" placeholder="예: 3">
-            </div>
-            <div class="form-group">
-                <label for="status">상태</label>
-                <select id="status">
-                    <option value="active">모집중</option>
-                    <option value="closed">마감</option>
-                    <option value="draft">임시저장</option>
-                </select>
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn-primary">수정</button>
-                <button type="button" onclick="location.href='jobs.html'" class="btn-secondary">취소</button>
-            </div>
-        </form>
+        </main>
     </div>
 
     <script src="js/api.js"></script>

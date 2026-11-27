@@ -2097,6 +2097,11 @@
     max-width: 720px;
 }
 
+.main-content .profile-container.company-profile-page {
+    margin: 0;
+    padding: 0;
+}
+
 .profile-container > h1 {
     font-size: 2rem;
     margin-bottom: 0.75rem;
