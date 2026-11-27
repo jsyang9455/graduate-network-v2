@@ -53,6 +53,7 @@ const LEGACY_MATRIX = {
   },
   student: {
     resumes: ['write', 'read', 'apply'],
+    counseling: ['apply'],
     jobs: ['read'],
     applications: ['write', 'read', 'apply'],
     recommendations: ['read'],
@@ -61,6 +62,7 @@ const LEGACY_MATRIX = {
   },
   graduate: {
     resumes: ['write', 'read', 'apply'],
+    counseling: ['apply'],
     jobs: ['read'],
     applications: ['write', 'read', 'apply'],
     recommendations: ['read'],

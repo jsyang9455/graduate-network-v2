@@ -64,17 +64,11 @@
     const name = (school && school.name) || user.school_name || null;
     const logoUrl = resolveLogoUrl(school);
 
-    const logoImg = document.getElementById('brandLogo')
-      || document.querySelector('header .logo img, header .logo-img, .logo .logo-img');
-    if (logoImg && logoUrl) {
-      applyLogoToImg(logoImg, logoUrl, name);
-    }
-
+    // 헤더는 모든 페이지에서 JJOBB 로고 + 플랫폼 슬로건으로 고정. 학교 로고는 대시보드 환영 영역에만.
     document.querySelectorAll('[data-school-brand="logo"]').forEach((img) => {
-      if (logoUrl) applyLogoToImg(img, logoUrl, name);
+      if (logoUrl && !img.closest('header')) applyLogoToImg(img, logoUrl, name);
     });
 
-    // 로고 옆 문구는 학교명이 아니라 플랫폼 슬로건으로 고정 (메뉴 이동 시 학교명으로 바뀌던 문제)
     const PLATFORM_SLOGAN = '전북 직업계고 졸업생 취업 네트워크';
     const contextEls = [
       document.getElementById('schoolContextLabel'),

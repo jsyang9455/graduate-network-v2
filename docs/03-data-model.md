@@ -136,6 +136,9 @@ roles *──* menus          (role_menu_permissions)
    기업 승인: `database/migrations/017_v2_company_approval.sql` — `company_profiles.approval_*`, 기존 기업 `approved` 백필, 신규 DEFAULT `pending`.
    정책 반영: `018` DX 프로필만(전주공고 일괄 바인딩 제거), `019_v2_policy_company_approval_jobs.sql` — `company_approval` 메뉴 + 018 일괄 바인딩 되돌림(DX `company@jjob.com` 제외).
    브랜드 표기: `database/migrations/021_v2_brand_name_jjobb.sql` — `users.name`·`company_profiles.company_name`·`education_programs.instructor`의 `JJOB` → `JJOBB`. 로그인 이메일(`@jjob.com`)·URL은 유지.
+   교육 신청·동의: `022_v2_edu_applications_privacy_consent.sql` — `education_program_applications`(program_id+user_id UNIQUE), `users.privacy_consent_at/_version/_items/_name`.
+   상담 메뉴: `023_v2_student_counseling_menu.sql` — student·graduate 역할에 `counseling: apply` 부여(상담 신청 메뉴가 페이지마다 사라지던 문제).
+   `company_profiles.company_size`: 가입·프로필 모두 직원 수 코드(`1-10`·`11-50`·`51-200`·`201-500`·`500+`). 기존 `startup/sme/mid/large` 값은 프로필에서 「기존 규모 구분」으로 그대로 표시.
 6. LocalStorage 데이터는 브라우저에만 있으므로 **자동 이관 불가**. 운영 매뉴얼에 재입력 안내. `company_profile_*`는 API `company_profiles`로 대체(B-LS).
 
 ## 6. 인덱스·무결성 (최소)

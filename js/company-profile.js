@@ -85,13 +85,20 @@ async function loadCompanyProfile() {
                 <input type="text" id="industry" value="${esc(profile?.industry || '')}" placeholder="예: 제조/기계">
             </div>
             <div class="form-group">
-                <label for="company_size">기업 규모</label>
+                <label for="company_size">직원 수</label>
                 <select id="company_size">
                     <option value="">선택</option>
-                    <option value="startup">스타트업</option>
-                    <option value="sme">중소기업</option>
-                    <option value="mid">중견기업</option>
-                    <option value="large">대기업</option>
+                    <option value="1-10">1~10명</option>
+                    <option value="11-50">11~50명</option>
+                    <option value="51-200">51~200명</option>
+                    <option value="201-500">201~500명</option>
+                    <option value="500+">500명 이상</option>
+                    <optgroup label="기존 규모 구분">
+                        <option value="startup">스타트업</option>
+                        <option value="sme">중소기업</option>
+                        <option value="mid">중견기업</option>
+                        <option value="large">대기업</option>
+                    </optgroup>
                 </select>
             </div>
             <div class="form-group">
@@ -121,6 +128,9 @@ async function loadCompanyProfile() {
 
     const sizeEl = document.getElementById('company_size');
     if (sizeEl && profile?.company_size) {
+        if (![...sizeEl.options].some((o) => o.value === profile.company_size)) {
+            sizeEl.add(new Option(profile.company_size, profile.company_size));
+        }
         sizeEl.value = profile.company_size;
     }
 

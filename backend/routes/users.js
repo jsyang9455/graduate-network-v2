@@ -215,6 +215,25 @@ router.get('/companies', auth, authorize('company_approval', 'read'), schoolScop
 });
 
 // Get user by ID (school-scoped; REQ-IAM-009)
+// GET /api/users/:id/privacy-consent — 고졸자 후속관리 동의서 출력 (관리자)
+router.get('/:id/privacy-consent', auth, authorize('users', 'read'), schoolScope, async (req, res) => {
+  try {
+    const result = await query(
+      `SELECT id, email, name, user_type, phone, school_id, school_name, graduation_year,
+              privacy_consent_at, privacy_consent_version, privacy_consent_items, privacy_consent_name
+       FROM users WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!result.rows.length) return sendError(res, 404, 'NOT_FOUND', 'User not found');
+    const target = result.rows[0];
+    if (!canManageTarget(req, target)) return forbidCrossSchool(res);
+    res.json({ user: target });
+  } catch (err) {
+    console.error('Get privacy consent error:', err);
+    sendError(res, 500, 'INTERNAL', 'Failed to get privacy consent');
+  }
+});
+
 router.get('/:id', auth, schoolScope, async (req, res) => {
   try {
     const { id } = req.params;

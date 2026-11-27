@@ -197,6 +197,16 @@ router.post('/', auth, authorize('schools', 'manage'), async (req, res) => {
       return sendError(res, 400, 'VALIDATION', '학교명이 필요합니다');
     }
 
+    // 주 담당자는 선택 사항 — 신규 생성은 이름·이메일·비밀번호가 모두 있어야 함
+    const pa = primaryAdmin && typeof primaryAdmin === 'object' ? primaryAdmin : null;
+    const paFilled = pa
+      ? [pa.email, pa.name, pa.password].filter((v) => String(v || '').trim()).length
+      : 0;
+    if (pa && !pa.user_id && paFilled > 0 && paFilled < 3) {
+      return sendError(res, 400, 'VALIDATION', '주 담당자를 등록하려면 이름·이메일·비밀번호를 모두 입력해주세요');
+    }
+    const hasPrimaryAdmin = !!(pa && (pa.user_id || paFilled === 3));
+
     await client.query('BEGIN');
 
     const result = await client.query(
@@ -207,14 +217,6 @@ router.post('/', auth, authorize('schools', 'manage'), async (req, res) => {
     );
     let school = result.rows[0];
     let admin = null;
-
-    // 주 담당자는 선택 사항 — 이름·이메일·비밀번호가 모두 있을 때만 생성
-    const hasPrimaryAdmin = primaryAdmin
-      && typeof primaryAdmin === 'object'
-      && (primaryAdmin.user_id
-        || (String(primaryAdmin.email || '').trim()
-          && String(primaryAdmin.name || '').trim()
-          && primaryAdmin.password));
     if (hasPrimaryAdmin) {
       admin = await resolvePrimaryAdmin(client, school.id, primaryAdmin, req.user.id);
       const updated = await client.query(

@@ -216,7 +216,11 @@ class AuthManager {
     }
 
     async applyPermissionMenus() {
-        const user = this.getCurrentUser();
+        let user = this.getCurrentUser();
+        if (user && user._partial) {
+            // JWT 부분 정보에는 is_counselor 등이 없어 메뉴/접근 판단이 틀어짐 — /me 완료 후 판단
+            user = (await this.whenUserLoaded()) || this.getCurrentUser();
+        }
         if (!user) {
             document.documentElement.classList.remove('rbac-pending');
             return;
@@ -237,6 +241,7 @@ class AuthManager {
         }
 
         this.ensureJournalMenuLink();
+        this.normalizeAdminMenu();
 
         const links = document.querySelectorAll('.sidebar-menu a.menu-item, #adminMenuSection a.menu-item');
         links.forEach((link) => {
@@ -264,8 +269,12 @@ class AuthManager {
 
         // 상단 네비도 역할별 숨김 (기업: 진로상담 등)
         document.querySelectorAll('.nav-menu a[href], .main-nav a[href], header nav a[href]').forEach((link) => {
-            const href = link.getAttribute('href') || '';
-            if (!href || href === '#' || href.startsWith('javascript:')) return;
+            let href = link.getAttribute('href') || '';
+            if (!href || href === '#' || href.startsWith('javascript:')) {
+                const m = (link.getAttribute('onclick') || '').match(/navigateWithAuth\([^,]+,\s*['"]([^'"]+)['"]/);
+                if (!m) return;
+                href = m[1];
+            }
             if (this.roleAllowsHref(user, href, link) === false) {
                 const li = link.closest('li');
                 if (li) {
@@ -279,6 +288,13 @@ class AuthManager {
         });
 
         this.applyRoleMenuExtras(user);
+        this.hideEmptyMenuSections();
+
+        const currentPage = (location.pathname.split('/').pop() || '').toLowerCase();
+        if (currentPage && this.roleAllowsHref(user, currentPage, null) === false) {
+            location.replace('dashboard.html');
+            return;
+        }
 
         if (adminMenuSection) {
             // Admin pages guard with requireStaffAdmin(); teachers with e.g. field_trips:write stay out.
@@ -318,6 +334,77 @@ class AuthManager {
         }
     }
 
+    /** 일반 페이지의 관리자 메뉴를 관리자 페이지(admin-*.html)와 같은 목록·권한 기준으로 통일 */
+    normalizeAdminMenu() {
+        const section = document.getElementById('adminMenuSection');
+        if (!section || section.dataset.normalized === '1') return;
+        const defs = [
+            ['admin-users.html', 'users', 'write', 'users', '회원 관리'],
+            ['admin-permissions.html', 'schools', 'manage', 'lock', '권한 매트릭스'],
+            ['admin-jobs.html', 'jobs', 'manage', 'jobs', '채용공고 관리'],
+            ['admin-board.html', 'community', 'manage', 'board', '게시판 관리'],
+            ['admin-codes.html', 'schools', 'write', 'settings', '코드 관리'],
+            ['admin-announcements.html', 'field_trips', 'write', 'announce', '공지사항 관리'],
+        ];
+        section.querySelectorAll('a.menu-item').forEach((a) => a.remove());
+        defs.forEach(([href, menu, min, icon, label]) => {
+            const a = document.createElement('a');
+            a.href = href;
+            a.className = 'menu-item';
+            a.setAttribute('data-menu', menu);
+            a.setAttribute('data-menu-min', min);
+            a.innerHTML = `<span class="icon" data-icon="${icon}" aria-hidden="true"></span><span>${label}</span>`;
+            section.appendChild(a);
+        });
+        section.dataset.normalized = '1';
+    }
+
+    /** 기업 메뉴(공고 등록·기업 프로필)를 대시보드 외 페이지에도 동일하게 삽입 */
+    ensureCompanyMenuLinks() {
+        const jobsLink = document.querySelector('.sidebar-menu a.menu-item[href="jobs.html"]');
+        if (!jobsLink || !jobsLink.parentElement) return;
+        const here = (location.pathname.split('/').pop() || '').toLowerCase();
+        const defs = [
+            { id: 'companyJobCreateMenu', href: 'job-create.html', icon: 'create', label: '공고 등록', menu: 'jobs' },
+            { id: 'companyProfileMenu', href: 'company-profile.html', icon: 'company', label: '기업 프로필' },
+        ];
+        let anchor = jobsLink;
+        defs.forEach((d) => {
+            let el = document.getElementById(d.id);
+            if (!el) {
+                el = document.createElement('a');
+                el.href = d.href;
+                el.className = 'menu-item';
+                el.id = d.id;
+                if (d.menu) el.setAttribute('data-menu', d.menu);
+                el.innerHTML = `<span class="icon" data-icon="${d.icon}" aria-hidden="true"></span><span>${d.label}</span>`;
+                anchor.insertAdjacentElement('afterend', el);
+                if (window.MenuIcons && typeof window.MenuIcons.apply === 'function') {
+                    try { window.MenuIcons.apply(el); } catch (_) { /* ignore */ }
+                }
+            }
+            if (here === d.href) el.classList.add('active');
+            anchor = el;
+        });
+    }
+
+    /** 하위 메뉴가 모두 숨겨진 구분 제목(예: 공지사항) 숨김 */
+    hideEmptyMenuSections() {
+        document.querySelectorAll('.sidebar-menu > div:not(#adminMenuSection)').forEach((divider) => {
+            if (!divider.querySelector('p')) return;
+            let n = divider.nextElementSibling;
+            let anyVisible = false;
+            while (n && !(n.tagName === 'DIV')) {
+                if (n.matches('a.menu-item') && n.style.display !== 'none') {
+                    anyVisible = true;
+                    break;
+                }
+                n = n.nextElementSibling;
+            }
+            divider.style.display = anyVisible ? '' : 'none';
+        });
+    }
+
     /**
      * 역할별 메뉴 허용. false면 숨김, true/undefined면 RBAC 계속.
      * 기업: 진로상담·상담일지·경력·교육·자격증 불필요.
@@ -344,10 +431,19 @@ class AuthManager {
             }
         }
 
+        if (isTeacher && !user.is_counselor && !this.isStaffAdmin(user)
+            && (path.endsWith('counseling.html') || (link && link.id === 'counselingMenu'))) {
+            return false;
+        }
+
         if (path.endsWith('counseling-journal.html') || (link && link.id === 'journalMenu')) {
             if (isCompany) return false;
             if (isTeacher && !user.is_counselor && !this.isStaffAdmin(user)) return false;
             // 졸업생·재학생도 본인 일지 열람 가능 → 표시 유지
+        }
+
+        if (!isCompany && link && (link.id === 'companyJobCreateMenu' || link.id === 'companyProfileMenu')) {
+            return false;
         }
 
         if (isTeacher && path.endsWith('career.html')) return false;
@@ -361,6 +457,7 @@ class AuthManager {
     applyRoleMenuExtras(user) {
         if (!user) return;
         const type = user.user_type || user.role;
+        if (type === 'company') this.ensureCompanyMenuLinks();
         const companyProfileMenu = document.getElementById('companyProfileMenu');
         const companyJobCreateMenu = document.getElementById('companyJobCreateMenu');
         if (type === 'company') {
@@ -442,7 +539,24 @@ function navigateToService(url) {
     }
 }
 
+const PLATFORM_SLOGAN = '전북 직업계고 졸업생 취업 네트워크';
+
+/** 모든 페이지 헤더 로고 옆 문구를 동일하게 (학교명 대신 플랫폼 슬로건) */
+function ensureBrandSlogan() {
+    const logo = document.querySelector('header .logo');
+    if (!logo || !logo.querySelector('.logo-img')) return;
+    let label = logo.querySelector('.logo-tagline, #schoolContextLabel, .school-context-label');
+    if (!label) {
+        label = document.createElement('span');
+        logo.appendChild(label);
+    }
+    label.className = 'logo-tagline';
+    label.textContent = PLATFORM_SLOGAN;
+    label.hidden = false;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    ensureBrandSlogan();
     auth.updateAuthUI();
     if (auth.isLoggedIn()) {
         auth.applyPermissionMenus();

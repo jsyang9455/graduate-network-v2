@@ -73,7 +73,7 @@
 
 ### 기타 유지
 
-`/api/networking/*`, `/api/certificates/*`, `/api/posts/*`, `/api/majors`, `/api/stats`, `/api/announcements/*`, `/api/education-programs` (+ `POST :id/apply`, `GET :id/applications`, `GET my-applications`), `/api/messages/*`, `GET /api/health`
+`/api/networking/*`, `/api/certificates/*`, `/api/posts/*`, `/api/majors`, `/api/stats`, `/api/announcements/*`, `/api/education-programs` (+ `POST :id/apply` 졸업생·재학생, 같은 학교만, 중복 409; `GET :id/applications`·`PATCH applications/:appId` 상태 `pending/approved/rejected/cancelled` — **등록한 교사 본인** 또는 같은 학교 school_admin·system만, 그 외 403; `GET my-applications`), `/api/messages/*`, `GET /api/health`
 
 `majors`는 과도기 유지 후 `/api/departments`로 이전.
 
@@ -90,6 +90,8 @@
 | GET | `/api/me/permissions` | 로그인 | IAM-008 |
 | GET/PUT | `/api/roles/:code/permissions` | system 관리 (`schools` manage) | IAM-008 — 기업 승인(`company_approval`) 등 역할별 부여/회수 |
 | GET | `/api/roles` | system 관리 | IAM-008 — 역할+권한 요약 |
+| GET | `/api/users/:id/privacy-consent` | `users:read` + 같은 학교 관리자 / system | IAM-006, NFR-006 — 고졸자 후속관리 동의 내역(동의 시각·버전·항목·서명 이름). 타교 school_admin·교사·학생·기업 403, 없는 회원 404. `consent-print.html` 출력용 |
+| POST | `/api/auth/register` | 공개 | IAM-006 — `user_type=graduate`는 `privacy_consent: true` 필수, `privacy_consent_items`를 보내면 `personal`·`unique_id`·`disadvantage` 모두 true여야 함(아니면 400). 교사·기업은 동의 불필요. 기업은 `biz_no`(숫자만 저장)·`industry`·`company_size`, 승인 `pending` |
 | POST | `/api/users/:id/roles` | 회원 관리 | IAM-007 |
 | POST | `/api/users/:id/transfer` | 회원 관리 | IAM-005 |
 | GET | `/api/audit-logs` | system/school 관리 | IAM-010 |

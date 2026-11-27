@@ -193,8 +193,14 @@ router.post('/register', [
     }
 
     // 졸업생(고졸자 후속관리) 개인정보 동의 — 공개 가입 필수
-    if (user_type === 'graduate' && !privacy_consent) {
-      return sendError(res, 400, 'VALIDATION', '개인정보 수집·이용 동의는 필수입니다');
+    if (user_type === 'graduate') {
+      const items = privacy_consent_items && typeof privacy_consent_items === 'object'
+        ? privacy_consent_items
+        : null;
+      const allItems = !items || (items.personal === true && items.unique_id === true && items.disadvantage === true);
+      if (!privacy_consent || !allItems) {
+        return sendError(res, 400, 'VALIDATION', '개인정보 수집·이용 동의는 필수입니다');
+      }
     }
 
     const existingUser = await query(

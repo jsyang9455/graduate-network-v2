@@ -61,8 +61,7 @@ function canManageProgram(user, program) {
     return canSeeSchoolResource(user, program.school_id);
   }
   if (user.user_type === 'teacher' || user.role === 'teacher') {
-    return String(program.created_by) === String(user.id)
-      || (user.school_id && Number(user.school_id) === Number(program.school_id));
+    return String(program.created_by) === String(user.id);
   }
   return false;
 }
@@ -179,6 +178,9 @@ router.post('/:id/apply', auth, checkRole('student', 'graduate'), async (req, re
     );
     res.status(201).json({ message: '신청이 완료되었습니다.', application: result.rows[0] });
   } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: '이미 신청한 프로그램입니다.', code: 'CONFLICT' });
+    }
     console.error('Apply education program error:', err);
     res.status(500).json({ error: 'Failed to apply' });
   }

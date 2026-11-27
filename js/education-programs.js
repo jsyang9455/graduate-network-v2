@@ -2,6 +2,24 @@
 let currentUser = null;
 let programs = [];
 let editingProgramId = null;
+let myApplications = new Map();
+
+const APPLICATION_STATUS_LABEL = {
+    pending: '접수',
+    approved: '승인',
+    rejected: '반려',
+    cancelled: '취소',
+};
+
+function esc(v) {
+    return String(v ?? '').replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+}
+
+function safeHttpUrl(v) {
+    return /^https?:\/\//i.test(String(v || '').trim()) ? String(v).trim() : '';
+}
 
 document.addEventListener('DOMContentLoaded', async function() {
     auth.requireAuth();
@@ -10,7 +28,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (currentUser) {
         document.getElementById('userName').textContent = currentUser.name;
 
-        if (currentUser.user_type === 'admin' || currentUser.user_type === 'teacher') {
+        if (['admin', 'school_admin', 'teacher'].includes(currentUser.user_type)) {
             const adminActions = document.getElementById('adminActions');
             if (adminActions) adminActions.style.display = 'block';
         }
@@ -60,10 +78,22 @@ async function loadPrograms() {
     try {
         const data = await api.get('/education-programs?limit=100');
         programs = data.programs || [];
+        await loadMyApplications();
         displayPrograms(programs);
     } catch (err) {
         console.error('교육프로그램 로드 실패:', err);
         if (grid) grid.innerHTML = '<p style="text-align:center;color:#ef4444;padding:40px;grid-column:1/-1;">데이터를 불러올 수 없습니다.</p>';
+    }
+}
+
+async function loadMyApplications() {
+    myApplications = new Map();
+    if (!currentUser || !['graduate', 'student'].includes(currentUser.user_type)) return;
+    try {
+        const data = await api.get('/education-programs/my-applications');
+        (data.applications || []).forEach((a) => myApplications.set(String(a.program_id), a));
+    } catch (err) {
+        console.warn('내 신청 내역 로드 실패:', err.message);
     }
 }
 
@@ -77,33 +107,40 @@ function displayPrograms(programList) {
         return;
     }
 
-    const isStaff = currentUser && (currentUser.user_type === 'admin' || currentUser.user_type === 'teacher' || currentUser.user_type === 'school_admin');
+    const isAdmin = currentUser && (currentUser.user_type === 'admin' || currentUser.user_type === 'school_admin');
+    const isTeacher = currentUser && currentUser.user_type === 'teacher';
     const canApply = currentUser && (currentUser.user_type === 'graduate' || currentUser.user_type === 'student');
 
     grid.innerHTML = programList.map(program => {
         const desc = program.description || '';
         const shortDesc = desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
+        const isStaff = isAdmin || (isTeacher && String(program.created_by) === String(currentUser.id));
+        const myApp = myApplications.get(String(program.id));
+        const applyButton = !canApply ? ''
+            : myApp
+                ? `<button class="btn btn-secondary" disabled>신청완료 (${esc(APPLICATION_STATUS_LABEL[myApp.status] || myApp.status)})</button>`
+                : `<button class="btn btn-primary" onclick="applyProgram(${Number(program.id)})">신청하기</button>`;
         return `
-            <div class="program-card">
+            <div class="program-card" data-program-id="${Number(program.id)}">
                 <div class="program-header">
-                    <span class="program-category">${program.category || '-'}</span>
-                    <span class="program-type">${program.type || '-'}</span>
+                    <span class="program-category">${esc(program.category || '-')}</span>
+                    <span class="program-type">${esc(program.type || '-')}</span>
                 </div>
-                <h3 class="program-title">${program.title}</h3>
-                <p class="program-description">${shortDesc}</p>
+                <h3 class="program-title">${esc(program.title)}</h3>
+                <p class="program-description">${esc(shortDesc)}</p>
                 <div class="program-meta">
-                    <span>📅 ${program.duration || '-'}</span>
-                    ${program.instructor ? `<span>👨‍🏫 ${program.instructor}</span>` : ''}
-                    ${program.cost ? `<span>💰 ${program.cost}</span>` : ''}
-                    ${program.creator_name ? `<span>등록: ${program.creator_name}</span>` : ''}
+                    <span>📅 ${esc(program.duration || '-')}</span>
+                    ${program.instructor ? `<span>👨‍🏫 ${esc(program.instructor)}</span>` : ''}
+                    ${program.cost ? `<span>💰 ${esc(program.cost)}</span>` : ''}
+                    ${program.creator_name ? `<span>등록: ${esc(program.creator_name)}</span>` : ''}
                 </div>
                 <div class="program-actions">
-                    <button class="btn btn-secondary" onclick="viewProgramDetail(${program.id})">상세보기</button>
-                    ${canApply ? `<button class="btn btn-primary" onclick="applyProgram(${program.id})">신청하기</button>` : ''}
+                    <button class="btn btn-secondary" onclick="viewProgramDetail(${Number(program.id)})">상세보기</button>
+                    ${applyButton}
                     ${isStaff ? `
-                        <button class="btn btn-secondary" onclick="viewApplicants(${program.id})">신청자</button>
-                        <button class="btn btn-primary" onclick="editProgram(${program.id})">수정</button>
-                        <button class="btn btn-danger" onclick="deleteProgram(${program.id})">삭제</button>
+                        <button class="btn btn-secondary" onclick="viewApplicants(${Number(program.id)})">신청자</button>
+                        <button class="btn btn-primary" onclick="editProgram(${Number(program.id)})">수정</button>
+                        <button class="btn btn-danger" onclick="deleteProgram(${Number(program.id)})">삭제</button>
                     ` : ''}
                 </div>
             </div>`;
@@ -121,6 +158,10 @@ async function applyProgram(programId) {
         alert('이름과 연락처는 필수입니다.');
         return;
     }
+    if (!/^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(phone.trim())) {
+        alert('올바른 연락처 형식이 아닙니다. (예: 010-1234-5678)');
+        return;
+    }
     try {
         await api.post(`/education-programs/${programId}/apply`, {
             applicant_name: name.trim(),
@@ -131,6 +172,8 @@ async function applyProgram(programId) {
     } catch (err) {
         alert(err.message || '신청에 실패했습니다.');
     }
+    await loadMyApplications();
+    displayPrograms(programs);
 }
 window.applyProgram = applyProgram;
 
@@ -138,19 +181,47 @@ async function viewApplicants(programId) {
     try {
         const data = await api.get(`/education-programs/${programId}/applications`);
         const rows = data.applications || [];
-        if (!rows.length) {
-            alert('신청자가 없습니다.');
-            return;
-        }
-        const lines = rows.map((a, i) =>
-            `${i + 1}. ${a.applicant_name} / ${a.applicant_phone} / ${a.status} / ${String(a.created_at || '').slice(0, 10)}`
-        ).join('\n');
-        alert(`${data.program?.title || '프로그램'} 신청자 (${rows.length}명)\n\n${lines}`);
+        const statusOptions = (current) => Object.entries(APPLICATION_STATUS_LABEL)
+            .map(([v, label]) => `<option value="${v}" ${v === current ? 'selected' : ''}>${label}</option>`)
+            .join('');
+        const body = rows.length
+            ? `<table class="applicants-table" style="width:100%;border-collapse:collapse;">
+                    <thead><tr><th>이름</th><th>연락처</th><th>이메일</th><th>신청일</th><th>상태</th></tr></thead>
+                    <tbody>${rows.map((a) => `
+                        <tr>
+                            <td>${esc(a.applicant_name)}</td>
+                            <td>${esc(a.applicant_phone)}</td>
+                            <td>${esc(a.applicant_email || a.user_email || '-')}</td>
+                            <td>${esc(String(a.created_at || '').slice(0, 10))}</td>
+                            <td><select data-app-id="${Number(a.id)}" onchange="changeApplicationStatus(${Number(a.id)}, this.value, ${Number(programId)})">${statusOptions(a.status)}</select></td>
+                        </tr>`).join('')}
+                    </tbody>
+               </table>`
+            : '<p style="color:#6b7280;">신청자가 없습니다.</p>';
+        document.getElementById('programDetailContainer').innerHTML = `
+            <div class="program-detail">
+                <div class="program-detail-header">
+                    <h3>${esc(data.program?.title || '프로그램')} — 신청자 ${rows.length}명</h3>
+                </div>
+                <div class="program-detail-body">${body}</div>
+            </div>`;
+        document.getElementById('programDetailTitle').textContent = '신청자 관리';
+        document.getElementById('programDetailModal').style.display = 'block';
     } catch (err) {
         alert(err.message || '신청자 목록을 불러오지 못했습니다.');
     }
 }
 window.viewApplicants = viewApplicants;
+
+async function changeApplicationStatus(appId, status, programId) {
+    try {
+        await api.patch(`/education-programs/applications/${appId}`, { status });
+    } catch (err) {
+        alert(err.message || '상태 변경에 실패했습니다.');
+    }
+    await viewApplicants(programId);
+}
+window.changeApplicationStatus = changeApplicationStatus;
 
 // 프로그램 등록 모달 열기
 function openAddProgramModal() {
@@ -242,33 +313,34 @@ async function viewProgramDetail(programId) {
             <div class="program-detail">
                 <div class="program-detail-header">
                     <div class="program-badges">
-                        <span class="badge badge-category">${program.category || '-'}</span>
-                        <span class="badge badge-type">${program.type || '-'}</span>
+                        <span class="badge badge-category">${esc(program.category || '-')}</span>
+                        <span class="badge badge-type">${esc(program.type || '-')}</span>
                     </div>
-                    <h3>${program.title}</h3>
+                    <h3>${esc(program.title)}</h3>
                 </div>
                 <div class="program-detail-body">
                     <div class="detail-section">
                         <h4>📋 프로그램 소개</h4>
-                        <p>${program.description || '-'}</p>
+                        <p>${esc(program.description || '-')}</p>
                     </div>
                     <div class="detail-section">
                         <h4>ℹ️ 프로그램 정보</h4>
                         <div class="detail-info-grid">
-                            <div class="info-item"><span class="info-label">교육 기간</span><span class="info-value">${program.duration || '-'}</span></div>
-                            <div class="info-item"><span class="info-label">교육 유형</span><span class="info-value">${program.type || '-'}</span></div>
-                            ${program.instructor ? `<div class="info-item"><span class="info-label">강사/기관</span><span class="info-value">${program.instructor}</span></div>` : ''}
-                            ${program.cost ? `<div class="info-item"><span class="info-label">교육 비용</span><span class="info-value">${program.cost}</span></div>` : ''}
+                            <div class="info-item"><span class="info-label">교육 기간</span><span class="info-value">${esc(program.duration || '-')}</span></div>
+                            <div class="info-item"><span class="info-label">교육 유형</span><span class="info-value">${esc(program.type || '-')}</span></div>
+                            ${program.instructor ? `<div class="info-item"><span class="info-label">강사/기관</span><span class="info-value">${esc(program.instructor)}</span></div>` : ''}
+                            ${program.cost ? `<div class="info-item"><span class="info-label">교육 비용</span><span class="info-value">${esc(program.cost)}</span></div>` : ''}
                         </div>
                     </div>
-                    ${program.link ? `
+                    ${safeHttpUrl(program.link) ? `
                         <div class="detail-section">
-                            <a href="${program.link}" target="_blank" class="btn btn-primary btn-block">🔗 신청 페이지로 이동</a>
+                            <a href="${esc(safeHttpUrl(program.link))}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-block">🔗 신청 페이지로 이동</a>
                         </div>` : ''}
                     <div class="detail-footer"><small>등록일: ${formattedDate}</small></div>
                 </div>
             </div>`;
 
+        document.getElementById('programDetailTitle').textContent = '프로그램 상세';
         document.getElementById('programDetailModal').style.display = 'block';
     } catch (err) {
         alert('상세 정보를 불러올 수 없습니다.');

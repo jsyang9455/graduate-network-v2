@@ -151,7 +151,8 @@ describe('School tenant branding', { timeout: 120000 }, () => {
         [`stb.%${stamp}@jjob.test`]
       );
       await query(
-        `UPDATE schools SET primary_admin_user_id = NULL, logo_file_id = NULL
+        `UPDATE schools SET primary_admin_user_id = NULL, logo_file_id = NULL,
+           status = CASE WHEN code LIKE 'STB%' THEN 'inactive' ELSE status END
          WHERE code LIKE 'STB%' OR primary_admin_user_id IN (
            SELECT id FROM users WHERE email LIKE $1
          )`,

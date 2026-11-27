@@ -273,7 +273,7 @@
                 <tr style="border-bottom: 1px solid #e5e7eb;">
                     <td style="padding: 1rem;">${school.id}</td>
                     <td style="padding: 1rem;">${logo}</td>
-                    <td style="padding: 1rem;">${school.name}${school.status === 'inactive' ? ' <span style="color:#9ca3af;">(비활성)</span>' : ''}</td>
+                    <td style="padding: 1rem;">${String(school.name ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))}${school.status === 'inactive' ? ' <span style="color:#9ca3af;">(비활성)</span>' : ''}</td>
                     <td style="padding: 1rem;">${adminLabel}</td>
                     <td style="padding: 1rem;">${new Date(school.created_at || school.createdAt).toLocaleDateString('ko-KR')}</td>
                     <td style="padding: 1rem; text-align: center;">

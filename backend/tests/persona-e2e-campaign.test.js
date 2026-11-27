@@ -260,6 +260,8 @@ describe('Persona E2E campaign (all roles)', { timeout: 180000 }, () => {
         school_id: schoolA.id,
         major: '전자과',
         graduation_year: 2022,
+        privacy_consent: true,
+        privacy_consent_items: { personal: true, unique_id: true, disadvantage: true },
       },
     });
     assert.equal(reg.status, 201, JSON.stringify(reg.data));
