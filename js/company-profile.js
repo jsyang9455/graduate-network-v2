@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     await loadCompanyProfile();
-}
+});
 
 function approvalBannerHtml(status, rejectionReason) {
     if (status === 'approved') {
@@ -45,13 +45,22 @@ async function loadCompanyProfile() {
     content.innerHTML = '<p class="page-note">불러오는 중...</p>';
 
     let profile = null;
+    let loadError = null;
     try {
         const data = await api.users.getCompanyProfile();
         profile = data.profile || null;
     } catch (err) {
+        // 404 = 아직 프로필 없음 → 빈 폼으로 신규 작성
         if (!(err.message && /not found|404/i.test(err.message))) {
-            console.warn('company profile load:', err.message);
+            loadError = err.message || '프로필을 불러오지 못했습니다.';
+            console.warn('company profile load:', loadError);
         }
+    }
+
+    if (loadError) {
+        content.innerHTML = `<p class="page-note" style="color:#b91c1c;">${esc(loadError)}</p>
+            <p class="page-note">페이지를 새로고침하거나 다시 로그인한 뒤 시도해 주세요.</p>`;
+        return;
     }
 
     const user = auth.getCurrentUser() || {};
